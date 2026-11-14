@@ -7,6 +7,7 @@ import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
 import { landingWindows, runs, siteTimeline, windowDetails } from "./engine/timeline.js";
 import { Rail, TimeBar, fmtShort } from "./ui/Shell.jsx";
+import SetupWhere from "./screens/SetupWhere.jsx";
 import SetupWhen from "./screens/SetupWhen.jsx";
 import SetupPriorities from "./screens/SetupPriorities.jsx";
 import Explore from "./screens/Explore.jsx";
@@ -75,7 +76,9 @@ function useMedia(query) {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState("when");
+  // La app empieza en el paso 01 (destino). Solo el polo sur tiene datos de momento.
+  const [screen, setScreen] = useState("where");
+  const [region, setRegion] = useState("south");
   const [tab, setTab] = useState("overview");
   const [dim, setDim] = useState("2D");
   const [overlay, setOverlay] = useState(null); // "settings" | "export"
@@ -421,10 +424,12 @@ export default function App() {
   };
 
   let page;
-  if (screen === "when") {
+  if (screen === "where") {
+    page = <SetupWhere region={region} setRegion={setRegion} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
+  } else if (screen === "when") {
     page = <SetupWhen mission={mission} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
   } else if (screen === "priorities") {
-    page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} sitesCount={sites.length || 8} go={go} openSettings={() => setOverlay("settings")} />;
+    page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} region={region} go={go} openSettings={() => setOverlay("settings")} />;
   } else if (screen === "site") {
     page = <Site app={app} />;
   } else if (screen === "compare") {

@@ -3,6 +3,8 @@
 import { useRef } from "react";
 import { Icon, Btn, Choice, cx } from "../ui/kit.jsx";
 import { FACTORS, PRESETS, presetOf, rebalance } from "../engine/score.js";
+import { SetupSteps } from "./SetupWhen.jsx";
+import { REGIONS } from "./SetupWhere.jsx";
 
 function WeightRow({ f, value, onChange }) {
   const drag = useRef(false);
@@ -46,7 +48,8 @@ function WeightRow({ f, value, onChange }) {
   );
 }
 
-export default function SetupPriorities({ weights, setWeights, mission, sitesCount, go, openSettings }) {
+export default function SetupPriorities({ weights, setWeights, mission, region, go, openSettings }) {
+  const regionName = (REGIONS.find((r) => r.id === region)?.title || "South Pole").replace("\n", " ");
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
   const periodName = { fixed: "Landing date set", next12: "Best dates · next 12 months", nofixed: "Best dates · 2026–2030", custom: "Best dates · custom range" }[mission.period];
@@ -62,12 +65,13 @@ export default function SetupPriorities({ weights, setWeights, mission, sitesCou
         ))}
       </div>
       <div className="prio__top">
+        <a href="#" className="when__brand prio__brand" title="Back to the start" onClick={(e) => { e.preventDefault(); go("where"); }}>Mare Hackematis</a>
         <div className="grow" />
         <button type="button" className="linkbtn" onClick={() => go("explore")}>Skip<Icon name="arrow-right" size={14} /></button>
       </div>
       <div className="prio__body">
         <div className="prio__head">
-          <div className="eyebrow-13">02 — What matters/</div>
+          <div className="eyebrow-13">03 — What matters/</div>
           <h1 className="display-88">What<br />matters<br />most?</h1>
         </div>
 
@@ -98,23 +102,17 @@ export default function SetupPriorities({ weights, setWeights, mission, sitesCou
           <div className="stack-20">
             <h2 className="h-lg">Mission brief</h2>
             <div className="brief">
+              <div><span className="lbl">Destination</span><span className="num-15">{regionName}</span></div>
               <div><span className="lbl">Period</span><span className="num-15">{periodName}</span></div>
               <div><span className="lbl">On the surface</span><span><span className="num-15">{mission.durationDays}</span> <span className="unit">days</span></span></div>
               <div><span className="lbl">Observer</span><span><span className="num-15">Lander</span> <span className="unit">{mission.observerM} m</span></span></div>
-            </div>
-            <div className="hr" />
-            <div className="stack-10">
-              <div className="eyebrow-13">03 — Where/</div>
-              <div className="row-10">
-                <Choice on icon="crosshair" title="South Pole" sub={`${sitesCount} regions · 1 km grid`} onClick={() => {}} />
-                <Choice disabled icon="globe" title="Whole Moon" sub="No data yet" />
-              </div>
             </div>
             <Btn variant="primary" size="lg" iconRight="arrow-right" className="btn--block" onClick={() => go("explore")}>Find sites</Btn>
             <button type="button" className="linkbtn" onClick={openSettings}><Icon name="sliders" size={14} />Rules</button>
           </div>
         </section>
       </div>
+      <SetupSteps current="priorities" go={go} className="prio__steps" />
       <div className="prio__foot">
         <Btn variant="outline" size="lg" icon="arrow-left" onClick={() => go("when")}>Back</Btn>
       </div>

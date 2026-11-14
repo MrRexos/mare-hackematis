@@ -40,6 +40,10 @@ export function Rail({ screen, go, siteName, onMission, onExport }) {
   };
   return (
     <nav aria-label="Main" className="rail">
+      {/* Marca: vuelve al inicio (destino, fechas y pesos) sin perder la configuración. */}
+      <button type="button" className="rail__brand" title="Mare Hackematis · back to mission setup" aria-label="Mare Hackematis, back to mission setup" onClick={() => go("where")}>
+        MH<small>Start</small>
+      </button>
       {item("explore", "orbit", "Explore")}
       {item("site", "map-pin", "Mare")}
       {item("compare", "compare", "Compare")}

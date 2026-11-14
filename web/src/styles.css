@@ -553,6 +553,16 @@ button:disabled { cursor: default; }
 .gdays__name { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-secondary); }
 .gdays__strip--row { height: 22px; }
 .gdays__ramp--neutral { background: linear-gradient(90deg, color-mix(in srgb, var(--ink) 8%, transparent), var(--ink)); }
+/* Paso 01: zonas aún sin datos */
+.when__col.is-soon .when__opt { color: var(--ink-tertiary); cursor: not-allowed; }
+.when__col.is-soon .when__sub { color: var(--ink-tertiary); }
+.when__soon { display: inline-flex; align-items: center; gap: 6px; margin-top: 22px; font-size: 12px; color: var(--ink-tertiary); }
+/* Marca en el carril: vuelve al inicio */
+.rail__brand { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 6px; color: var(--ink); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+.rail__brand small { font-size: 9px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-tertiary); text-transform: uppercase; }
+.rail__brand:hover small { color: var(--ink); }
+.prio__brand { position: static; }
+.steps.prio__steps { top: auto; bottom: 34px; left: 48px; }
 .site-score { gap: 4px; margin-left: var(--space-6); padding-left: var(--space-6); border-left: 1px solid var(--line); align-self: center; }
 .label3d--btn { pointer-events: auto; cursor: pointer; border: 0; font-family: inherit; }
 .label3d--btn:hover { background: var(--surface-hover); }
