@@ -56,13 +56,6 @@ export function SettingsDrawer({ app, onClose }) {
             {problem ? <p className="note-12"><Icon name="alert" size={12} />{problem}</p> : null}
           </Section>
 
-          <Section title="Observer">
-            <div className="row-10">
-              <Choice on title="Lander" sub={`${mission.observerM} m`} />
-              <Choice disabled title="Mast" sub="10 m · needs new horizons" />
-            </div>
-          </Section>
-
           <Section title="Sun visible when">
             <div className="row-10 wrap">
               {[["any", "Any part of the disk"], ["centre", "Disk centre"], ["whole", "Whole disk"]].map(([v, t]) => (
@@ -77,15 +70,6 @@ export function SettingsDrawer({ app, onClose }) {
                 <Choice key={v} on={mission.earthMode === v} title={t} onClick={() => setMissionOpts({ earthMode: v })} />
               ))}
             </div>
-          </Section>
-
-          <Section title="Deep Space Network" note={<span className="pill-sm">Not modelled yet</span>}>
-            <Toggle checked={false} disabled onChange={() => {}} label="Require a DSN station" description="Earth in view does not guarantee a link: a ground station must also see the Moon.">
-              <span className="stations">
-                {["Goldstone", "Madrid", "Canberra"].map((s) => <span key={s}><Icon name="satellite-dish" size={14} />{s}</span>)}
-                <span>≥ 10°</span>
-              </span>
-            </Toggle>
           </Section>
 
           <Section title="Limits">
@@ -127,7 +111,7 @@ function download(name, text, type = "text/csv") {
 export function ExportDialog({ app, onClose }) {
   const { selected, tl, exportPlaces, mission, weights, result, data } = app;
   useEscape(onClose);
-  const meta = `DE440 · MOON_ME · LOLA 240 m · Lander ${mission.observerM} m · Sun: ${mission.sunMode === "any" ? "any part" : mission.sunMode} · Earth: ${mission.earthMode} · DSN off · ${new Date(mission.fromMs).toISOString().slice(0, 10)} → ${new Date(mission.toMs).toISOString().slice(0, 10)}`;
+  const meta = `DE440 · MOON_ME · LOLA 240 m · Lander ${mission.observerM} m · Sun: ${mission.sunMode === "any" ? "any part" : mission.sunMode} · Earth: ${mission.earthMode} ·${new Date(mission.fromMs).toISOString().slice(0, 10)} → ${new Date(mission.toMs).toISOString().slice(0, 10)}`;
   const header = `# ${meta}\n`;
   const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 

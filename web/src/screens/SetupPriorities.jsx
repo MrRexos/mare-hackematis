@@ -101,7 +101,6 @@ export default function SetupPriorities({ weights, setWeights, mission, sitesCou
               <div><span className="lbl">Period</span><span className="num-15">{periodName}</span></div>
               <div><span className="lbl">On the surface</span><span><span className="num-15">{mission.durationDays}</span> <span className="unit">days</span></span></div>
               <div><span className="lbl">Observer</span><span><span className="num-15">Lander</span> <span className="unit">{mission.observerM} m</span></span></div>
-              <div><span className="lbl">DSN rule</span><span className="num-15">Off</span></div>
             </div>
             <div className="hr" />
             <div className="stack-10">
