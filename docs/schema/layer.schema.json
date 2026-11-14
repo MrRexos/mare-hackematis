@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joeel14/NASA-Space-Apps-2026/docs/schema/layer.schema.json",
+  "title": "Layer metadata (data contract v0.1)",
+  "description": "layer.json that accompanies every matrix. See docs/DATA_CONTRACT.md.",
+  "type": "object",
+  "required": ["id", "version", "title", "units", "validRange", "kind", "owner", "fidelity", "method", "sources", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]+(\\.[a-z0-9_]+)+$",
+      "description": "<domain>.<quantity>[.<statistic>], e.g. sun.visible_fraction.mean"
+    },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "units": { "type": "string", "description": "fraction, m, deg, km, h, K, ppm, index, id" },
+    "validRange": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+    "kind": { "enum": ["static", "stat", "series"] },
+    "owner": { "type": "string" },
+    "fidelity": { "enum": ["validated", "computed", "approximate", "low"] },
+    "method": { "type": "string" },
+    "params": { "type": "object" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "url": { "type": "string" },
+          "citation": { "type": "string" }
+        }
+      }
+    },
+    "periods": {
+      "type": "object",
+      "description": "Period id -> {start, end} in UTC (end exclusive). Required for kind stat/series.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["start", "end"],
+        "properties": {
+          "start": { "type": "string", "format": "date-time" },
+          "end": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["grid", "period", "path", "dtype", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "grid": { "enum": ["G32", "G8", "G4", "PS1K", "PN1K"] },
+          "period": { "type": "string", "description": "'static' or a key of periods" },
+          "path": { "type": "string" },
+          "dtype": { "enum": ["float32", "int16", "uint16", "uint8"] },
+          "bands": { "type": "integer", "minimum": 1, "description": "Values per cell (e.g. 72 for horizons). Default 1." },
+          "scale": { "type": "number", "description": "physical = stored * scale + offset (integer dtypes)" },
+          "offset": { "type": "number" },
+          "nodata": { "type": "number", "description": "Integer dtypes only; float32 uses NaN" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "min": { "type": "number" },
+          "max": { "type": "number" }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Published comparison that justifies fidelity = validated"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "terrain.elevation",
+  "version": "0.1.0",
+  "title": "Elevation",
+  "units": "m",
+  "validRange": [
+    -10000,
+    11000
+  ],
+  "kind": "static",
+  "owner": "Equipo Polar + Web",
+  "fidelity": "computed",
+  "method": "LOLA LDEM_75S_240M, bilinear at the 1 km pixel centre; height above the 1737.4 km sphere.",
+  "params": {},
+  "sources": [
+    {
+      "name": "LOLA LDEM_75S_240M",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/",
+      "citation": "Smith et al. (2010), NASA PDS"
+    }
+  ],
+  "files": [
+    {
+      "grid": "PS1K",
+      "period": "static",
+      "path": "PS1K/static.f32",
+      "dtype": "float32",
+      "sha256": "f429c6951bd28eaf3a3a27af9f41773c7ece3c342c06ec54d1660b0730e577c7",
+      "min": -5481.611328125,
+      "max": 6996.51025390625
+    }
+  ]
+}

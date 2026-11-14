@@ -12,7 +12,14 @@ Reto: [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/cha
 - **Sin servidor:** web estática; el cálculo se hace en el navegador.
 - **Diseño:** design system compartido "Lunar Horizon".
 
-La arquitectura completa está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Arquitectura completa:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Contrato de datos** para ampliar a la Luna entera y repartir el trabajo entre equipos:
+  [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md).
+- **Validar una capa antes de entregarla:**
+
+  ```bash
+  python tools/validate_layer.py layers/<id>
+  ```
 
 ## Arrancar la web (solo ver)
 
