@@ -103,6 +103,11 @@ def build_all() -> dict[str, np.ndarray]:
         out["avgSun"] = block_stat(avg, 8, "mean")
     if (avg := _open("avgearth")) is not None:
         out["avgEarth"] = block_stat(avg, 8, "mean")
+    if (rough := _open("ldrm")) is not None:
+        out["roughness"] = block_stat(rough, 4, "median")
+    from . import diviner  # producto grande: solo si está descargado
+    if (d := diviner.load()) is not None:
+        out |= diviner.layers(d)
     return out
 
 

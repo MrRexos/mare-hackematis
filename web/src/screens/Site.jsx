@@ -154,8 +154,8 @@ function Overview({ app, place }) {
   const scored = FACTORS.filter((f) => Number.isFinite(place.factors?.[f.key])).sort((a, b) => place.factors[b.key] - place.factors[a.key]);
   const pros = scored.slice(0, 3).filter((f) => place.factors[f.key] >= 50);
   const cons = scored.slice(-3).reverse().filter((f) => place.factors[f.key] < 60);
-  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", relief: "Smooth ground", ice: "Close to cold traps" };
-  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", relief: "Rough ground", ice: "Far from cold traps" };
+  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Milder temperatures", ice: "Close to stable ice" };
+  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Very cold", ice: "Far from stable ice" };
 
   const track = startMs != null ? (() => {
     const a = startMs - 9 * 86400e3, b = endMs + 9 * 86400e3;
@@ -415,8 +415,8 @@ const TERRAIN_LAYERS = [
   { value: "earth", label: "Earth view" },
   { value: "ice", label: "Water ice" },
   { value: "slope", label: "Slope" },
-  { value: "temp", label: "Temperature", disabled: true, title: "No temperature data yet" },
-  { value: "relief", label: "Relief" },
+  { value: "temp", label: "Temperature" },
+  { value: "rough", label: "Roughness" },
 ];
 
 function Terrain({ app, place }) {
@@ -428,13 +428,16 @@ function Terrain({ app, place }) {
   const ends = legendFor(mapKey, values);
   const p = place.p;
   const l = data.layers;
+  const fin = (v) => Number.isFinite(v);
   const rows = [
-    ["sun", "Sunlight", result ? `${Math.round(result.sun[p] * 100)}%` : `${Math.round((l.avgSun?.[p] || 0) * 100)}%`, result ? "of the mission" : "18.6-year average"],
-    ["earth", "Earth view", result ? `${Math.round(result.earth[p] * 100)}%` : "–", "of the mission"],
-    ["ice", "Water ice", Number.isFinite(l.psrDistKm?.[p]) ? `${l.psrDistKm[p].toFixed(1)} km` : "–", "to permanent shadow"],
-    ["slope", "Slope", Number.isFinite(l.slope?.[p]) ? `${l.slope[p].toFixed(1)}°` : "–", "median, 240 m baseline"],
-    ["temp", "Temperature", "–", "no data yet"],
-    ["relief", "Relief", Number.isFinite(l.relief?.[p]) ? `${Math.round(l.relief[p])} m` : "–", "height range, 3 × 3 km"],
+    ["sun", "Sunlight", result ? `${Math.round(result.sun[p] * 100)}%` : `${Math.round((l.avgSun?.[p] || 0) * 100)}%`, result ? "of the mission" : "18.6-year average, LOLA"],
+    ["earth", "Earth view", result ? `${Math.round(result.earth[p] * 100)}%` : fin(l.avgEarth?.[p]) ? `${Math.round(l.avgEarth[p] * 100)}%` : "–", result ? "of the mission" : "18.6-year average, LOLA"],
+    ["ice", "Water ice", fin(l.iceDistKm?.[p]) ? `${l.iceDistKm[p].toFixed(1)} km` : "–",
+      fin(l.iceDepthM?.[p]) && l.iceDepthM[p] < 2.87 ? `to ice stable ≤ 0.5 m · here stable at ${l.iceDepthM[p].toFixed(2)} m` : "to ice stable ≤ 0.5 m, Diviner"],
+    ["slope", "Slope", fin(l.slope?.[p]) ? `${l.slope[p].toFixed(1)}°` : "–", "median, 240 m baseline, LOLA"],
+    ["temp", "Temperature", fin(l.tempAvgK?.[p]) ? `${Math.round(l.tempAvgK[p])} K` : "–",
+      fin(l.tempMaxK?.[p]) ? `annual mean at 2 cm · max ${Math.round(l.tempMaxK[p])} K, Diviner` : "annual mean at 2 cm, Diviner"],
+    ["rough", "Roughness", fin(l.roughness?.[p]) ? `${l.roughness[p].toFixed(2)} m` : "–", "height std, 30–120 m baseline, LOLA"],
   ];
   const cur = rows.find((r) => r[0] === key);
   return (
@@ -443,7 +446,7 @@ function Terrain({ app, place }) {
         <MapView data={data} layer={layer} values={values} sites={sitesForMap} spots={spotsForMap} selected={place} onSelect={setSelRef} onPick={(px) => setSelRef({ type: "pick", p: px })}>
           <div className="overlay layerbar layerbar--tabs" role="tablist" aria-label="Layer">
             {TERRAIN_LAYERS.map((o) => (
-              <button key={o.value} type="button" role="tab" aria-selected={key === o.value} disabled={o.disabled || (o.value === "earth" && !result)} title={o.title} className={cx("layerbar__b", key === o.value && "is-on")} onClick={() => setTerrainLayer(o.value)}>{o.label}</button>
+              <button key={o.value} type="button" role="tab" aria-selected={key === o.value} disabled={o.disabled || (o.value === "earth" && !result && !data.layers.avgEarth)} title={o.title} className={cx("layerbar__b", key === o.value && "is-on")} onClick={() => setTerrainLayer(o.value)}>{o.label}</button>
             ))}
           </div>
           <Legend layer={layer} legendEnds={ends} />
@@ -459,7 +462,7 @@ function Terrain({ app, place }) {
           <CardHead title="Layers" size="sm" />
           <div className="layerlist">
             {rows.map(([k, name, v, sub]) => (
-              <button key={k} type="button" className={cx("layerlist__row", key === k && "is-on")} disabled={k === "temp"} onClick={() => setTerrainLayer(k)}>
+              <button key={k} type="button" className={cx("layerlist__row", key === k && "is-on")} onClick={() => setTerrainLayer(k)}>
                 <span className="grow">{name}<span className="muted-11"> · {sub}</span></span>
                 <span className="num-13">{v}</span>
               </button>
@@ -470,6 +473,7 @@ function Terrain({ app, place }) {
           <CardHead title="Precision" size="sm" />
           <div className="datalist mt-12">
             <div><span className="lbl">Terrain</span><span>LOLA 240 m, 1 km grid</span></div>
+            <div><span className="lbl">Temperature, ice</span><span>LRO Diviner model, ~0.5 km, may sit a few 100 m off LOLA</span></div>
             <div><span className="lbl">Horizons</span><span>5° bins, 300 m – 300 km</span></div>
             <div><span className="lbl">Near field</span><span>Rocks and craters under 1 km are not resolved</span></div>
           </div>

@@ -18,7 +18,7 @@
     "abcorr": "LT+S",
     "source": "NASA/JPL NAIF SPICE: DE440 (de440s.bsp), moon_pa_de440_200625.bpc, moon_de440_250416.tf"
   },
-  "generated": "2026-11-14T12:35:38Z",
+  "generated": "2026-11-14T15:14:56Z",
   "grid": {
     "n": 400,
     "pxM": 1000.0,
@@ -153,6 +153,83 @@
       "dtype": "float32",
       "min": 0.0,
       "max": 0.54117751121521
+    },
+    "avgEarth": {
+      "label": "Long-term Earth view (LOLA)",
+      "units": "fraction",
+      "source": "LOLA AVGVISIB_75S_120M_EARTH (PDS)",
+      "fidelity": "validated",
+      "description": "Share of time with any part of the Earth disk visible, 18.6 years (Mazarico et al. 2011).",
+      "file": "layers/avgEarth.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 1.0
+    },
+    "roughness": {
+      "label": "Roughness",
+      "units": "m",
+      "source": "LOLA LDRM_75S_240M (PDS)",
+      "fidelity": "computed",
+      "description": "Median of 16 LOLA roughness samples (residual height std, 30-120 m baseline) per 1 km pixel.",
+      "file": "layers/roughness.f32",
+      "dtype": "float32",
+      "min": 0.20100000500679016,
+      "max": 5.869000434875488
+    },
+    "tempAvgK": {
+      "label": "Average temperature",
+      "units": "K",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Annual average temperature 2 cm below the surface (Paige et al. 2010), mean per 1 km pixel.",
+      "file": "layers/tempAvgK.f32",
+      "dtype": "float32",
+      "min": 26.356874465942383,
+      "max": 207.00650024414062
+    },
+    "tempMaxK": {
+      "label": "Maximum temperature",
+      "units": "K",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Annual maximum surface temperature (Paige et al. 2010), mean per 1 km pixel.",
+      "file": "layers/tempMaxK.f32",
+      "dtype": "float32",
+      "min": 27.26362419128418,
+      "max": 342.6822509765625
+    },
+    "iceDepthM": {
+      "label": "Ice stability depth",
+      "units": "m",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Shallowest depth in the pixel where water ice is stable (0 = at the surface; 2.87 = deeper or never).",
+      "file": "layers/iceDepthM.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 2.873800039291382
+    },
+    "iceShare": {
+      "label": "Accessible ice share",
+      "units": "fraction",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Share of the pixel where ice is stable within 0.5 m of the surface.",
+      "file": "layers/iceShare.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 1.0
+    },
+    "iceDistKm": {
+      "label": "Distance to accessible ice",
+      "units": "km",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Distance to the nearest spot where ice is stable within 0.5 m of the surface.",
+      "file": "layers/iceDistKm.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 20.796634674072266
     }
   },
   "hillshade": {

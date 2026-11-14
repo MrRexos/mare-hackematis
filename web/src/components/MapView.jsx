@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { L, cssColor } from "../ds.js";
 import { IconBtn } from "../ui/kit.jsx";
 import { latLonToXY, xyToPixel } from "../engine/geometry.js";
+import { ROUGH_MAX_M } from "../engine/score.js";
 
 // Visor del mapa del polo sur (siempre en tema oscuro, como pide el design system).
 // Dibuja en un <canvas>: relieve sombreado + capa de datos coloreada.
@@ -21,7 +22,7 @@ const NICE_KM = [1, 2, 5, 10, 20, 50, 100, 200];
 
 /** Rampa de color de cada capa: (valor) -> [r, g, b, a 0-255] o null. */
 function makeRamp(layer, colors, extent) {
-  const { both, sun, earth, ink, lineStrong, relief } = colors;
+  const { both, sun, earth, ink, lineStrong, relief, temp } = colors;
   switch (layer.ramp) {
     case "score": {
       const [lo, hi] = extent;
@@ -46,8 +47,18 @@ function makeRamp(layer, colors, extent) {
     }
     case "slope":
       return (v) => (Number.isFinite(v) ? [...ink, 230 * Math.min(1, v / 30)] : null);
-    case "relief":
-      return (v) => (Number.isFinite(v) ? [...relief, 235 * Math.min(1, v / 600) ** 0.8] : null);
+    case "rough":
+      // LOLA LDRM en metros; tope visual en ROUGH_MAX_M (el mismo que la puntuación).
+      return (v) => (Number.isFinite(v) ? [...relief, 235 * Math.min(1, v / ROUGH_MAX_M) ** 0.8] : null);
+    case "temp": {
+      // Diviner: de la mínima a la máxima de la capa (la leyenda muestra los K).
+      const [lo, hi] = extent;
+      return (v) => {
+        if (!Number.isFinite(v)) return null;
+        const t = hi > lo ? (v - lo) / (hi - lo) : 1;
+        return [...temp, 30 + 215 * t ** 1.2];
+      };
+    }
     case "shadow":
       // valor codificado: <0 = sombra permanente (trama), 0..1 = cercanía
       return (v, i, j) => {
@@ -141,6 +152,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
       both: cssColor(el, "--both"), sun: cssColor(el, "--sun"), earth: cssColor(el, "--earth"),
       ink: cssColor(el, "--ink"), lineStrong: cssColor(el, "--line-strong"),
       relief: [179, 157, 219],
+      temp: [242, 139, 84],
     };
     let lo = Infinity, hi = -Infinity;
     if (values) for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }

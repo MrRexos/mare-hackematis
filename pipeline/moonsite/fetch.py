@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-from .config import LOLA, LOLA_EXTRA, SPICE, Remote
+from .config import DIVINER, LOLA, LOLA_EXTRA, SPICE, Remote
 
 CHUNK = 4 << 20  # 4 MiB por petición
 WORKERS = 16
@@ -81,7 +81,7 @@ def download(f: Remote) -> None:
 
 
 def main(argv: list[str]) -> None:
-    files = {**SPICE, **LOLA}
+    files = {**SPICE, **LOLA, **DIVINER}
     if "extra" in argv:
         files |= LOLA_EXTRA
     for f in files.values():

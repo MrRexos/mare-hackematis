@@ -48,11 +48,25 @@ LOLA = {
     "avgsun": Remote(f"{PDS_LOLA}/extras/illumination/img/avgvisib_75s_120m_201608.img", RAW / "avgvisib_75s_120m_sun.img",
                      116_250_752, "Visibilidad media del Sol (validación), 120 m/px"),
 }
-#: Opcional: visibilidad media de la Tierra (validación de la capa Tierra).
-LOLA_EXTRA = {
+LOLA |= {
+    "ldrm": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldrm_75s_240m.img", RAW / "ldrm_75s_240m.img",
+                   29_062_688, "Rugosidad LOLA 240 m/px (desviación de alturas, base 30-120 m), 75-90°S"),
     "avgearth": Remote(f"{PDS_LOLA}/extras/illumination/img/avgvisib_75s_120m_201608_earth.img",
-                       RAW / "avgvisib_75s_120m_earth.img", 116_250_752, "Visibilidad media de la Tierra (validación)"),
+                       RAW / "avgvisib_75s_120m_earth.img", 116_250_752,
+                       "Visibilidad media de la Tierra (Mazarico et al. 2011), 120 m/px"),
 }
+LOLA_EXTRA: dict[str, "Remote"] = {}
+
+#: LRO Diviner Polar Resource Product v2.0 (Paige et al. 2010), revisado por pares en PDS.
+#: Tabla ASCII de 2 880 000 triángulos (~0,5 km) hasta 80°S: temperatura media anual
+#: a 2 cm, temperatura máxima anual en superficie y profundidad de estabilidad del hielo.
+PDS_DIVINER = "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1"
+DIVINER = {
+    "prp_south": Remote(f"{PDS_DIVINER}/data_derived_prp/dlre_prp_south.tab", RAW / "dlre_prp_south.tab",
+                        604_800_210, "Diviner PRP sur (LRO-L-DLRE-5-PRP-V2.0)"),
+}
+#: Profundidad máxima (m) a la que consideramos el hielo "accesible" para la capa de cercanía.
+ICE_ACCESSIBLE_DEPTH_M = 0.5
 
 #: Kernels SPICE: efemérides DE440 y orientación de la Luna.
 SPICE = {

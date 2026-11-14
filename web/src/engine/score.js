@@ -1,45 +1,46 @@
-// Puntuación de viabilidad por píxel (0–100). Es una media ponderada simple
-// para que se pueda explicar ("Why this score?"), más unos filtros que
-// descartan píxeles por completo.
+// Puntuación de viabilidad por píxel (0–100) del módulo polo sur. Es una media
+// ponderada simple para que se pueda explicar ("Why this score?"), más unos
+// filtros que descartan píxeles por completo.
 //
 //   score = 100 · Σ wᵢ·fᵢ / Σ wᵢ      (pesos en %, suman 100)
 //
-// Factores con datos (todos de 0 a 1):
-//   sun     fracción de la misión con Sol visible                    [misión]
-//   earth   fracción de la misión con la Tierra visible              [misión]
-//   slope   1 − pendiente / pendiente máxima                          [LOLA]
-//   relief  1 − desnivel local (3 × 3 km) / 600 m                     [LOLA]
-//   ice     1 − distancia a sombra permanente / alcance               [LOLA]
-// Factores del diseño sin datos todavía (temperatura, impactos, radiación,
-// ciencia): se muestran, pero no puntúan (peso 0) hasta tener una fuente.
+// Solo hay factores con datos oficiales verificados (todos de 0 a 1):
+//   sun    fracción de la misión con Sol visible                   [cálculo: LOLA + SPICE]
+//   earth  fracción de la misión con la Tierra visible             [cálculo: LOLA + SPICE]
+//   slope  1 − pendiente / pendiente máxima                         [LOLA LDSM]
+//   rough  1 − rugosidad / ROUGH_MAX_M                              [LOLA LDRM]
+//   temp   temperatura media anual: más templado = menos calefacción [LRO Diviner PRP]
+//   ice    1 − distancia a hielo estable a ≤ 0,5 m / alcance        [LRO Diviner PRP]
+// Radiación, impactos y valor científico se quitaron: no hay mapas oficiales por sitio.
 //
-// Filtros: pendiente > máxima, píxel mayoritariamente en sombra permanente,
+// Filtros: pendiente > máxima, píxel mayoritariamente en sombra permanente (LOLA LPSR),
 // noche más larga que la autonomía de baterías (si se activa).
 
-export const RELIEF_MAX_M = 600;
+/** Rugosidad (m) a la que el factor llega a 0. LOLA LDRM: desviación de alturas a 30–120 m. */
+export const ROUGH_MAX_M = 1.5;
+/** Temperatura media anual (K, Diviner a 2 cm) que corresponde a factor 0 y a factor 1. */
+export const TEMP_COLD_K = 50;
+export const TEMP_MILD_K = 250;
 
 export const FACTORS = [
-  { key: "sun", label: "Sunlight", icon: "sun", color: "var(--sun)", hint: "Share of the mission with the Sun above the terrain" },
-  { key: "earth", label: "Earth contact", icon: "earth", color: "var(--earth)", hint: "Share of the mission with Earth above the terrain" },
-  { key: "slope", label: "Slope", icon: "slope", color: "#8bd17c", hint: "Lower slope scores higher (LOLA, 240 m baseline)" },
-  { key: "relief", label: "Relief", icon: "relief", color: "#b39ddb", hint: "Smaller height range in the surrounding 3 × 3 km scores higher" },
-  { key: "temp", label: "Temperature", icon: "thermometer", color: "#f28b54", noData: true, hint: "No temperature data in this build" },
-  { key: "ice", label: "Water ice", icon: "droplet", color: "#4fd1c5", hint: "Closer to permanently shadowed regions, where ice may be" },
-  { key: "impacts", label: "Impacts", icon: "zap", color: "#f06292", noData: true, hint: "No impact data in this build" },
-  { key: "rad", label: "Radiation", icon: "radiation", color: "#a1887f", noData: true, hint: "No radiation data in this build" },
-  { key: "sci", label: "Science", icon: "microscope", color: "#7986cb", noData: true, hint: "No science-value data in this build" },
+  { key: "sun", label: "Sunlight", icon: "sun", color: "var(--sun)", hint: "Share of the mission with the Sun above the terrain (LOLA + SPICE)" },
+  { key: "earth", label: "Earth contact", icon: "earth", color: "var(--earth)", hint: "Share of the mission with Earth above the terrain (LOLA + SPICE)" },
+  { key: "slope", label: "Slope", icon: "slope", color: "#8bd17c", hint: "Lower slope scores higher (LOLA LDSM, 240 m)" },
+  { key: "rough", label: "Roughness", icon: "relief", color: "#b39ddb", hint: `Smoother ground scores higher; 0 at ${ROUGH_MAX_M} m (LOLA LDRM, 30–120 m baseline)` },
+  { key: "temp", label: "Temperature", icon: "thermometer", color: "#f28b54", hint: `Milder annual average needs less heating; ${TEMP_COLD_K} K → 0, ${TEMP_MILD_K} K → 1 (LRO Diviner)` },
+  { key: "ice", label: "Water ice", icon: "droplet", color: "#4fd1c5", hint: "Closer to ground where ice is stable within 0.5 m (LRO Diviner)" },
 ];
 export const FACTOR_KEYS = FACTORS.map((f) => f.key);
-export const SCORED_KEYS = FACTORS.filter((f) => !f.noData).map((f) => f.key);
+export const SCORED_KEYS = FACTOR_KEYS;
 
-// Perfiles del diseño (en %). Los factores sin datos se reparten entre los demás.
+// Perfiles (en %).
 const RAW_PRESETS = {
-  Balanced: { sun: 12, earth: 11, slope: 11, relief: 11, temp: 11, ice: 11, impacts: 11, rad: 11, sci: 11 },
-  "Power first": { sun: 36, earth: 8, slope: 8, relief: 8, temp: 8, ice: 8, impacts: 8, rad: 8, sci: 8 },
-  "Earth contact first": { sun: 8, earth: 36, slope: 8, relief: 8, temp: 8, ice: 8, impacts: 8, rad: 8, sci: 8 },
-  Colonize: { sun: 18, earth: 14, slope: 10, relief: 8, temp: 12, ice: 18, impacts: 6, rad: 8, sci: 6 },
-  Research: { sun: 10, earth: 10, slope: 8, relief: 6, temp: 6, ice: 12, impacts: 6, rad: 6, sci: 36 },
-  "Safe landing": { sun: 10, earth: 10, slope: 30, relief: 24, temp: 6, ice: 3, impacts: 8, rad: 6, sci: 3 },
+  Balanced: { sun: 22, earth: 18, slope: 16, rough: 14, temp: 12, ice: 18 },
+  "Power first": { sun: 50, earth: 10, slope: 12, rough: 10, temp: 10, ice: 8 },
+  "Earth contact first": { sun: 12, earth: 50, slope: 12, rough: 10, temp: 8, ice: 8 },
+  Colonize: { sun: 24, earth: 16, slope: 12, rough: 10, temp: 14, ice: 24 },
+  "Ice prospecting": { sun: 18, earth: 10, slope: 10, rough: 8, temp: 4, ice: 50 },
+  "Safe landing": { sun: 12, earth: 12, slope: 34, rough: 30, temp: 6, ice: 6 },
 };
 
 /** Reparte `total` entre las claves de forma proporcional a `w` (resto mayor). */
@@ -63,7 +64,7 @@ export const PRESETS = Object.fromEntries(Object.entries(RAW_PRESETS).map(([k, v
 export const DEFAULT_WEIGHTS = PRESETS.Balanced;
 export const DEFAULT_LIMITS = { maxSlopeDeg: 10, iceReachKm: 10, excludePsr: true, maxNightH: null };
 
-/** Mueve un peso y reparte el resto entre los demás factores con datos (suma 100). */
+/** Mueve un peso y reparte el resto entre los demás factores (suma 100). */
 export function rebalance(w, key, value) {
   const v = Math.max(0, Math.min(100, Math.round(value)));
   const others = SCORED_KEYS.filter((k) => k !== key);
@@ -75,36 +76,21 @@ export function presetOf(w) {
   return Object.keys(PRESETS).find((p) => FACTOR_KEYS.every((k) => (PRESETS[p][k] || 0) === (w[k] || 0))) || null;
 }
 
-/** Desnivel local (m): máximo − mínimo de la elevación en la ventana 3 × 3 km. */
-export function reliefLayer(elevation, n) {
-  const out = new Float32Array(n * n).fill(NaN);
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-    let lo = Infinity, hi = -Infinity;
-    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
-      const a = i + di, b = j + dj;
-      if (a < 0 || b < 0 || a >= n || b >= n) continue;
-      const e = elevation[a * n + b];
-      if (!Number.isFinite(e)) continue;
-      if (e < lo) lo = e;
-      if (e > hi) hi = e;
-    }
-    if (hi >= lo) out[i * n + j] = hi - lo;
-  }
-  return out;
-}
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-/** Factores 0–1 de un píxel (NaN si no hay datos; null si el factor no tiene fuente). */
+/** Factores 0–1 de un píxel (NaN si falta el dato). */
 export function factorsAt(p, mission, layers, limits) {
   const slope = layers.slope?.[p];
-  const dist = layers.psrDistKm?.[p];
-  const rel = layers.relief?.[p];
+  const rough = layers.roughness?.[p];
+  const tavg = layers.tempAvgK?.[p];
+  const iceKm = layers.iceDistKm?.[p];
   return {
     sun: mission ? mission.sun[p] : NaN,
     earth: mission ? mission.earth[p] : NaN,
-    slope: Number.isFinite(slope) ? Math.max(0, 1 - slope / limits.maxSlopeDeg) : NaN,
-    relief: Number.isFinite(rel) ? Math.max(0, 1 - rel / RELIEF_MAX_M) : NaN,
-    ice: Number.isFinite(dist) ? Math.max(0, 1 - dist / limits.iceReachKm) : NaN,
-    temp: null, impacts: null, rad: null, sci: null,
+    slope: Number.isFinite(slope) ? clamp01(1 - slope / limits.maxSlopeDeg) : NaN,
+    rough: Number.isFinite(rough) ? clamp01(1 - rough / ROUGH_MAX_M) : NaN,
+    temp: Number.isFinite(tavg) ? clamp01((tavg - TEMP_COLD_K) / (TEMP_MILD_K - TEMP_COLD_K)) : NaN,
+    ice: Number.isFinite(iceKm) ? clamp01(1 - iceKm / limits.iceReachKm) : NaN,
   };
 }
 

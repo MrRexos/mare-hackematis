@@ -14,7 +14,7 @@ import numpy as np
 import requests
 import spiceypy as sp
 
-from .config import ABCORR, EPHEM_FRAME
+from .config import ABCORR, EARTH_RADIUS_KM, EPHEM_FRAME
 from .ephemeris import load_kernels
 from .geo import grid_xy, xy_to_latlon
 from .visibility import az_el, horizon_at, sun_disk_fraction
@@ -80,13 +80,45 @@ def avgvisib_check(horizon_q: np.ndarray, avg_sun: np.ndarray, ephem: np.ndarray
     sun = ephem[::stride_h, 0:3].astype(float)
     dist = np.linalg.norm(sun, axis=1)
     ours = np.empty(idx.size)
+    ours_disk = np.empty(idx.size)
     for n, p in enumerate(idx):
         hor = horizon_q[p].astype(float) * hq_scale + hq_off
         az, el = az_el(sun, lat[p], lon[p])
-        ours[n] = sun_disk_fraction(el, horizon_at(hor, az), dist).mean()
+        frac = sun_disk_fraction(el, horizon_at(hor, az), dist)
+        # Mismo criterio que LOLA AVGVISIB: % de instantes con CUALQUIER parte del disco visible.
+        ours[n] = (frac > 0).mean()
+        ours_disk[n] = frac.mean()
     lola = avg_sun.ravel()[idx]
     diff = (ours - lola) * 100
-    return {"points": int(idx.size), "meanAbsDiffPct": float(np.abs(diff).mean()), "biasPct": float(diff.mean()),
+    return {"points": int(idx.size), "criterion": "share of time with any part of the solar disk visible (as LOLA AVGVISIB)",
+            "meanAbsDiffPct": float(np.abs(diff).mean()), "biasPct": float(diff.mean()),
             "p90AbsDiffPct": float(np.percentile(np.abs(diff), 90)), "strideHours": stride_h,
-            "note": ("Ours: 2026-2030 (5 years) from 1 km grid horizons; LOLA AVGVISIB: 18.6-year average at 120 m. "
-                     "Differences include the shorter period and the coarser terrain.")}
+            "meanDiskFractionMinusAnyPartPct": float((ours_disk - ours).mean() * 100),
+            "note": ("Same criterion as LOLA (any part of the disk). Ours: 2026-2030 (5 years), 1 km grid, 72 azimuths, "
+                     "observer 2 m; LOLA AVGVISIB: 18.6-year average at 120 m. Differences include the shorter "
+                     "period, the coarser terrain and the observer height.")}
+
+
+def avgearth_check(horizon_q: np.ndarray, avg_earth: np.ndarray, ephem: np.ndarray, hq_scale: float, hq_off: float,
+                   n_points: int = 2000, stride_h: int = 3, seed: int = 2) -> dict:
+    """Compara el % de tiempo con la Tierra visible (cualquier parte del disco) con LOLA AVGVISIB_EARTH."""
+    x, y = grid_xy()
+    lat, lon = xy_to_latlon(x.ravel(), y.ravel())
+    ok = np.flatnonzero(~np.isnan(avg_earth.ravel()))
+    rng = np.random.default_rng(seed)
+    idx = rng.choice(ok, size=min(n_points, ok.size), replace=False)
+    earth = ephem[::stride_h, 3:6].astype(float)
+    ours = np.empty(idx.size)
+    for n, p in enumerate(idx):
+        hor = horizon_q[p].astype(float) * hq_scale + hq_off
+        az, el = az_el(earth, lat[p], lon[p])
+        dist = np.linalg.norm(earth, axis=1)
+        r = np.degrees(np.arcsin(EARTH_RADIUS_KM / dist))
+        ours[n] = (el + r > horizon_at(hor, az)).mean()
+    lola = avg_earth.ravel()[idx]
+    diff = (ours - lola) * 100
+    return {"points": int(idx.size), "criterion": "share of time with any part of the Earth disk visible (as LOLA)",
+            "meanAbsDiffPct": float(np.abs(diff).mean()), "biasPct": float(diff.mean()),
+            "p90AbsDiffPct": float(np.percentile(np.abs(diff), 90)), "strideHours": stride_h,
+            "note": ("Ours: 2026-2030, 1 km grid, 72 azimuths, observer 2 m; LOLA: 18.6-year average at 120 m. "
+                     "The web scores Earth by the disk centre, which is slightly stricter.")}

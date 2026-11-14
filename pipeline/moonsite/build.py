@@ -38,7 +38,19 @@ LAYER_META = {
                "fidelity": "validated", "description": "Average visible Sun fraction over 18.6 years (Mazarico et al. 2011)."},
     "avgEarth": {"label": "Long-term Earth view (LOLA)", "units": "fraction",
                  "source": "LOLA AVGVISIB_75S_120M_EARTH (PDS)", "fidelity": "validated",
-                 "description": "Average visible Earth fraction over 18.6 years."},
+                 "description": "Share of time with any part of the Earth disk visible, 18.6 years (Mazarico et al. 2011)."},
+    "roughness": {"label": "Roughness", "units": "m", "source": "LOLA LDRM_75S_240M (PDS)", "fidelity": "computed",
+                  "description": "Median of 16 LOLA roughness samples (residual height std, 30-120 m baseline) per 1 km pixel."},
+    "tempAvgK": {"label": "Average temperature", "units": "K", "source": "LRO Diviner PRP v2.0 (PDS)", "fidelity": "computed",
+                 "description": "Annual average temperature 2 cm below the surface (Paige et al. 2010), mean per 1 km pixel."},
+    "tempMaxK": {"label": "Maximum temperature", "units": "K", "source": "LRO Diviner PRP v2.0 (PDS)", "fidelity": "computed",
+                 "description": "Annual maximum surface temperature (Paige et al. 2010), mean per 1 km pixel."},
+    "iceDepthM": {"label": "Ice stability depth", "units": "m", "source": "LRO Diviner PRP v2.0 (PDS)", "fidelity": "computed",
+                  "description": "Shallowest depth in the pixel where water ice is stable (0 = at the surface; 2.87 = deeper or never)."},
+    "iceShare": {"label": "Accessible ice share", "units": "fraction", "source": "LRO Diviner PRP v2.0 (PDS)", "fidelity": "computed",
+                 "description": "Share of the pixel where ice is stable within 0.5 m of the surface."},
+    "iceDistKm": {"label": "Distance to accessible ice", "units": "km", "source": "LRO Diviner PRP v2.0 (PDS)", "fidelity": "computed",
+                  "description": "Distance to the nearest spot where ice is stable within 0.5 m of the surface."},
 }
 
 
@@ -121,6 +133,14 @@ def step_validate(m: dict) -> None:
         out["avgvisib"] = validate.avgvisib_check(q, avg, eph, C.HORIZON_Q_SCALE_DEG, C.HORIZON_Q_OFFSET_DEG)
         print(f"   LOLA AVGVISIB: diferencia media {out['avgvisib']['meanAbsDiffPct']:.2f} puntos "
               f"(sesgo {out['avgvisib']['biasPct']:+.2f})")
+    if "avgEarth" in m.get("layers", {}) and "horizon" in m and "ephem" in m:
+        n = C.GRID_N * C.GRID_N
+        q = np.fromfile(C.WEB_DATA / "horizon.u8", dtype=np.uint8).reshape(n, C.HORIZON_BINS)
+        avg = np.fromfile(C.WEB_DATA / "layers/avgEarth.f32", dtype="<f4")
+        eph = np.fromfile(C.WEB_DATA / m["ephem"]["file"], dtype="<f4").reshape(-1, 6)
+        out["avgearth"] = validate.avgearth_check(q, avg, eph, C.HORIZON_Q_SCALE_DEG, C.HORIZON_Q_OFFSET_DEG)
+        print(f"   LOLA Tierra: diferencia media {out['avgearth']['meanAbsDiffPct']:.2f} puntos "
+              f"(sesgo {out['avgearth']['biasPct']:+.2f})")
     (C.WEB_DATA / "validation.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     m["validation"] = "validation.json"
 

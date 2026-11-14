@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadData } from "./data/loadData.js";
 import { MissionEngine } from "./engine/missionEngine.js";
-import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, exclusionAt, factorsAt, reliefLayer, scoreGrid } from "./engine/score.js";
+import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, ROUGH_MAX_M, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
 import { landingWindows, runs, siteTimeline } from "./engine/timeline.js";
@@ -18,13 +18,14 @@ const DAY_MS = 86400000;
 const H = 3600e3;
 const REGION_HALF_PX = 7; // regiones Artemis III de ~15 × 15 km -> 15 × 15 píxeles de 1 km
 
-// Capas del mapa.
+// Capas del mapa (todas con datos oficiales verificados; ver Learn).
 const LAYERS = {
   score: { label: "Score", ramp: "score", legend: ["Lower", "Higher"] },
   sun: { label: "Sunlight", ramp: "sun", legend: ["0%", "100%"] },
   earth: { label: "Earth view", ramp: "earth", legend: ["0%", "100%"] },
   slope: { label: "Slope", ramp: "slope", legend: ["0°", "30°+"] },
-  relief: { label: "Relief", ramp: "relief", legend: ["0 m", "600 m+"] },
+  rough: { label: "Roughness", ramp: "rough", legend: ["0 m", `${ROUGH_MAX_M} m+`] },
+  temp: { label: "Temperature", ramp: "temp", legend: ["Cold", "Mild"] },
   shadow: { label: "Water ice", ramp: "shadow", legend: ["Far", "Near"] },
 };
 
@@ -120,7 +121,6 @@ export default function App() {
   useEffect(() => {
     loadData((done, total) => setLoadState((s) => ({ ...s, done, total })))
       .then((d) => {
-        if (d.layers.elevation) d.layers.relief = reliefLayer(d.layers.elevation, d.manifest.grid.n);
         if (d.horizon && d.ephem) engineRef.current = new MissionEngine(d);
         const p = computePeriods(d.manifest.ephem);
         setPeriods(p);
@@ -337,13 +337,18 @@ export default function App() {
     switch (key) {
       case "score": v = score; break;
       case "sun": v = result ? result.sun : ly.avgSun || null; break;
-      case "earth": v = result ? result.earth : null; break;
+      case "earth": v = result ? result.earth : ly.avgEarth || null; break;
       case "slope": v = ly.slope || null; break;
-      case "relief": v = ly.relief || null; break;
+      case "rough": v = ly.roughness || null; break;
+      case "temp": v = ly.tempAvgK || null; break;
       case "shadow": {
-        if (!ly.psrDistKm) break;
-        v = new Float32Array(ly.psrDistKm.length);
-        for (let p = 0; p < v.length; p++) v[p] = ly.psrShare?.[p] > 0.5 ? -1 : Math.max(0, 1 - ly.psrDistKm[p] / limits.iceReachKm);
+        // Trama = sombra permanente (LOLA LPSR); brillo = cercanía a hielo estable a ≤ 0,5 m (Diviner).
+        if (!ly.iceDistKm) break;
+        v = new Float32Array(ly.iceDistKm.length);
+        for (let p = 0; p < v.length; p++) {
+          const d = ly.iceDistKm[p];
+          v[p] = ly.psrShare?.[p] > 0.5 ? -1 : Number.isFinite(d) ? Math.max(0, 1 - d / limits.iceReachKm) : NaN;
+        }
         break;
       }
       default: break;
@@ -357,6 +362,7 @@ export default function App() {
     if (!values || !Number.isFinite(hi)) return ["–", "–"];
     if (key === "score") return [`${Math.round(lo)}`, `${Math.round(hi)}`];
     if (key === "sun" || key === "earth") return ["0%", `${Math.round(hi * 100)}%`];
+    if (key === "temp") return [`${Math.round(lo)} K`, `${Math.round(hi)} K`];
     return LAYERS[key].legend;
   };
   const values = valuesFor(layerKey);
