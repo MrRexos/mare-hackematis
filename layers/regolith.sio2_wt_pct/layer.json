@@ -1,0 +1,39 @@
+{
+  "id": "regolith.sio2_wt_pct",
+  "version": "0.2.0",
+  "title": "Silicon dioxide (SiO2)",
+  "units": "wt%",
+  "validRange": [
+    0,
+    60
+  ],
+  "kind": "static",
+  "owner": "Joel (T9 · composición y radiactividad)",
+  "fidelity": "approximate",
+  "method": "Lunar Prospector GRS major-oxide weight fraction from gamma-ray spectral unmixing (Prettyman et al. 2006), 5° equal-area pixels (column W_SIO2) × 100, rasterised to 0.5° by pixel containment. True resolution ~5° (150 km) at 100 km altitude; bilinear resampling to G1K only smooths.",
+  "params": {
+    "sourceResolutionDeg": 5.0,
+    "resampling": "bilinear"
+  },
+  "sources": [
+    {
+      "name": "Lunar Prospector GRS Elemental Abundance (LP-L-GRS-5-ELEM-ABUNDANCE-V1.0)",
+      "url": "https://pds-geosciences.wustl.edu/missions/lunarp/grs_elem_abundance.html",
+      "citation": "Prettyman et al. (2006), JGR 111, E12007; Prettyman, NASA PDS (2012)"
+    }
+  ],
+  "files": [
+    {
+      "grid": "G1K",
+      "period": "static",
+      "path": "G1K/static.u16",
+      "dtype": "uint16",
+      "scale": 0.001,
+      "offset": 0,
+      "nodata": 65535,
+      "sha256": "695d4ce4d2e6d38685476572e90716c77280501bb0d5a3f5393d1011595ba226",
+      "min": 31.595,
+      "max": 51.343
+    }
+  ]
+}
