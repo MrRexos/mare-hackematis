@@ -1,34 +1,32 @@
 #!/usr/bin/env python3
 """
-Pas 1 — Seguretat topogràfica (cara visible de la Lluna)
-========================================================
-Genera la matriu de **seguretat de pendent** per a la **cara visible**
-(sense cara oculta), alineada amb el contracte de dades del repo:
+Pas 1 / T1 — Terreno (contracte de dades v0.2)
+==============================================
+Genera, sobre la malla oficial **G1K** (10 916 × 5 458):
 
-* Malla ``G32N``: 32 píxels/° · **5760 × 5760**
-* Longitud **−90° … +90°** (cara visible), latitud **−90° … +90°**
-* Valors ``safety`` ∈ **[0, 100]** (veto estricte a pendent ≥ 15° → 0)
+1. ``terrain.slope``     — pendent físic en **graus** (Float32)
+2. ``suitability.slope`` — seguretat derivada **0–100** (UInt8)
 
-Objecte util per combinar amb altres capes al Pas 2::
+Fórmula de seguretat (contracte §6)::
 
-    from scripts.terrain_safety import (
-        TerrainSafetyMatrix,
-        compute_nearside_terrain_safety,
-    )
-    result = compute_nearside_terrain_safety()
-    safety = result.safety  # float32 (5760, 5760), 0–100
+    suitability = 100 * max(0, 1 - slope_deg / 15)
+
+Objecte util::
+
+    from scripts.terrain_safety import compute_terrain_layers, TerrainLayers
+    result = compute_terrain_layers()
+    slope = result.slope_deg      # float32, graus
+    safety = result.suitability  # float32 0–100 (també result.safety)
 
 CLI::
 
-    python3 scripts/terrain_safety.py --outdir data/pas1_global
+    python3 scripts/terrain_safety.py --export-layers
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
-import io
 import json
 import sys
 from dataclasses import dataclass, field
@@ -45,7 +43,7 @@ from rasterio.warp import reproject
 from scipy.ndimage import median_filter
 
 # ---------------------------------------------------------------------------
-# Constants — malla G32N (cara visible) i LOLA
+# Contracte v0.2 — malla G1K
 # ---------------------------------------------------------------------------
 
 URL_LOLA_GLOBAL = (
@@ -54,22 +52,17 @@ URL_LOLA_GLOBAL = (
 )
 
 MOON_RADIUS_M = 1_737_400.0
-PX_PER_DEG = 32  # mateix pas que G32 del contracte
-LON_MIN_DEG = -90.0
-LON_MAX_DEG = 90.0
-LAT_MIN_DEG = -90.0
-LAT_MAX_DEG = 90.0
-
-# 180° × 32 px/° = 5760
-GRID_WIDTH = int(round((LON_MAX_DEG - LON_MIN_DEG) * PX_PER_DEG))   # 5760
-GRID_HEIGHT = int(round((LAT_MAX_DEG - LAT_MIN_DEG) * PX_PER_DEG))  # 5760
-GRID_ID = "G32N"
+GRID_ID = "G1K"
+GRID_COLS = 10916
+GRID_ROWS = 5458
+# Δ = 360°/10916 = 180°/5458
+GRID_STEP_DEG = 360.0 / GRID_COLS
 
 LLINDAR_VETO_GRAUS = 15.0
 SAFETY_MAX = 100.0
 MEDIAN_SIZE = 3
+BASELINE_M = 1000.0  # ~1 km (params.baselineM del contracte T1)
 
-# CRS equirectangular lunar (metres), compatible amb el mosaic USGS
 CRS_MOON_EQC = CRS.from_proj4(
     f"+proj=eqc +lat_0=0 +lon_0=0 +lat_ts=0 +x_0=0 +y_0=0 "
     f"+R={MOON_RADIUS_M} +units=m +no_defs +type=crs"
@@ -77,142 +70,73 @@ CRS_MOON_EQC = CRS.from_proj4(
 
 
 # ---------------------------------------------------------------------------
-# Objecte util (Pas 2)
+# Objecte util
 # ---------------------------------------------------------------------------
 
 @dataclass
-class TerrainSafetyMatrix:
+class TerrainLayers:
     """
-    Objecte de retorn del Pas 1.
+    Resultat del Pas 1 / T1.
 
-    Atribut principal
-    -----------------
-    safety : np.ndarray
-        Matriu 2D float32 amb seguretat de pendent en **[0, 100]**.
-        0 = veto (pendent ≥ llindar) o NoData; 100 = terreny pla.
+    Attributes
+    ----------
+    slope_deg : np.ndarray
+        Pendent físic en graus (capa ``terrain.slope``).
+    suitability : np.ndarray
+        Seguretat 0–100 (capa ``suitability.slope``). Alias: ``.safety``.
     """
 
-    safety: np.ndarray
+    slope_deg: np.ndarray
+    suitability: np.ndarray
     transform: Affine
     crs: str
     resolution_m: float
     veto_deg: float = LLINDAR_VETO_GRAUS
-    safety_max: float = SAFETY_MAX
     grid_id: str = GRID_ID
-    lon_range_deg: tuple[float, float] = (LON_MIN_DEG, LON_MAX_DEG)
-    lat_range_deg: tuple[float, float] = (LAT_MIN_DEG, LAT_MAX_DEG)
     source_url: str = URL_LOLA_GLOBAL
     extras: dict[str, Any] = field(default_factory=dict)
 
     @property
+    def safety(self) -> np.ndarray:
+        """Alias de ``suitability`` (0–100) per al Pas 2."""
+        return self.suitability
+
+    @property
     def shape(self) -> tuple[int, int]:
-        return tuple(self.safety.shape)  # type: ignore[return-value]
+        return tuple(self.slope_deg.shape)  # type: ignore[return-value]
 
     @property
     def height(self) -> int:
-        return int(self.safety.shape[0])
+        return int(self.slope_deg.shape[0])
 
     @property
     def width(self) -> int:
-        return int(self.safety.shape[1])
+        return int(self.slope_deg.shape[1])
 
     def as_array(self) -> np.ndarray:
-        """Retorna només la matriu de seguretat [0, 100]."""
-        return self.safety
+        """Per compatibilitat: retorna la matriu de seguretat 0–100."""
+        return self.suitability
 
     def __array__(self, dtype=None):
-        arr = self.safety
+        arr = self.suitability
         return arr if dtype is None else arr.astype(dtype, copy=False)
 
-    def save(self, outdir: str | Path) -> dict[str, Path]:
-        """Desa safety.npy, safety.f32 (contracte), metadades.json i GeoTIFF."""
-        outdir = Path(outdir)
-        outdir.mkdir(parents=True, exist_ok=True)
-        npy_path = outdir / "safety.npy"
-        f32_path = outdir / "safety.f32"
-        meta_path = outdir / "metadades.json"
-        tif_path = outdir / "safety.tif"
 
-        np.save(npy_path, self.safety)
-        self.safety.astype("<f4").tofile(f32_path)  # little-endian raw (contracte)
-        sha = hashlib.sha256(f32_path.read_bytes()).hexdigest()
-
-        meta = {
-            "id": "terrain.slope_safety",
-            "grid": self.grid_id,
-            "crs": self.crs,
-            "transform": list(self.transform)[:6],
-            "width": self.width,
-            "height": self.height,
-            "resolution_m": self.resolution_m,
-            "px_per_deg": PX_PER_DEG,
-            "lon_range_deg": list(self.lon_range_deg),
-            "lat_range_deg": list(self.lat_range_deg),
-            "veto_deg": self.veto_deg,
-            "value_range": [0.0, self.safety_max],
-            "units": "score_0_100",
-            "description": (
-                "Seguretat topogràfica per pendent; 0=veto (≥15°), 100=pla. "
-                "Cara visible només (sense cara oculta)."
-            ),
-            "source_url": self.source_url,
-            "files": {
-                "safety_npy": npy_path.name,
-                "safety_f32": f32_path.name,
-                "safety_tif": tif_path.name,
-                "sha256_f32": sha,
-            },
-            **self.extras,
-        }
-        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
-
-        try:
-            crs_obj = CRS.from_user_input(self.crs) if self.crs else CRS_MOON_EQC
-        except Exception:
-            crs_obj = CRS_MOON_EQC
-        profile = {
-            "driver": "GTiff",
-            "height": self.height,
-            "width": self.width,
-            "count": 1,
-            "dtype": "float32",
-            "crs": crs_obj,
-            "transform": self.transform,
-            "compress": "deflate",
-            "tiled": True,
-            "blockxsize": 256,
-            "blockysize": 256,
-        }
-        with rasterio.open(tif_path, "w", **profile) as dst:
-            dst.write(self.safety.astype("float32"), 1)
-
-        return {
-            "safety_npy": npy_path,
-            "safety_f32": f32_path,
-            "meta_json": meta_path,
-            "safety_tif": tif_path,
-        }
+# Alias històric
+TerrainSafetyMatrix = TerrainLayers
 
 
 # ---------------------------------------------------------------------------
-# Graella cara visible (G32N)
+# Graella G1K
 # ---------------------------------------------------------------------------
 
-def nearside_grid() -> tuple[int, int, float, float, Affine]:
-    """
-    Graella equirectangular de la cara visible a 32 px/°.
-
-    Retorna (width, height, res_x_m, res_y_m, transform) en CRS eqc lunar (metres).
-    """
-    width, height = GRID_WIDTH, GRID_HEIGHT
-    lon0 = np.radians(LON_MIN_DEG)
-    lon1 = np.radians(LON_MAX_DEG)
-    lat0 = np.radians(LAT_MIN_DEG)
-    lat1 = np.radians(LAT_MAX_DEG)
-    left = MOON_RADIUS_M * lon0
-    right = MOON_RADIUS_M * lon1
-    bottom = MOON_RADIUS_M * lat0
-    top = MOON_RADIUS_M * lat1
+def g1k_grid() -> tuple[int, int, float, float, Affine]:
+    """(width, height, res_x_m, res_y_m, transform) en CRS eqc lunar (metres)."""
+    width, height = GRID_COLS, GRID_ROWS
+    left = -np.pi * MOON_RADIUS_M
+    right = np.pi * MOON_RADIUS_M
+    top = 0.5 * np.pi * MOON_RADIUS_M
+    bottom = -0.5 * np.pi * MOON_RADIUS_M
     res_x = (right - left) / width
     res_y = (top - bottom) / height
     transform = from_origin(left, top, res_x, res_y)
@@ -220,9 +144,9 @@ def nearside_grid() -> tuple[int, int, float, float, Affine]:
 
 
 def lonlat_of_cell(row: int, col: int) -> tuple[float, float]:
-    """Centre geogràfic (lon, lat) en graus d'una cel·la (contracte-style)."""
-    lon = LON_MIN_DEG + (col + 0.5) / PX_PER_DEG
-    lat = LAT_MAX_DEG - (row + 0.5) / PX_PER_DEG
+    """Centre (lon, lat) ° d'una cel·la G1K (contracte §2)."""
+    lon = -180.0 + (col + 0.5) * GRID_STEP_DEG
+    lat = 90.0 - (row + 0.5) * GRID_STEP_DEG
     return lon, lat
 
 
@@ -232,12 +156,11 @@ def open_remote(url: str):
     return rasterio.open(url)
 
 
-def warp_nearside_dem(url: str = URL_LOLA_GLOBAL) -> tuple[np.ndarray, Affine, float, float]:
-    """Warp remot del DEM LOLA només sobre la cara visible (G32N)."""
-    width, height, res_x, res_y, dst_transform = nearside_grid()
-    print(f"[1/4] Graella {GRID_ID}: {width} × {height} px  (32 px/°)")
-    print(f"      Lon [{LON_MIN_DEG}, {LON_MAX_DEG}]°  ·  Lat [{LAT_MIN_DEG}, {LAT_MAX_DEG}]°")
-    print(f"      Resolució ≈ {res_x:.2f} m (equador) — CARA OCULTA EXCLOSA")
+def warp_g1k_dem(url: str = URL_LOLA_GLOBAL) -> tuple[np.ndarray, Affine, float, float]:
+    width, height, res_x, res_y, dst_transform = g1k_grid()
+    print(f"[1/4] Graella {GRID_ID}: {width} × {height} px")
+    print(f"      Pas = {GRID_STEP_DEG:.6f}° ≈ {res_x:.2f} m a l'equador")
+    print(f"      Cobertura: Lluna sencera (−180…+180°, −90…+90°)")
 
     print(f"[2/4] Warp remot LOLA → {GRID_ID}…\n      {url}")
     with open_remote(url) as src:
@@ -251,7 +174,7 @@ def warp_nearside_dem(url: str = URL_LOLA_GLOBAL) -> tuple[np.ndarray, Affine, f
             src_crs=src.crs,
             src_nodata=src_nodata,
             dst_transform=dst_transform,
-            dst_crs=src.crs,  # SimpleCylindrical Moon ≈ eqc metres
+            dst_crs=src.crs,
             dst_nodata=np.nan,
             resampling=Resampling.average,
         )
@@ -260,29 +183,30 @@ def warp_nearside_dem(url: str = URL_LOLA_GLOBAL) -> tuple[np.ndarray, Affine, f
             f"      Píxels vàlids : {n_valid}/{dem.size} "
             f"({100.0 * n_valid / dem.size:.1f} %)"
         )
-        print(f"      Elevació     : {float(np.nanmin(dem)):.1f} … {float(np.nanmax(dem)):.1f} m")
+        print(
+            f"      Elevació     : {float(np.nanmin(dem)):.1f} … "
+            f"{float(np.nanmax(dem)):.1f} m"
+        )
     return dem, dst_transform, res_x, res_y
 
 
 def clean_dem(dem: np.ndarray) -> np.ndarray:
     print("[3/4] Neteja (mediana 3×3)…")
     nans = ~np.isfinite(dem)
-    dem_net = median_filter(np.nan_to_num(dem, nan=0.0), size=MEDIAN_SIZE).astype("float32")
-    dem_net[nans] = np.nan
-    return dem_net
+    out = median_filter(np.nan_to_num(dem, nan=0.0), size=MEDIAN_SIZE).astype("float32")
+    out[nans] = np.nan
+    return out
 
 
-def slope_safety_score(
+def compute_slope_and_suitability(
     dem: np.ndarray,
     transform: Affine,
     res_x: float,
     res_y: float,
     veto_deg: float = LLINDAR_VETO_GRAUS,
-) -> np.ndarray:
-    """
-    Pendent (graus) amb correcció cos(lat) i puntuació de seguretat **[0, 100]**.
-    """
-    print("[4/4] Pendent + seguretat [0, 100]…")
+) -> tuple[np.ndarray, np.ndarray]:
+    """Retorna (slope_deg, suitability_0_100)."""
+    print("[4/4] Pendent (°) + suitability [0, 100]…")
     h, _w = dem.shape
     rows = np.arange(h, dtype="float64")
     northings = transform.f + (rows + 0.5) * transform.e
@@ -291,50 +215,51 @@ def slope_safety_score(
 
     dz_dy, dz_dx_map = np.gradient(dem, res_y, res_x)
     dz_dx = dz_dx_map / cos_lat[:, np.newaxis]
-    pendent = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2)))
-    pendent_segur = np.nan_to_num(pendent, nan=90.0).astype("float32")
+    slope = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2))).astype("float32")
+    slope[~np.isfinite(dem)] = np.nan
 
-    safety = np.clip(
-        SAFETY_MAX * (1.0 - (pendent_segur / veto_deg)),
+    # suitability = 100 * max(0, 1 - slope/15)  (contracte §6)
+    slope_for_score = np.nan_to_num(slope, nan=90.0)
+    suitability = np.clip(
+        SAFETY_MAX * (1.0 - (slope_for_score / veto_deg)),
         0.0,
         SAFETY_MAX,
     ).astype("float32")
-    safety[~np.isfinite(dem)] = 0.0
-    safety[pendent_segur >= veto_deg] = 0.0
+    suitability[~np.isfinite(dem)] = 0.0
+    suitability[slope_for_score >= veto_deg] = 0.0
 
-    viable = (pendent_segur < veto_deg) & np.isfinite(dem)
-    pct = 100.0 * viable.sum() / max(1, int(np.isfinite(dem).sum()))
-    print(f"      Pendent max  : {float(np.nanmax(pendent_segur)):.2f} °")
-    print(f"      Viable (<{veto_deg:.0f}°): {pct:.2f} %")
-    print(f"      safety range : [{float(safety.min()):.1f}, {float(safety.max()):.1f}]")
-    return safety
+    valid = np.isfinite(slope)
+    pct = 100.0 * ((slope < veto_deg) & valid).sum() / max(1, int(valid.sum()))
+    print(f"      slope max    : {float(np.nanmax(slope)):.2f} °")
+    print(f"      viable (<{veto_deg:.0f}°): {pct:.2f} %")
+    print(
+        f"      suitability  : [{float(suitability.min()):.0f}, "
+        f"{float(suitability.max()):.0f}]"
+    )
+    return slope, suitability
 
 
-def compute_nearside_terrain_safety(
+def compute_terrain_layers(
     url: str = URL_LOLA_GLOBAL,
     veto_deg: float = LLINDAR_VETO_GRAUS,
-) -> TerrainSafetyMatrix:
-    """
-    Pipeline: cara visible → matriu de seguretat [0, 100].
-
-    Returns
-    -------
-    TerrainSafetyMatrix
-        Usa ``.safety`` o ``np.asarray(result)`` al Pas 2.
-    """
+) -> TerrainLayers:
+    """Pipeline T1: G1K → slope (°) + suitability (0–100)."""
     print("=" * 60)
-    print("  Pas 1 — Seguretat de pendent (CARA VISIBLE)")
-    print(f"  Malla {GRID_ID}: {GRID_WIDTH}×{GRID_HEIGHT} · safety ∈ [0, {SAFETY_MAX:.0f}]")
+    print("  T1 / Pas 1 — terrain.slope + suitability.slope")
+    print(f"  Malla {GRID_ID}: {GRID_COLS}×{GRID_ROWS} (contracte v0.2)")
     print("=" * 60)
 
-    dem, transform, res_x, res_y = warp_nearside_dem(url)
+    dem, transform, res_x, res_y = warp_g1k_dem(url)
     dem_net = clean_dem(dem)
     del dem
-    safety = slope_safety_score(dem_net, transform, res_x, res_y, veto_deg=veto_deg)
+    slope, suitability = compute_slope_and_suitability(
+        dem_net, transform, res_x, res_y, veto_deg=veto_deg
+    )
     del dem_net
 
-    result = TerrainSafetyMatrix(
-        safety=safety,
+    result = TerrainLayers(
+        slope_deg=slope,
+        suitability=suitability,
         transform=transform,
         crs=str(CRS_MOON_EQC),
         resolution_m=float(res_x),
@@ -343,272 +268,212 @@ def compute_nearside_terrain_safety(
         extras={
             "res_x_m": res_x,
             "res_y_m": res_y,
-            "hemisphere": "nearside",
-            "far_side_excluded": True,
+            "baseline_m": BASELINE_M,
+            "function": f"{SAFETY_MAX:.0f} * max(0, 1 - slope_deg / {veto_deg:g})",
         },
     )
-    print("Pas 1 (cara visible) completat.")
+    print("T1 completat.")
     return result
 
 
-# Alias estable per al Pas 2 / codi antic
-compute_global_terrain_safety = compute_nearside_terrain_safety
+# Alias
+compute_nearside_terrain_safety = compute_terrain_layers
+compute_global_terrain_safety = compute_terrain_layers
 
 
 # ---------------------------------------------------------------------------
-# Visualització HTML
+# Exportació contracte (layer.json + binaris)
 # ---------------------------------------------------------------------------
 
-def _fig_to_b64(fig) -> str:
-    import matplotlib.pyplot as plt
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight", facecolor=fig.get_facecolor())
-    plt.close(fig)
-    return base64.b64encode(buf.getvalue()).decode("ascii")
-
-
-def _style_ax(ax, title: str) -> None:
-    ax.set_facecolor("#0e1116")
-    ax.set_title(title, color="#f0ebe0", fontsize=12, pad=8)
-    ax.set_xlabel("Ouest ← X → Est (cara visible)", color="#a8a295", fontsize=9)
-    ax.set_ylabel("Nord ← Y → Sud", color="#a8a295", fontsize=9)
-    ax.tick_params(colors="#a8a295", labelsize=8)
-    for spine in ax.spines.values():
-        spine.set_color("#3a3f4a")
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
-def _colorbar(fig, im, ax, label: str) -> None:
-    import matplotlib.pyplot as plt
-
-    cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
-    cb.set_label(label, color="#d8d2c4", fontsize=9)
-    cb.ax.yaxis.set_tick_params(color="#d8d2c4", labelsize=8)
-    plt.setp(plt.getp(cb.ax.axes, "yticklabels"), color="#d8d2c4")
-
-
-def fetch_dem_preview(
-    url: str,
-    result: TerrainSafetyMatrix,
-    max_display_width: int = 1600,
-) -> np.ndarray:
-    h, w = result.safety.shape
-    step = max(1, int(np.ceil(w / max_display_width)))
-    dst_w = int(np.ceil(w / step))
-    dst_h = int(np.ceil(h / step))
-    t = result.transform
-    dst_transform = Affine(t.a * step, t.b, t.c, t.d, t.e * step, t.f)
-    print(f"      DEM preview : {dst_w} × {dst_h} px (pas={step})")
-    with open_remote(url) as src:
-        dem = np.full((dst_h, dst_w), np.nan, dtype="float32")
-        src_nodata = src.nodata if src.nodata is not None else -32768.0
-        reproject(
-            source=rasterio.band(src, 1),
-            destination=dem,
-            src_transform=src.transform,
-            src_crs=src.crs,
-            src_nodata=src_nodata,
-            dst_transform=dst_transform,
-            dst_crs=src.crs,
-            dst_nodata=np.nan,
-            resampling=Resampling.average,
-        )
-    return dem
+def _write_f32(path: Path, arr: np.ndarray) -> tuple[float, float, str]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = arr.astype("<f4", copy=False)
+    data.tofile(path)
+    finite = data[np.isfinite(data)]
+    amin = float(finite.min()) if finite.size else float("nan")
+    amax = float(finite.max()) if finite.size else float("nan")
+    return amin, amax, _sha256(path)
 
 
-def render_safety_html(
-    result: TerrainSafetyMatrix,
-    html_path: Path,
-    max_display_width: int = 1600,
-    dem: np.ndarray | None = None,
-    url: str = URL_LOLA_GLOBAL,
-) -> Path:
-    """HTML amb DEM + seguretat [0,100] (cara visible) i slider de comparació."""
-    import matplotlib
+def _write_u8_score(path: Path, score_0_100: np.ndarray) -> tuple[float, float, str]:
+    """UInt8 0–100; nodata = 255 on NaN a la font (aquí ja és 0 als forats)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    u8 = np.clip(np.rint(score_0_100), 0, 100).astype("uint8")
+    u8.tofile(path)
+    return float(u8.min()), float(u8.max()), _sha256(path)
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import LinearSegmentedColormap
 
-    safety = result.safety
-    h, w = safety.shape
-    step = max(1, int(np.ceil(w / max_display_width)))
-    safety_view = safety[::step, ::step]
+def export_contract_layers(
+    result: TerrainLayers,
+    layers_root: Path = Path("layers"),
+    also_npy_dir: Path | None = Path("data/pas1_global"),
+) -> dict[str, Path]:
+    """
+    Escriu:
+      layers/terrain.slope/G1K/static.f32 + layer.json
+      layers/suitability.slope/G1K/static.u8 + layer.json
+    i opcionalment .npy de treball a ``also_npy_dir``.
+    """
+    layers_root = Path(layers_root)
+    out: dict[str, Path] = {}
 
-    if dem is None:
-        print("[HTML] DEM de visualització…")
-        dem_view = fetch_dem_preview(url, result, max_display_width=max_display_width)
+    # --- terrain.slope (fusiona amb layer.json polar existent si hi és) ---
+    slope_dir = layers_root / "terrain.slope"
+    slope_bin = slope_dir / "G1K" / "static.f32"
+    smin, smax, ssha = _write_f32(slope_bin, result.slope_deg)
+    g1k_file = {
+        "grid": "G1K",
+        "period": "static",
+        "path": "G1K/static.f32",
+        "dtype": "float32",
+        "sha256": ssha,
+        "min": smin,
+        "max": smax,
+    }
+    slope_json = slope_dir / "layer.json"
+    if slope_json.is_file():
+        slope_meta = json.loads(slope_json.read_text(encoding="utf-8"))
+        slope_meta["version"] = "0.2.0"
+        files = [f for f in slope_meta.get("files", []) if f.get("grid") != "G1K"]
+        files.append(g1k_file)
+        slope_meta["files"] = files
+        # Ampia method/params sense esborrar la part polar
+        slope_meta.setdefault("params", {})["baselineM_G1K"] = BASELINE_M
     else:
-        dem_view = dem[::step, ::step] if dem.shape == safety.shape else dem
-        if dem_view.shape != safety_view.shape:
-            rh = min(dem_view.shape[0], safety_view.shape[0])
-            rw = min(dem_view.shape[1], safety_view.shape[1])
-            dem_view = dem_view[:rh, :rw]
-            safety_view = safety_view[:rh, :rw]
+        slope_meta = {
+            "id": "terrain.slope",
+            "version": "0.2.0",
+            "title": "Slope",
+            "description": (
+                "Terrain slope in degrees relative to the local horizontal, "
+                "derived from LOLA LDEM resampled to G1K (~1 km baseline)."
+            ),
+            "units": "deg",
+            "validRange": [0, 90],
+            "kind": "static",
+            "owner": "Jan / Equipo Global (T1)",
+            "fidelity": "computed",
+            "method": (
+                "LOLA Global LDEM (USGS mosaic) area-average resampled to G1K; "
+                "slope via np.gradient with cos(lat) correction on equirectangular metres; "
+                "3×3 median pre-filter."
+            ),
+            "params": {"baselineM": BASELINE_M},
+            "sources": [
+                {
+                    "name": "LOLA Global LDEM 118m (USGS Planetary Maps)",
+                    "url": URL_LOLA_GLOBAL,
+                    "citation": "Smith et al. (2010), LOLA GDR, NASA PDS / USGS",
+                }
+            ],
+            "files": [g1k_file],
+        }
+    slope_json.write_text(json.dumps(slope_meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    out["terrain.slope.json"] = slope_json
+    out["terrain.slope.bin"] = slope_bin
 
-    dem_cmap = LinearSegmentedColormap.from_list(
-        "lunar_dem", ["#0b1020", "#2a3348", "#6b5e4e", "#c4b49a", "#f0e6d4"]
-    )
-    safe_cmap = LinearSegmentedColormap.from_list(
-        "safe", ["#1a1210", "#5c2e1a", "#c47a2a", "#e8d48a", "#f5f0dc"]
-    )
+    # --- suitability.slope ---
+    suit_dir = layers_root / "suitability.slope"
+    suit_bin = suit_dir / "G1K" / "static.u8"
+    umin, umax, usha = _write_u8_score(suit_bin, result.suitability)
+    suit_meta = {
+        "id": "suitability.slope",
+        "version": "0.2.0",
+        "title": "Slope suitability (0–100)",
+        "description": (
+            "Derived 0–100 score from terrain.slope. "
+            "Optional companion layer (contract §6); official scoring still uses degrees."
+        ),
+        "units": "score",
+        "validRange": [0, 100],
+        "kind": "static",
+        "owner": "Jan / Equipo Global (T1)",
+        "fidelity": "computed",
+        "method": (
+            "Derived from terrain.slope on the same G1K grid. "
+            f"function: {result.extras.get('function', '100 * max(0, 1 - slope_deg / 15)')}"
+        ),
+        "params": {
+            "derivedFrom": "terrain.slope",
+            "function": result.extras.get(
+                "function", f"{SAFETY_MAX:.0f} * max(0, 1 - slope_deg / {LLINDAR_VETO_GRAUS:g})"
+            ),
+            "vetoDeg": result.veto_deg,
+        },
+        "sources": [
+            {
+                "name": "Derived from terrain.slope",
+                "url": URL_LOLA_GLOBAL,
+                "citation": "Contract v0.2 §6 optional suitability layer",
+            }
+        ],
+        "files": [
+            {
+                "grid": "G1K",
+                "period": "static",
+                "path": "G1K/static.u8",
+                "dtype": "uint8",
+                "scale": 1,
+                "offset": 0,
+                "nodata": 255,
+                "sha256": usha,
+                "min": umin,
+                "max": umax,
+            }
+        ],
+    }
+    suit_json = suit_dir / "layer.json"
+    suit_json.write_text(json.dumps(suit_meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    out["suitability.slope.json"] = suit_json
+    out["suitability.slope.bin"] = suit_bin
 
-    elev_vmin = float(np.nanpercentile(dem_view, 2))
-    elev_vmax = float(np.nanpercentile(dem_view, 98))
+    if also_npy_dir is not None:
+        also_npy_dir = Path(also_npy_dir)
+        also_npy_dir.mkdir(parents=True, exist_ok=True)
+        np.save(also_npy_dir / "slope_deg.npy", result.slope_deg)
+        np.save(also_npy_dir / "safety.npy", result.suitability)
+        meta = {
+            "grid": GRID_ID,
+            "shape": [result.height, result.width],
+            "resolution_m": result.resolution_m,
+            "transform": list(result.transform)[:6],
+            "crs": result.crs,
+            "veto_deg": result.veto_deg,
+            "layers": ["terrain.slope", "suitability.slope"],
+        }
+        (also_npy_dir / "metadades.json").write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        out["npy_dir"] = also_npy_dir
 
-    fig, ax = plt.subplots(figsize=(11.5, 11.0), facecolor="#0e1116")
-    im = ax.imshow(dem_view, cmap=dem_cmap, origin="upper", vmin=elev_vmin, vmax=elev_vmax, aspect="equal")
-    _colorbar(fig, im, ax, "Elevació (m)")
-    _style_ax(ax, f"DEM cara visible · {GRID_ID}")
-    b64_dem = _fig_to_b64(fig)
-
-    fig, ax = plt.subplots(figsize=(11.5, 11.0), facecolor="#0e1116")
-    im = ax.imshow(safety_view, cmap=safe_cmap, origin="upper", vmin=0, vmax=SAFETY_MAX, aspect="equal")
-    _colorbar(fig, im, ax, "Seguretat [0–100]")
-    _style_ax(ax, f"Seguretat pendent · veto ≥ {result.veto_deg:.0f}°")
-    b64_safe = _fig_to_b64(fig)
-
-    fig, axes = plt.subplots(1, 2, figsize=(14.5, 7.0), facecolor="#0e1116")
-    im0 = axes[0].imshow(dem_view, cmap=dem_cmap, origin="upper", vmin=elev_vmin, vmax=elev_vmax, aspect="equal")
-    _colorbar(fig, im0, axes[0], "m")
-    _style_ax(axes[0], "DEM")
-    im1 = axes[1].imshow(safety_view, cmap=safe_cmap, origin="upper", vmin=0, vmax=SAFETY_MAX, aspect="equal")
-    _colorbar(fig, im1, axes[1], "0–100")
-    _style_ax(axes[1], "Seguretat")
-    fig.suptitle("Cara visible · DEM vs seguretat", color="#f0ebe0", fontsize=13, y=1.01)
-    fig.tight_layout()
-    b64_cmp = _fig_to_b64(fig)
-
-    viable = float((safety > 0).sum()) / safety.size * 100.0
-    html = f"""<!DOCTYPE html>
-<html lang="ca">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pas 1 — Cara visible · seguretat 0–100</title>
-<style>
-  :root {{ --bg:#0b0d12; --card:#141820; --ink:#f2eee6; --muted:#9a9488; --line:#2a303c; --accent:#d4a574; }}
-  * {{ box-sizing: border-box; }}
-  body {{ margin:0; font-family:"IBM Plex Sans",system-ui,sans-serif; background:
-    radial-gradient(900px 500px at 0% 0%, #1c2433, transparent 55%),
-    radial-gradient(800px 400px at 100% 0%, #2a1f14, transparent 50%), var(--bg);
-    color:var(--ink); line-height:1.55; }}
-  header, main, footer {{ max-width:1100px; margin:0 auto; padding:1.5rem; }}
-  h1 {{ font-family:"IBM Plex Serif",Georgia,serif; font-size:clamp(1.6rem,3.5vw,2.3rem); margin:0.3rem 0; }}
-  .sub {{ color:var(--muted); max-width:42rem; }}
-  .stats {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.7rem; margin:1.2rem 0 1.6rem; }}
-  .stat {{ background:var(--card); border:1px solid var(--line); padding:.85rem 1rem; }}
-  .stat b {{ display:block; font-size:1.05rem; }}
-  .stat span {{ color:var(--muted); font-size:.8rem; }}
-  .tabs {{ display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 1rem; }}
-  .tabs button {{ background:transparent; color:var(--muted); border:1px solid var(--line); padding:.45rem .9rem; cursor:pointer; font:inherit; }}
-  .tabs button.active {{ border-color:var(--accent); color:var(--accent); }}
-  .panel {{ display:none; }} .panel.active {{ display:block; }}
-  figure {{ margin:0; background:var(--card); border:1px solid var(--line); }}
-  figure img {{ display:block; width:100%; height:auto; }}
-  figcaption {{ padding:.75rem 1rem; color:var(--muted); font-size:.9rem; border-top:1px solid var(--line); }}
-  .compare {{ position:relative; width:100%; background:#000; overflow:hidden; border:1px solid var(--line); user-select:none; touch-action:none; line-height:0; }}
-  .compare > .base {{ display:block; width:100%; height:auto; position:relative; z-index:0; }}
-  .compare .top {{ position:absolute; left:0; top:0; bottom:0; width:50%; overflow:hidden; border-right:2px solid var(--accent); z-index:1; pointer-events:none; }}
-  .compare .top img {{ position:absolute; left:0; top:0; height:100%; width:auto; max-width:none; display:block; }}
-  .compare input[type=range] {{ position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:ew-resize; z-index:3; }}
-  .compare .hint {{ position:absolute; left:50%; bottom:.6rem; transform:translateX(-50%); background:rgba(0,0,0,.55); color:var(--ink); font-size:.75rem; padding:.25rem .55rem; z-index:2; pointer-events:none; line-height:1.3; }}
-  code {{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.9em; }}
-  pre {{ background:#0a0c10; border:1px solid var(--line); padding:1rem; overflow:auto; }}
-</style>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet" />
-</head>
-<body>
-<header>
-  <p style="color:var(--accent);font-size:.9rem;margin:0">Pas 1 · branca <code>Jan</code> · malla <code>{GRID_ID}</code></p>
-  <h1>Cara visible · seguretat 0–100</h1>
-  <p class="sub">Matriu {result.width}×{result.height} (lon −90°…+90°). Cara oculta eliminada. <code>safety</code> ∈ [0, 100].</p>
-</header>
-<main>
-  <div class="stats">
-    <div class="stat"><b>{result.width} × {result.height}</b><span>cel·les G32N</span></div>
-    <div class="stat"><b>32 px/°</b><span>pas (= G32 contracte)</span></div>
-    <div class="stat"><b>{viable:.1f} %</b><span>safety &gt; 0</span></div>
-    <div class="stat"><b>[{float(safety.min()):.0f}, {float(safety.max()):.0f}]</b><span>rang safety</span></div>
-  </div>
-  <div class="tabs" role="tablist">
-    <button type="button" class="active" data-tab="slider">Slider compara</button>
-    <button type="button" data-tab="side">Costa a costa</button>
-    <button type="button" data-tab="dem">Només DEM</button>
-    <button type="button" data-tab="safe">Només seguretat</button>
-  </div>
-  <div id="slider" class="panel active">
-    <div class="compare" id="compare">
-      <img class="base" id="compareBase" src="data:image/png;base64,{b64_safe}" alt="Seguretat" />
-      <div class="top" id="compareTop">
-        <img id="compareOverlay" src="data:image/png;base64,{b64_dem}" alt="DEM" />
-      </div>
-      <input type="range" min="0" max="100" value="50" id="compareRange" aria-label="Comparar DEM i seguretat" />
-      <div class="hint">← DEM | Seguretat → · arrossega</div>
-    </div>
-  </div>
-  <div id="side" class="panel"><figure><img src="data:image/png;base64,{b64_cmp}" alt="Comparació" /><figcaption>DEM vs seguretat (cara visible).</figcaption></figure></div>
-  <div id="dem" class="panel"><figure><img src="data:image/png;base64,{b64_dem}" alt="DEM" /><figcaption>DEM LOLA · cara visible.</figcaption></figure></div>
-  <div id="safe" class="panel"><figure><img src="data:image/png;base64,{b64_safe}" alt="Seguretat" /><figcaption>Seguretat 0–100 · veto ≥ {result.veto_deg:.0f}°.</figcaption></figure></div>
-  <h2 style="font-family:'IBM Plex Serif',Georgia,serif;font-size:1.2rem;margin-top:2rem">API Pas 2</h2>
-  <pre>from scripts.terrain_safety import compute_nearside_terrain_safety, TerrainSafetyMatrix
-result = compute_nearside_terrain_safety()
-safety = result.safety  # float32 (5760, 5760), valors 0–100</pre>
-</main>
-<footer style="color:var(--muted);font-size:.85rem">G32N · cara visible · safety 0–100</footer>
-<script>
-  document.querySelectorAll('.tabs button').forEach(btn => {{
-    btn.addEventListener('click', () => {{
-      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.tab).classList.add('active');
-      if (btn.dataset.tab === 'slider') syncCompare();
-    }});
-  }});
-  const range = document.getElementById('compareRange');
-  const top = document.getElementById('compareTop');
-  const overlay = document.getElementById('compareOverlay');
-  const base = document.getElementById('compareBase');
-  const compare = document.getElementById('compare');
-  function syncCompare() {{
-    const w = compare.clientWidth || base.clientWidth;
-    const h = base.clientHeight;
-    if (w > 0) overlay.style.width = w + 'px';
-    if (h > 0) {{ overlay.style.height = h + 'px'; top.style.height = h + 'px'; }}
-    top.style.width = range.value + '%';
-  }}
-  range.addEventListener('input', syncCompare);
-  window.addEventListener('resize', syncCompare);
-  if (base.complete) syncCompare(); else base.addEventListener('load', syncCompare);
-  overlay.addEventListener('load', syncCompare);
-  requestAnimationFrame(syncCompare);
-  setTimeout(syncCompare, 50);
-  setTimeout(syncCompare, 250);
-</script>
-</body>
-</html>
-"""
-    html_path = Path(html_path)
-    html_path.parent.mkdir(parents=True, exist_ok=True)
-    html_path.write_text(html, encoding="utf-8")
-    print(f"HTML → {html_path}")
-    return html_path
+    print("Export contracte:")
+    for k, p in out.items():
+        print(f"  ✓ {p} ({k})")
+    return out
 
 
-def rebuild_html_from_saved(outdir: Path, html_path: Path, url: str = URL_LOLA_GLOBAL) -> Path:
-    meta = json.loads((outdir / "metadades.json").read_text(encoding="utf-8"))
-    safety = np.load(outdir / "safety.npy")
-    result = TerrainSafetyMatrix(
-        safety=safety,
-        transform=Affine(*meta["transform"][:6]),
-        crs=meta.get("crs", ""),
-        resolution_m=float(meta["resolution_m"]),
-        veto_deg=float(meta.get("veto_deg", LLINDAR_VETO_GRAUS)),
-        source_url=meta.get("source_url", url),
-        grid_id=meta.get("grid", GRID_ID),
-    )
-    return render_safety_html(result, html_path, url=url)
+def update_catalog(layers_root: Path = Path("layers")) -> None:
+    catalog_path = layers_root / "catalog.json"
+    if catalog_path.is_file():
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    else:
+        catalog = {"contractVersion": "0.2", "layers": []}
+    catalog["contractVersion"] = "0.2"
+    layers = list(catalog.get("layers", []))
+    for lid in ("terrain.slope", "suitability.slope"):
+        if lid not in layers:
+            layers.append(lid)
+    catalog["layers"] = layers
+    catalog_path.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    print(f"  ✓ {catalog_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -616,40 +481,38 @@ def rebuild_html_from_saved(outdir: Path, html_path: Path, url: str = URL_LOLA_G
 # ---------------------------------------------------------------------------
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Pas 1: cara visible → safety [0,100] (G32N)")
+    p = argparse.ArgumentParser(description="T1: G1K terrain.slope + suitability.slope")
     p.add_argument("--url", default=URL_LOLA_GLOBAL)
-    p.add_argument("--outdir", type=Path, default=Path("data/pas1_global"))
-    p.add_argument("--html", type=Path, default=Path("docs/pas1_global_seguretat.html"))
     p.add_argument("--veto", type=float, default=LLINDAR_VETO_GRAUS)
-    p.add_argument("--html-only", action="store_true")
-    p.add_argument("--skip-html", action="store_true")
+    p.add_argument("--outdir", type=Path, default=Path("data/pas1_global"), help="npy de treball")
+    p.add_argument("--layers-root", type=Path, default=Path("layers"))
+    p.add_argument(
+        "--export-layers",
+        action="store_true",
+        default=True,
+        help="Escriu layers/terrain.slope i layers/suitability.slope (defecte: sí)",
+    )
+    p.add_argument("--no-export-layers", action="store_true")
     return p.parse_args(argv)
-
-
-def _copy_html_artifact(html_path: Path) -> None:
-    art = Path("/opt/cursor/artifacts/pas1_global_seguretat.html")
-    if art.parent.is_dir() and html_path.is_file():
-        art.write_text(html_path.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"HTML → {art}")
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if args.html_only:
-        rebuild_html_from_saved(args.outdir, args.html, url=args.url)
-        _copy_html_artifact(args.html)
-        return 0
+    result = compute_terrain_layers(url=args.url, veto_deg=args.veto)
+    print(
+        f"\nObjecte TerrainLayers  shape={result.shape}\n"
+        f"  slope_deg     [{np.nanmin(result.slope_deg):.2f}, {np.nanmax(result.slope_deg):.2f}] °\n"
+        f"  suitability   [{result.suitability.min():.0f}, {result.suitability.max():.0f}]"
+    )
 
-    result = compute_nearside_terrain_safety(url=args.url, veto_deg=args.veto)
-    paths = result.save(args.outdir)
-    for k, v in paths.items():
-        print(f"  ✓ {v} ({k})")
-    print(f"\nObjecte: TerrainSafetyMatrix  shape={result.safety.shape}  "
-          f"rang=[{result.safety.min():.1f}, {result.safety.max():.1f}]")
-
-    if not args.skip_html:
-        render_safety_html(result, args.html, url=args.url)
-        _copy_html_artifact(args.html)
+    do_export = args.export_layers and not args.no_export_layers
+    if do_export:
+        export_contract_layers(result, layers_root=args.layers_root, also_npy_dir=args.outdir)
+        update_catalog(args.layers_root)
+    else:
+        args.outdir.mkdir(parents=True, exist_ok=True)
+        np.save(args.outdir / "slope_deg.npy", result.slope_deg)
+        np.save(args.outdir / "safety.npy", result.suitability)
     return 0
 
 
