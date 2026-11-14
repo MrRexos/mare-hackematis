@@ -35,6 +35,34 @@
           "end": null
         }
       }
+    },
+    "water": {
+      "id": "ice.water_equivalent_wt_pct",
+      "label": "Water",
+      "branch": "Joel (T9)",
+      "units": "wt%",
+      "kind": "static",
+      "combine": "none",
+      "fidelity": "approximate",
+      "title": "Polar water-equivalent hydrogen (excess over background)",
+      "sources": [
+        {
+          "name": "Lunar Prospector GRS/NS special products (0.5°)",
+          "url": "https://pds-geosciences.wustl.edu/missions/lunarp/reduced_special.html",
+          "citation": "Lunar Prospector Spectrometer Team, NASA PDS Geosciences Node"
+        },
+        {
+          "name": "Reference",
+          "citation": "Feldman et al. (2001), JGR 106, 23231; Lawrence et al. (2006), JGR 111"
+        }
+      ],
+      "periods": {
+        "static": {
+          "file": "global/water/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
     }
   },
   "horizon": {

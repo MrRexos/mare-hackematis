@@ -119,6 +119,7 @@ Lo que no depende de la fecha ya está calculado y va en el repositorio
 | `horizon_sub.u8` | Por encima de 60° de latitud, 4 horizontes por celda (2 × 2 puntos), 25 MB |
 | `elevation.f32` | Altura del centro de cada celda |
 | `slope/static.f32` | Pendiente media de la celda, de `terrain.slope` G1K (T1, Jan) |
+| `water/static.f32` | Agua equivalente (% en peso), de `ice.water_equivalent_wt_pct` G1K (T9, Joel) |
 | `temp_diurnal.u8` | Temperatura medida por LRO Diviner según la hora local, 48 tramos por celda, 12 MB |
 | `hillshade.png` | Relieve sombreado (ayuda visual) |
 
@@ -128,6 +129,12 @@ Para regenerarlos (solo si cambia el relieve o la pendiente), desde `pipeline/`:
 ../.venv/Scripts/python -m moonsite.fetch global      # LDEM_64 + SPICE
 ../.venv/Scripts/python -m moonsite.web_global        # horizontes (~2 min) + pendiente + relieve
 ```
+
+**Agua.** Capa «Water» y factor de hielo de la puntuación: agua equivalente del hidrógeno
+medido por Lunar Prospector (producto de 0,5°, huella real de 60–150 km), que solo se atribuye
+a hielo por encima de 70° de latitud; por debajo vale 0. El factor es agua / 0,1 % (tope 1):
+a esta resolución un depósito de cráter en sombra (~1,5 %) se ve diluido en 0,05–0,1 %. No
+depende de la fecha. El umbral está en `WATER_FULL_WT_PCT` (`web/src/engine/globalScore.js`).
 
 **Temperatura de la superficie (T7).** No se modela: se usa la medida por LRO Diviner
 (Global Cumulative Products, Williams et al. 2017), que da la curva día-noche de cada celda

@@ -7,6 +7,7 @@ de la misión, igual que en el polo sur. Para eso necesita lo que no depende de 
     temp_diurnal.u8 temperatura medida por Diviner según la hora local (moonsite.thermal_global)
     elevation.f32   altura del centro de cada celda
     slope/static.f32  pendiente media de la celda, a partir de terrain.slope G1K (T1, Jan)
+    water/static.f32  agua equivalente (% en peso), de ice.water_equivalent_wt_pct G1K (T9, Joel)
     hillshade.png   relieve sombreado de LOLA LDEM_64 (solo ayuda visual)
 
 Malla web: 0,5° por celda (720 × 360), misma orientación que G1K (columna 0 desde −180°,
@@ -36,6 +37,7 @@ DTYPES = {"float32": "<f4", "int16": "<i2", "uint16": "<u2", "uint8": "u1"}
 
 CAPAS = {
     "slope": {"id": "terrain.slope", "label": "Slope", "branch": "Jan (T1)"},
+    "water": {"id": "ice.water_equivalent_wt_pct", "label": "Water", "branch": "Joel (T9)"},
 }
 
 
