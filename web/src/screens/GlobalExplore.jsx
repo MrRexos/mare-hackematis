@@ -21,7 +21,9 @@ const VIEW = {
   temp: { label: "Mean temp.", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
   tmin: { label: "Coldest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
   tmax: { label: "Hottest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
-  night: { label: "Longest night", unit: "h", fmt: (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`), extent: (a) => [0, maxOf(a) || 1], invert: true },
+  // Sin capa de mapa propia (se parece demasiado a la de luz): se sigue calculando para el
+  // límite de autonomía de Mission settings y se enseña en la ficha de cada celda.
+  night: { noMap: true, label: "Longest night", unit: "h", fmt: (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`), extent: (a) => [0, maxOf(a) || 1], invert: true },
 };
 
 function maxOf(a) {
@@ -122,7 +124,7 @@ export default function GlobalExplore({ app }) {
     <div className="overlay layerbar">
       <Icon name="layers" size={16} />
       <span style={{ width: 6 }} />
-      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k]) => !(k.startsWith("t") && !gm.thermal))].map(([k, v]) => (
+      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k, v]) => !v.noMap && !(k.startsWith("t") && !gm.thermal))].map(([k, v]) => (
         <button key={k} type="button" aria-pressed={layerKey === k} disabled={k !== "score" && !L[k]}
           className={cx("layerbar__b", layerKey === k && "is-on")} onClick={() => setLayerKey(k)}>
           {layerKey === k ? <Icon name="check" size={12} /> : null}
