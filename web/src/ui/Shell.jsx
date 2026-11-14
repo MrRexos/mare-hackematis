@@ -110,7 +110,7 @@ function ticks(startMs, endMs) {
  * (relleno suave) y la ventana de la misión (recuadro). Expandida muestra los
  * carriles de Sol y Tierra del lugar seleccionado.
  */
-export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missionWin, lanes, emptyNote }) {
+export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missionWin, lanes, emptyNote, onNextWindow }) {
   const [playing, setPlaying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const trackRef = useRef(null);
@@ -144,7 +144,9 @@ export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missi
     if (e.key === "Home") { e.preventDefault(); setTimeMs(startMs); }
     if (e.key === "End") { e.preventDefault(); setTimeMs(endMs); }
   };
+  // "Next window": si la app gestiona una ventana seleccionada, la avanza (y el reloj la sigue).
   const nextWin = () => {
+    if (onNextWindow) { onNextWindow(); return; }
     const w = windows.find((x) => x[0] > timeMs + HOUR_MS) || windows[0];
     if (w) setTimeMs(w[0]);
   };
@@ -236,10 +238,13 @@ export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missi
           </div>
         </div>
         <div className="timebar__btns">
-          <button type="button" className="btn btn--secondary btn--md" onClick={nextWin} disabled={!windows.length}>
-            <Icon name="skip-forward" size={16} />
-            <span>Next window</span>
-          </button>
+          {/* Solo se usa la mejor ventana: el botón aparece únicamente si la app lo pide. */}
+          {onNextWindow ? (
+            <button type="button" className="btn btn--secondary btn--md" onClick={nextWin} disabled={!windows.length}>
+              <Icon name="skip-forward" size={16} />
+              <span>Next window</span>
+            </button>
+          ) : null}
           <span className="rate">1 d/s</span>
           <button type="button" className="ibtn ibtn--raised" style={{ width: 40, height: 40 }} aria-label="Expand or collapse time controls" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
             <Icon name={expanded ? "chevron-down" : "chevron-up"} size={20} />

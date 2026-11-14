@@ -49,7 +49,7 @@ function WeightRow({ f, value, onChange }) {
 export default function SetupPriorities({ weights, setWeights, mission, sitesCount, go, openSettings }) {
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
-  const periodName = { next12: "Next 12 months", nofixed: "No fixed date", custom: "Custom window" }[mission.period];
+  const periodName = { fixed: "Landing date set", next12: "Best dates · next 12 months", nofixed: "Best dates · 2026–2030", custom: "Best dates · custom range" }[mission.period];
 
   return (
     <div className="prio">

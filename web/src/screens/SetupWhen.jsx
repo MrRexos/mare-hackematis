@@ -16,7 +16,7 @@ export function lengthLong(d) {
 const toInput = (ms) => new Date(ms).toISOString().slice(0, 10);
 const fromInput = (s) => Date.parse(`${s}T00:00:00Z`);
 
-function LengthSlider({ value, onChange }) {
+export function LengthSlider({ value, onChange }) {
   const li = Math.max(0, LENGTH_STEPS.indexOf(value));
   const n = LENGTH_STEPS.length - 1;
   const drag = useRef(false);
@@ -54,16 +54,15 @@ function LengthSlider({ value, onChange }) {
   );
 }
 
-export default function SetupWhen({ mission, setPeriod, setCustom, setDuration, periods, problem, go, openSettings, openLearn }) {
+/** Rangos de búsqueda del modo "Find the best dates". */
+export const SEARCH_RANGES = [["next12", "Next 12 months"], ["nofixed", "2026 – 2030"], ["custom", "Custom range"]];
+
+export default function SetupWhen({ mission, setPeriod, setCustom, setFixed, setDuration, periods, problem, go, openSettings, openLearn }) {
   const [menu, setMenu] = useState(false);
   const [about, setAbout] = useState(false);
-  const [editDays, setEditDays] = useState(false);
-
-  const cols = [
-    ["nofixed", "01", "No fixed\ndate", `${new Date(periods.nofixed[0]).getUTCFullYear()} → ${new Date(periods.nofixed[1]).getUTCFullYear()}`],
-    ["next12", "02", "Next\n12 months", `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`],
-    ["custom", "03", "Custom\nwindow", null],
-  ];
+  const fixed = mission.period === "fixed";
+  const searchSub = mission.period === "next12" ? `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`
+    : mission.period === "nofixed" ? `${new Date(periods.nofixed[0]).getUTCFullYear()} → ${new Date(periods.nofixed[1]).getUTCFullYear()}` : null;
 
   return (
     <div className="when">
@@ -88,28 +87,49 @@ export default function SetupWhen({ mission, setPeriod, setCustom, setDuration, 
       <h1 className="when__title">Plan<br />your<br />landing</h1>
 
       <div role="radiogroup" aria-label="When" className="when__cols">
-        {cols.map(([id, idx, title, sub]) => {
-          const on = mission.period === id;
-          return (
-            <div key={id} className="when__col">
-              <span className="when__idx">{idx}</span>
-              <button type="button" role="radio" aria-checked={on} className={cx("when__opt", on && "is-on")} onClick={() => setPeriod(id)}>{title}</button>
-              {on && sub ? <span className="when__sub">{sub}</span> : null}
-              {on && id === "custom" ? (
+        {/* 01 — Tengo fecha: todas las celdas se evalúan en esas mismas fechas. */}
+        <div className="when__col">
+          <span className="when__idx">01</span>
+          <button type="button" role="radio" aria-checked={fixed} className={cx("when__opt", fixed && "is-on")} onClick={() => setPeriod("fixed")}>{"I have a\nlanding date"}</button>
+          {fixed ? (
+            <>
+              <div className="when__dates">
+                <label><span>Land</span><input type="date" aria-label="Landing date" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setFixed(fromInput(e.target.value))} /></label>
+              </div>
+              <span className="when__sub">Every site is scored for these dates · back {fmtDay(mission.toMs)}</span>
+            </>
+          ) : <span className="when__sub">Compare all sites on the same dates</span>}
+          <button type="button" className={cx("when__act", fixed && "is-on")} onClick={() => setPeriod("fixed")}>{fixed ? "Selected" : "Select"}</button>
+        </div>
+
+        {/* 02 — Búscame la mejor: cada celda en sus mejores días del rango. */}
+        <div className="when__col">
+          <span className="when__idx">02</span>
+          <button type="button" role="radio" aria-checked={!fixed} className={cx("when__opt", !fixed && "is-on")} onClick={() => !fixed || setPeriod("next12")}>{"Find the\nbest dates"}</button>
+          {!fixed ? (
+            <>
+              <div className="chips" role="radiogroup" aria-label="Search range">
+                {SEARCH_RANGES.map(([id, label]) => (
+                  <button key={id} type="button" role="radio" aria-checked={mission.period === id} className={cx("chip", mission.period === id && "is-on")} onClick={() => setPeriod(id)}>{label}</button>
+                ))}
+              </div>
+              {mission.period === "custom" ? (
                 <div className="when__dates">
                   <label><span>From</span><input type="date" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(fromInput(e.target.value), mission.toMs)} /></label>
                   <label><span>To</span><input type="date" value={toInput(mission.toMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(mission.fromMs, fromInput(e.target.value))} /></label>
                 </div>
-              ) : null}
-              <button type="button" className={cx("when__act", on && "is-on")} onClick={() => setPeriod(id)}>{on ? "Selected" : "Select"}</button>
-            </div>
-          );
-        })}
+              ) : <span className="when__sub">{searchSub}</span>}
+              <span className="when__sub">Each site gets its own best days</span>
+            </>
+          ) : <span className="when__sub">Each site gets its own best days</span>}
+          <button type="button" className={cx("when__act", !fixed && "is-on")} onClick={() => !fixed || setPeriod("next12")}>{!fixed ? "Selected" : "Select"}</button>
+        </div>
+
+        {/* 03 — Días en superficie (siempre visible). */}
         <div className="when__col">
-          <span className="when__idx">04</span>
+          <span className="when__idx">03</span>
           <span className="when__opt is-on is-static">{`${lengthLong(mission.durationDays)}\non surface`}</span>
-          {editDays ? <LengthSlider value={mission.durationDays} onChange={setDuration} /> : null}
-          <button type="button" className="when__act" onClick={() => setEditDays(!editDays)}>{editDays ? "Done" : "Change"}</button>
+          <LengthSlider value={mission.durationDays} onChange={setDuration} />
         </div>
         {problem ? <p className="when__problem" role="status"><Icon name="alert" size={14} />{problem}</p> : null}
       </div>

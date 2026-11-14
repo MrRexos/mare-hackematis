@@ -5,6 +5,7 @@ import { L } from "../ds.js";
 import { Icon, Btn, Tabs, Toggle, Choice, IconBtn, cx } from "../ui/kit.jsx";
 import { fmtIso } from "../ui/Shell.jsx";
 import { FACTORS } from "../engine/score.js";
+import { LengthSlider, SEARCH_RANGES, lengthLong } from "./SetupWhen.jsx";
 
 const toInput = (ms) => new Date(ms).toISOString().slice(0, 10);
 const fromInput = (s) => Date.parse(`${s}T00:00:00Z`);
@@ -27,7 +28,8 @@ function Section({ title, children, note }) {
 }
 
 export function SettingsDrawer({ app, onClose }) {
-  const { mission, setPeriod, setCustom, setMissionOpts, periods, running, progress, restoreDefaults, dirty, limits, setLimits, problem } = app;
+  const { mission, setPeriod, setCustom, setFixed, setDuration, setMissionOpts, periods, running, progress, restoreDefaults, dirty, limits, setLimits, problem } = app;
+  const fixed = mission.period === "fixed";
   const ref = useRef(null);
   useEscape(onClose);
   useEffect(() => { ref.current?.focus(); }, []);
@@ -41,19 +43,40 @@ export function SettingsDrawer({ app, onClose }) {
           <IconBtn icon="x" label="Close" onClick={onClose} />
         </div>
         <div className="drawer__body">
-          <Section title="Period">
+          <Section title="Landing date">
             <Tabs
-              label="Period"
-              value={mission.period === "custom" ? "custom" : mission.period}
-              onChange={(v) => setPeriod(v)}
-              options={[{ value: "next12", label: "Next 12 months" }, { value: "nofixed", label: "No fixed date" }, { value: "custom", label: "Custom" }]}
+              label="Landing date"
+              value={fixed ? "fixed" : "search"}
+              onChange={(v) => setPeriod(v === "fixed" ? "fixed" : "next12")}
+              options={[{ value: "fixed", label: "I have a date" }, { value: "search", label: "Find the best" }]}
               className="tabs--block"
             />
-            <div className={cx("dates", mission.period !== "custom" && "is-dim")}>
-              <label><span className="lbl">From</span><input type="date" aria-label="From" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(fromInput(e.target.value), mission.toMs)} /></label>
-              <label><span className="lbl">To</span><input type="date" aria-label="To" value={toInput(mission.toMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(mission.fromMs, fromInput(e.target.value))} /></label>
-            </div>
+            {fixed ? (
+              <>
+                <div className="dates">
+                  <label><span className="lbl">Land</span><input type="date" aria-label="Landing date" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setFixed(fromInput(e.target.value))} /></label>
+                </div>
+                <p className="muted-12">Every site is scored for these same dates.</p>
+              </>
+            ) : (
+              <>
+                <div className="chips" role="radiogroup" aria-label="Search range">
+                  {SEARCH_RANGES.map(([id, label]) => (
+                    <button key={id} type="button" role="radio" aria-checked={mission.period === id} className={cx("chip", mission.period === id && "is-on")} onClick={() => setPeriod(id)}>{label}</button>
+                  ))}
+                </div>
+                <div className={cx("dates", mission.period !== "custom" && "is-dim")}>
+                  <label><span className="lbl">From</span><input type="date" aria-label="From" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(fromInput(e.target.value), mission.toMs)} /></label>
+                  <label><span className="lbl">To</span><input type="date" aria-label="To" value={toInput(mission.toMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(mission.fromMs, fromInput(e.target.value))} /></label>
+                </div>
+                <p className="muted-12">Each site is scored on its own best days in this range.</p>
+              </>
+            )}
             {problem ? <p className="note-12"><Icon name="alert" size={12} />{problem}</p> : null}
+          </Section>
+
+          <Section title="Days on the surface" note={<span className="num-13">{lengthLong(mission.durationDays)}</span>}>
+            <LengthSlider value={mission.durationDays} onChange={setDuration} />
           </Section>
 
           <Section title="Sun visible when">

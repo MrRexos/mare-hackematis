@@ -9,7 +9,9 @@ function SourceLink({ href, children }) {
   return <a href={href} target="_blank" rel="noreferrer">{children}<Icon name="external-link" size={12} /></a>;
 }
 
-export function MapPointReadout({ data, layer, values, pending, hoveredPixel, selected, onEnter, children }) {
+const MISSION_RAMPS = ["score", "sun", "earth"];
+
+export function MapPointReadout({ data, layer, values, pending, hoveredPixel, selected, onEnter, datesFor, fixedDates, children }) {
   const pixel = hoveredPixel ?? selected?.p;
   if (pixel == null) return null;
   const { grid } = data.manifest;
@@ -27,6 +29,13 @@ export function MapPointReadout({ data, layer, values, pending, hoveredPixel, se
         <span className="muted-12 grow">{layer.label}</span>
         <strong className="num-15">{reading}</strong>
       </div>
+      {/* Las capas de misión dependen de fechas: en modo búsqueda cada celda tiene las suyas. */}
+      {!pending && MISSION_RAMPS.includes(layer.ramp) && datesFor?.(pixel) ? (
+        <div className="row-8">
+          <span className="muted-12 grow">{fixedDates ? "Your dates" : "Best days here"}</span>
+          <span className="num-13">{datesFor(pixel)}</span>
+        </div>
+      ) : null}
       {hoveredPixel == null && layer.ramp === "score" && selected.excluded && (
         <div className="note-12"><Icon name="info" size={12} />{selected.excluded}</div>
       )}

@@ -121,7 +121,24 @@ export default function Explore({ app }) {
                 </div>
               ) : dim === "3D" ? (
                 <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                  <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} timeMs={timeMs} onTimeChange={setTimeMs} />
+                  <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
+                  {sel ? (
+                    // Sitio pulsado en 3D: las mismas acciones que el popup del mapa 2D.
+                    <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${sel.name}`}>
+                      <div className="row-8">
+                        <Shape kind={sel.shape} />
+                        <b className="grow">{sel.name}</b>
+                        <span className="num-15">{Number.isFinite(sel.score) ? Math.round(sel.score) : "–"}</span>
+                      </div>
+                      <span className="coords">{sel.coords}</span>
+                      <div className="row-6">
+                        <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => { app.setTab("overview"); go("site"); }}>Open site</Btn>
+                        <CompareToggle size="sm" inCmp={inCmp(sel)} onClick={() => toggleCmp(sel)} />
+                        <div className="grow" />
+                        <IconBtn icon="x" label="Clear selection" variant="ghost" size={32} onClick={() => setSelRef(null)} />
+                      </div>
+                    </div>
+                  ) : null}
                 </Suspense>
               ) : (
                 <MapView
@@ -151,6 +168,7 @@ export default function Explore({ app }) {
                   legendEnds={legendEnds} showIceEvidence={showIceEvidence} onIceEvidence={setShowIceEvidence}>
                   {data && (
                     <MapPointReadout data={data} layer={layer} values={values} pending={pendingScore} hoveredPixel={hoveredPixel} selected={sel}
+                      datesFor={app.datesFor} fixedDates={app.fixedDates}
                       onEnter={() => setHoveredPixel(null)}>
                       {sel && hoveredPixel == null && (
                         <div className="row-6">
@@ -241,7 +259,13 @@ export default function Explore({ app }) {
                 </div>
                 <div className="row-6 px-4 wrap">
                   {Object.entries(groups).map(([id, g]) => (
-                    <button key={id} type="button" className={cx("chip", group === id && "is-on")} aria-pressed={group === id} onClick={() => setGroup(id)}>
+                    <button key={id} type="button" className={cx("chip", group === id && "is-on")} aria-pressed={group === id} onClick={() => {
+                      // Al cambiar de ranking, la selección (ficha del mapa) pasa al primero de la nueva
+                      // lista si el sitio seleccionado no pertenece a ella.
+                      setGroup(id);
+                      const first = g.find((p) => Number.isFinite(p.score));
+                      if (first && !g.some((p) => p.key === sel?.key)) setSelRef(first.ref);
+                    }}>
                       {g.label}<span className="chip__n">{g.length}</span>
                     </button>
                   ))}
@@ -271,7 +295,8 @@ export default function Explore({ app }) {
             </Card>
           </aside>
         </div>
-        {TimeBarEl}
+        {/* La barra de tiempo solo donde el tiempo cambia algo: el mapa 2D muestra resúmenes de la misión. */}
+        {dim === "3D" ? TimeBarEl : null}
       </main>
     </div>
   );

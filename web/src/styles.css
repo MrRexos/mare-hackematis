@@ -542,6 +542,22 @@ button:disabled { cursor: default; }
 }
 .label3d--spot { font-variant-numeric: tabular-nums; }
 .label3d.is-selected { background: var(--ink); color: var(--on-ink); }
+.sel3d { position: absolute; left: 20px; bottom: 20px; z-index: var(--z-hud); }
+/* Good days en filas: Sol, Tierra y ambos, alineadas bajo los mismos meses. */
+.gdays--rows { padding-top: 0; display: flex; flex-direction: column; gap: 6px; }
+.gdays__help { margin: 0 0 6px; max-width: 72ch; }
+.gdays__help b { color: var(--ink); font-weight: 600; }
+.gdays__row { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 10px; }
+.gdays__row--axis { height: 14px; }
+.gdays__row--axis .gdays__months { position: relative; height: 14px; }
+.gdays__name { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-secondary); }
+.gdays__strip--row { height: 22px; }
+.gdays__ramp--neutral { background: linear-gradient(90deg, color-mix(in srgb, var(--ink) 8%, transparent), var(--ink)); }
+.site-score { gap: 4px; margin-left: var(--space-6); padding-left: var(--space-6); border-left: 1px solid var(--line); align-self: center; }
+.label3d--btn { pointer-events: auto; cursor: pointer; border: 0; font-family: inherit; }
+.label3d--btn:hover { background: var(--surface-hover); }
+.label3d--btn.is-selected:hover { background: var(--ink); }
+.label3d--btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* ---------- Learn (página de ayuda) ---------- */
 .learn { min-height: 100%; padding: 48px; }

@@ -5,8 +5,8 @@ import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, exclusionAt, factorsAt, scoreGrid } fr
 import { LAYERS } from "./data/mapLayers.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
-import { landingWindows, runs, siteTimeline } from "./engine/timeline.js";
-import { Rail, TimeBar } from "./ui/Shell.jsx";
+import { landingWindows, runs, siteTimeline, windowDetails } from "./engine/timeline.js";
+import { Rail, TimeBar, fmtShort } from "./ui/Shell.jsx";
 import SetupWhen from "./screens/SetupWhen.jsx";
 import SetupPriorities from "./screens/SetupPriorities.jsx";
 import Explore from "./screens/Explore.jsx";
@@ -112,7 +112,7 @@ export default function App() {
         if (d.horizon && d.ephem) engineRef.current = new MissionEngine(d);
         const p = computePeriods(d.manifest.ephem);
         setPeriods(p);
-        setMission((m) => (m.period === "custom" ? m : { ...m, fromMs: p[m.period][0], toMs: p[m.period][1] }));
+        setMission((m) => (m.period === "custom" || m.period === "fixed" ? m : { ...m, fromMs: p[m.period][0], toMs: p[m.period][1] }));
         setData(d);
       })
       .catch((e) => setLoadState((s) => ({ ...s, error: e.message })));
@@ -123,9 +123,21 @@ export default function App() {
   const problem = missionProblem(mission, periods.range);
 
   // --- Mission setters -------------------------------------------------------
-  const setPeriod = (period) => setMission((m) => (period === "custom" ? { ...m, period } : { ...m, period, fromMs: periods[period][0], toMs: periods[period][1] }));
+  // Dos modos de misión:
+  //  - "fixed": tengo fecha de aterrizaje -> la misión va de esa fecha a fecha + duración;
+  //    todas las celdas se evalúan en las MISMAS fechas.
+  //  - búsqueda ("next12" | "nofixed" | "custom"): cada celda en SUS mejores días del periodo.
+  const setFixed = (landMs) => setMission((m) => ({ ...m, period: "fixed", fromMs: landMs, toMs: landMs + m.durationDays * DAY_MS }));
+  const setPeriod = (period) => setMission((m) => {
+    if (period === "fixed") {
+      const land = m.period === "fixed" ? m.fromMs : Math.max(periods.range[0], m.fromMs);
+      return { ...m, period, fromMs: land, toMs: land + m.durationDays * DAY_MS };
+    }
+    if (period === "custom") return { ...m, period, toMs: Math.max(m.toMs, m.fromMs + (m.durationDays + 30) * DAY_MS) };
+    return { ...m, period, fromMs: periods[period][0], toMs: periods[period][1] };
+  });
   const setCustom = (fromMs, toMs) => setMission((m) => ({ ...m, period: "custom", fromMs, toMs }));
-  const setDuration = (durationDays) => setMission((m) => ({ ...m, durationDays }));
+  const setDuration = (durationDays) => setMission((m) => (m.period === "fixed" ? { ...m, durationDays, toMs: m.fromMs + durationDays * DAY_MS } : { ...m, durationDays }));
   const setMissionOpts = (o) => setMission((m) => ({ ...m, ...o }));
   const restoreDefaults = () => {
     setMission({ period: "next12", fromMs: periods.next12[0], toMs: periods.next12[1], ...DEFAULT_OPTS });
@@ -298,7 +310,10 @@ export default function App() {
     [tl, mission.durationDays, weights.sun, weights.earth, landEndMs]);
   const toMs = (rr) => rr.map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]);
   const windowsMs = tl && lw ? toMs(lw.windows) : [];
-  const missionWin = tl && lw && lw.best >= 0 ? [tl.startMs + lw.best * H, tl.startMs + (lw.best + lw.D) * H] : null;
+  // Solo la MEJOR ventana: la tarjeta, la nota y las barras de Sol/Tierra hablan
+  // siempre de la misma misión. Otras fechas: modo "I have a landing date" o "Good days".
+  const curWin = useMemo(() => windowDetails(tl, lw).find((w) => w.isBest) || null, [tl, lw]);
+  const missionWin = tl && lw && curWin ? [tl.startMs + curWin.start * H, tl.startMs + (curWin.start + lw.D) * H] : null;
   const lanes = useMemo(() => (tl ? { sun: runs(tl.sun).map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]), earth: runs(tl.earth).map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]) } : null), [tl]);
 
   // Serie de cualquier lugar (Compare), con caché.
@@ -374,7 +389,14 @@ export default function App() {
   const v = data?.validation?.horizons?.maxArcmin;
   const validation = v ? `JPL Horizons · ≤ ${Math.max(v.sun, v.earth).toFixed(3)}′` : "JPL Horizons";
 
-  const useDates = (a, b) => setCustom(Math.floor(a / DAY_MS) * DAY_MS, Math.ceil((b + DAY_MS) / DAY_MS) * DAY_MS);
+  // Fechas de misión de una celda: en modo búsqueda cada celda tiene las suyas.
+  const datesFor = (p) => {
+    if (!result || p == null) return null;
+    const b = result.best[p];
+    if (!(b >= 0)) return null;
+    const a = result.startMs + b * result.stepMs;
+    return `${fmtShort(a)} → ${fmtShort(a + result.durationH * H)}`;
+  };
 
   const RailEl = <Rail screen={screen} go={go} onMission={() => setOverlay("settings")} onExport={() => setOverlay("export")} />;
   const TimeBarEl = (
@@ -386,19 +408,21 @@ export default function App() {
     places: [...sites, ...spots], groups, group, setGroup, selected, setSelRef, weights, setWeights, limits, setLimits,
     layerKey, setLayerKey, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
     terrainLayer, setTerrainLayer, showIceEvidence, setShowIceEvidence,
-    dim, setDim, mission, periods, setPeriod, setCustom, setDuration, setMissionOpts, restoreDefaults, dirty,
+    dim, setDim, mission, periods, setPeriod, setCustom, setFixed, setDuration, setMissionOpts, restoreDefaults, dirty,
     openSettings: () => setOverlay("settings"), go, tab, setTab,
     cmp: cmpRefs, toggleCmp, inCmp, cmpPlaces, addBest3, canAddBest: ranked.length > 0,
     timeMs, setTimeMs, Rail: RailEl, TimeBarEl,
     moonMission: { windowStartMs: mission.fromMs, windowEndMs: landEndMs, durationDays: mission.durationDays },
     sitesForMap: sites, spotsForMap: spots,
-    tl, lw, siteList, stepSite, rankInfo, validation, useDates, timelineFor, region: "South Pole",
+    tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: "South Pole",
+    datesFor, fixedDates: mission.period === "fixed",
+    curWin,
     exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,
   };
 
   let page;
   if (screen === "when") {
-    page = <SetupWhen mission={mission} setPeriod={setPeriod} setCustom={setCustom} setDuration={setDuration} periods={periods} problem={problem} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
+    page = <SetupWhen mission={mission} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
   } else if (screen === "priorities") {
     page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} sitesCount={sites.length || 8} go={go} openSettings={() => setOverlay("settings")} />;
   } else if (screen === "site") {
