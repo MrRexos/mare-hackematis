@@ -1,50 +1,46 @@
 # NASA Space Apps 2026 — Lunar Landing Site Navigator
 
-Avaluació de zones d'aterratge al Pol Sud lunar (missions CLPS / Artemis) mitjançant un mapa de calor matricial de viabilitat (0–100), combinant seguretat topogràfica (pendent), il·luminació solar i comunicacions amb la Terra.
+Avaluació de zones d'aterratge lunar (CLPS / Artemis) amb mapa de calor de viabilitat, combinant seguretat topogràfica (pendent), il·luminació solar i comunicacions amb la Terra.
 
-## Pas 1 — DEM LOLA, pendent i capa de seguretat
+## Pas 1 — Seguretat topogràfica
 
-Script autònom que:
+### Mode global (recomanat per al Pas 2)
 
-1. Descarrega **només un retall** (2000×2000 px) del LRO LOLA DEM via `rasterio` + `/vsicurl/` (USGS / NASA).
-2. Detecta si el CRS és en **graus** o en **metres** i, si cal, reprojecta a **Moon 2000 South Pole Stereographic**.
-3. Neteja NoData i soroll del sensor (mediana 3×3).
-4. Calcula el pendent en graus (filtre de màxim = base de la nau) i la capa normalitzada 0–1 amb veto ≥ 15°.
-5. Exporta `.npy`, GeoTIFF i `metadades.json` per al Pas 2 (efemèrides).
-
-### Instal·lació
-
-```bash
-pip install numpy scipy rasterio affine
-```
-
-O amb el fitxer del repositori:
+Processa **tota la Lluna** en requadres d’≈ **1 km²** i retorna un objecte amb la matriu `safety` ∈ [0, 1].
 
 ```bash
 pip install -r requirements.txt
+python3 scripts/terrain_safety.py --cell-m 1000 --outdir data/pas1_global
 ```
 
-### Execució
+Ús programàtic:
 
-```bash
-python scripts/pas1_dem_pendent.py
+```python
+from scripts.terrain_safety import compute_global_terrain_safety
+# o:
+# import sys; sys.path.insert(0, "scripts")
+# from terrain_safety import compute_global_terrain_safety
+
+result = compute_global_terrain_safety(cell_m=1000.0)
+safety = result.safety          # np.ndarray float32, [0, 1]
+# equivalent: np.asarray(result)
 ```
 
-Opcions útils:
-
-```bash
-python scripts/pas1_dem_pendent.py \
-  --outdir data/pas1 \
-  --window 2000 \
-  --lon 0.0 \
-  --lat -89.5
-```
-
-### Sortides (`data/pas1/`)
+Sortides:
 
 | Fitxer | Contingut |
 |--------|-----------|
-| `dem_net.npy` / `.tif` | DEM net (metres) |
-| `capa_pendent_norm.npy` / `.tif` | Seguretat de pendent [0, 1] |
-| `pendent_segur_graus.npy` | Pendent (°) amb footprint de la nau |
-| `metadades.json` | CRS, transform, resolució, bounds |
+| `data/pas1_global/safety.npy` | Matriu de seguretat [0, 1] |
+| `data/pas1_global/safety.tif` | GeoTIFF georeferenciat |
+| `data/pas1_global/metadades.json` | CRS, transform, resolució |
+| `docs/pas1_global_seguretat.html` | Visualització HTML |
+
+Graella típica (@ 1 km): **10916 × 5458** cel·les (Equirectangular Moon).
+
+### Mode retall polar (AOI local)
+
+```bash
+python3 scripts/pas1_dem_pendent.py --outdir data/pas1 --window 2000 --lon 0.0 --lat -89.5
+```
+
+Visualització anterior: `docs/pas1_visualitzacio.html`.
