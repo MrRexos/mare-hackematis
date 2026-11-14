@@ -505,20 +505,24 @@ def render_safety_html(
   figure img {{ display:block; width:100%; height:auto; }}
   figcaption {{ padding:.75rem 1rem; color:var(--muted); font-size:.9rem; border-top:1px solid var(--line); }}
   .compare {{
-    position:relative; width:100%; aspect-ratio: 125 / 62; background:#000; overflow:hidden;
-    border:1px solid var(--line); user-select:none; touch-action:none;
+    position:relative; width:100%; background:#000; overflow:hidden;
+    border:1px solid var(--line); user-select:none; touch-action:none; line-height:0;
   }}
-  .compare img {{ position:absolute; inset:0; width:100%; height:100%; object-fit:fill; margin:0; padding:0; }}
+  .compare > .base {{ display:block; width:100%; height:auto; position:relative; z-index:0; }}
   .compare .top {{
-    position:absolute; inset:0; width:50%; overflow:hidden; border-right:2px solid var(--accent);
+    position:absolute; left:0; top:0; bottom:0; width:50%; overflow:hidden;
+    border-right:2px solid var(--accent); z-index:1; pointer-events:none;
   }}
-  .compare .top img {{ width:200%; max-width:none; height:100%; }}
+  .compare .top img {{
+    position:absolute; left:0; top:0; height:100%; width:auto; max-width:none; display:block;
+  }}
   .compare input[type=range] {{
     position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:ew-resize; z-index:3;
   }}
   .compare .hint {{
     position:absolute; left:50%; bottom:.6rem; transform:translateX(-50%);
-    background:rgba(0,0,0,.55); color:var(--ink); font-size:.75rem; padding:.2rem .55rem; z-index:2; pointer-events:none;
+    background:rgba(0,0,0,.55); color:var(--ink); font-size:.75rem; padding:.25rem .55rem;
+    z-index:2; pointer-events:none; line-height:1.3;
   }}
   code {{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.9em; }}
   pre {{ background:#0a0c10; border:1px solid var(--line); padding:1rem; overflow:auto; }}
@@ -548,12 +552,12 @@ def render_safety_html(
 
   <div id="slider" class="panel active">
     <div class="compare" id="compare">
-      <img src="data:image/png;base64,{b64_safe}" alt="Seguretat" />
+      <img class="base" id="compareBase" src="data:image/png;base64,{b64_safe}" alt="Seguretat" />
       <div class="top" id="compareTop">
-        <img src="data:image/png;base64,{b64_dem}" alt="DEM" />
+        <img id="compareOverlay" src="data:image/png;base64,{b64_dem}" alt="DEM" />
       </div>
       <input type="range" min="0" max="100" value="50" id="compareRange" aria-label="Comparar DEM i seguretat" />
-      <div class="hint">← DEM | Seguretat → &nbsp;· arrossega</div>
+      <div class="hint">← DEM | Seguretat → · arrossega</div>
     </div>
     <p class="sub" style="margin-top:.7rem">Esquerra: mapa de la Lluna (elevació). Dreta: capa de seguretat derivada del pendent.</p>
   </div>
@@ -593,11 +597,33 @@ safety = result.safety  # matriu [0, 1]
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'slider') syncCompare();
     }});
   }});
   const range = document.getElementById('compareRange');
   const top = document.getElementById('compareTop');
-  range.addEventListener('input', () => {{ top.style.width = range.value + '%'; }});
+  const overlay = document.getElementById('compareOverlay');
+  const base = document.getElementById('compareBase');
+  const compare = document.getElementById('compare');
+  function syncCompare() {{
+    // L'overlay ha de tenir l'amplada del contenidor (no la del clip).
+    const w = compare.clientWidth || base.clientWidth;
+    const h = base.clientHeight;
+    if (w > 0) overlay.style.width = w + 'px';
+    if (h > 0) {{
+      overlay.style.height = h + 'px';
+      top.style.height = h + 'px';
+    }}
+    top.style.width = range.value + '%';
+  }}
+  range.addEventListener('input', syncCompare);
+  window.addEventListener('resize', syncCompare);
+  if (base.complete) syncCompare();
+  else base.addEventListener('load', syncCompare);
+  overlay.addEventListener('load', syncCompare);
+  requestAnimationFrame(syncCompare);
+  setTimeout(syncCompare, 50);
+  setTimeout(syncCompare, 250);
 </script>
 </body>
 </html>
