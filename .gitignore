@@ -8,10 +8,15 @@ __pycache__/
 .cache/
 *.log
 
-# Binarios de capas (contrato §3.3): van a una release o a la carpeta del equipo
+# Binarios de capas (contrato §3.3): fuera de git por defecto
 layers/*/G1K/
 layers/*/W4/
 layers/*/PS1K/
+# Excepció T1 Jan: pendent + seguretat del pendent (Git LFS)
+!layers/terrain.slope/G1K/
+!layers/terrain.slope/G1K/static.f32
+!layers/suitability.slope/G1K/
+!layers/suitability.slope/G1K/static.u8
 
 # Web
 web/node_modules/
@@ -27,6 +32,10 @@ data/pas1_global/
 data/pendent_g1k/
 *.npy
 
-# Capas G1K globales (demasiado grandes para git; sí layer.json) y visores locales
+# Altres G1K globals (sí layer.json); T1 pendent/seguretat ja exceptuats amunt
 layers/**/G1K/
+!layers/terrain.slope/G1K/
+!layers/terrain.slope/G1K/static.f32
+!layers/suitability.slope/G1K/
+!layers/suitability.slope/G1K/static.u8
 layers/*/viewer_*.html

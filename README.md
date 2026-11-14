@@ -160,6 +160,7 @@ pendent = result.slope_deg           # float32, graus (pendent)
 seguretat = result.suitability       # float32 / alias result.safety, 0–100
 ```
 
-Els binaris G1K són grans (~228 MB pendent + ~57 MB seguretat): es desen localment
-a `layers/.../G1K/` (o release / carpeta d’equip, contracte §3.3); a git només
-`layer.json` (+ catàleg). L’API pública **no** torna a calcular el pendent.
+Els binaris G1K de pendent/seguretat (~228 MB + ~57 MB) van a git amb **Git LFS**
+(`layers/terrain.slope/G1K/static.f32`, `layers/suitability.slope/G1K/static.u8`).
+Després d’un `git pull` cal tenir Git LFS (`git lfs install` / `git lfs pull`).
+L’API pública **no** torna a calcular el pendent.
