@@ -11,7 +11,7 @@ import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { GOALS } from "./Explore.jsx";
 import { PRESETS, ROUGH_MAX_M, presetOf } from "../engine/score.js";
 import {
-  GLOBAL_FACTORS, cellLatLon, fmtLatLon, globalEngine, globalExclusionAt, globalFactorsAt, globalHotspots, globalScore, loadGlobalStatic, TEMP_BAND, WATER_FULL_WT_PCT,
+  GLOBAL_FACTORS, cellLatLon, fmtLatLon, TEMP_BAND, WATER_FULL_WT_PCT,
 } from "../engine/globalScore.js";
 
 const VIEW = {
@@ -54,13 +54,11 @@ export function RegionTabs({ region, setRegion, globalReady }) {
 }
 
 export default function GlobalExplore({ app }) {
-  const { globalManifest: gm, data, mission, request, problem, weights, setWeights, limits, openSettings, go, Rail, regionId: region, setRegion } = app;
+  const { globalManifest: gm, G, mission, problem, weights, setWeights, limits, openSettings, go, Rail, regionId: region, setRegion, gSel: sel, setGSel: setSel, inCmp, toggleCmp } = app;
   const grid = gm.grid;
-  const [stat, setStat] = useState(null);   // horizontes, elevación y pendiente (una sola descarga)
-  const [calc, setCalc] = useState(null);   // { request, progress, result, error, ms }
-  const [error, setError] = useState(null);
+  // El cálculo y los datos son compartidos (useGlobalMission): los usan también Mare y Compare.
+  const { L, score, keys, spots, error, runError, loading, progress, ready, ms } = G;
   const [layerKey, setLayerKey] = useState("score");
-  const [sel, setSel] = useState(null);
   const [hover, setHover] = useState(null);
   const [hillshade, setHillshade] = useState(null);
 
@@ -71,58 +69,15 @@ export default function GlobalExplore({ app }) {
     img.src = `${import.meta.env.BASE_URL}data/${gm.hillshade}`;
   }, [gm.hillshade]);
 
-  useEffect(() => {
-    let alive = true;
-    loadGlobalStatic(gm).then((st) => alive && setStat(st)).catch((e) => alive && setError(e.message));
-    return () => { alive = false; };
-  }, [gm]);
-
-  // Cálculo para las fechas de la misión: Sol y Tierra contra el horizonte de cada celda, hora a hora.
-  const ready = !!(stat && data?.ephem);
-  useEffect(() => {
-    if (!ready || problem) return undefined;
-    const engine = globalEngine(gm, stat, data.ephem, data.manifest.ephem);
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      const t0 = performance.now();
-      try {
-        const result = await engine.run({ ...request, tempBand: TEMP_BAND }, (progress) => { if (!cancelled) setCalc({ request, progress }); });
-        if (result && !cancelled) setCalc({ request, result, progress: 1, ms: performance.now() - t0 });
-      } catch (e) {
-        if (!cancelled) setCalc({ request, error: e.message });
-      }
-    }, 250);
-    return () => { cancelled = true; clearTimeout(timer); engine.cancel(); };
-  }, [ready, request, problem, gm, stat, data]);
-
-  const current = calc?.request === request ? calc : null;
-  const result = problem ? null : current?.result ?? null;
-  const runError = problem ? null : current?.error ?? null;
-  const loading = !error && !problem && !runError && !result;
-  const progress = current?.progress ?? 0;
-
-  const L = useMemo(() => (result ? {
-    sun: result.sun, earth: result.earth, night: result.night, slope: stat?.slope || null, water: stat?.water || null,
-    rough: stat?.rough || null, psr: stat?.psr || null, elev: stat?.elevation || null,
-    temp: result.tavg || null, tmin: result.tmin || null, tmax: result.tmax || null, tfit: result.tfit || null,
-  } : {}), [result, stat]);
-
-  const { score, keys } = useMemo(() => globalScore(L, weights, limits), [L, weights, limits]);
-  const spots = useMemo(() => globalHotspots(score, grid, 10, 5), [score, grid]);
   const scoreExtent = useMemo(() => extentOf(score), [score]);
 
   const values = layerKey === "score" ? score : L[layerKey];
   const extent = layerKey === "score" ? scoreExtent : VIEW[layerKey].extent(values);
   const invert = layerKey !== "score" && VIEW[layerKey].invert;
 
-  const cellCard = (p, name) => {
-    const [lat, lon] = cellLatLon(grid, p);
-    const f = globalFactorsAt(p, L, limits);
-    const f100 = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, Number.isFinite(v) ? v * 100 : null]));
-    return { p, lat, lon, name, coords: fmtLatLon(lat, lon), score: score[p], factors: f100, excluded: globalExclusionAt(p, L, limits) };
-  };
-  const best = spots[0] ? cellCard(spots[0].p, "Best cell 01") : null;
-  const selected = sel != null ? cellCard(sel, spots.findIndex((s) => s.p === sel) >= 0 ? `Best cell ${String(spots.findIndex((s) => s.p === sel) + 1).padStart(2, "0")}` : "Your cell") : null;
+  const best = spots[0] ? G.placeOf(spots[0].p) : null;
+  const selected = sel != null ? G.placeOf(sel) : null;
+  const openSite = (place) => { setSel(place.p); go("site"); };
   const goal = presetOf(weights);
   const ignored = Object.entries(weights).filter(([k, w]) => w > 0 && !GLOBAL_FACTORS.includes(k)).map(([k]) => k);
 
@@ -141,7 +96,7 @@ export default function GlobalExplore({ app }) {
   );
 
   const hoverBox = hover ? (() => {
-    const c = cellCard(hover.p, "");
+    const c = G.placeOf(hover.p);
     return (
       <div className="overlay gtip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
         <div className="num-13">{c.coords}</div>
@@ -197,7 +152,12 @@ export default function GlobalExplore({ app }) {
                   <div className="coords">{selected.coords} · {grid.stepDeg}° cell (~{Math.round(grid.stepDeg * 30.3)} km at the equator)</div>
                   {selected.excluded ? <div className="note-12"><Icon name="info" size={12} />{selected.excluded}</div> : null}
                   <FactorGrid values={selected.factors} />
-                  <div className="row-6"><div className="grow" /><Btn size="sm" variant="ghost" icon="x" onClick={() => setSel(null)}>Clear</Btn></div>
+                  <div className="row-6">
+                    <Btn size="sm" variant="primary" icon="map-pin" onClick={() => openSite(selected)}>Open site</Btn>
+                    <Btn size="sm" icon={inCmp(selected) ? "check" : "plus"} aria-pressed={inCmp(selected)} onClick={() => toggleCmp(selected)}>Compare</Btn>
+                    <div className="grow" />
+                    <Btn size="sm" variant="ghost" icon="x" onClick={() => setSel(null)}>Clear</Btn>
+                  </div>
                 </div>
               ) : null}
               <div className="overlay glegend" aria-label="Legend">
@@ -258,10 +218,14 @@ export default function GlobalExplore({ app }) {
                       <span className="best__score"><span>{Math.round(best.score)}</span><span className="muted-11">/100</span></span>
                     </button>
                     <FactorGrid values={best.factors} />
+                    <div className="row-8">
+                      <Btn size="sm" variant="primary" icon="map-pin" onClick={() => openSite(best)}>Open site</Btn>
+                      <Btn size="sm" icon={inCmp(best) ? "check" : "plus"} aria-pressed={inCmp(best)} onClick={() => toggleCmp(best)}>Compare</Btn>
+                    </div>
                   </>
                 )}
                 <div className="muted-11">
-                  <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{current?.ms ? ` (${(current.ms / 1000).toFixed(1)} s)` : ""}.</div>
+                  <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{ms ? ` (${(ms / 1000).toFixed(1)} s)` : ""}.</div>
                   <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1){gm.layers?.rough ? " · roughness from LOLA LDRM_16" : ""}{gm.layers?.psr ? " · permanent shadow from LOLA LPSR" : ""}.</div>
                   {gm.layers?.water ? <div>Water: water-equivalent hydrogen from Lunar Prospector (0.5° product, true footprint 60–150 km), only attributed to ice above 70° latitude. Full marks at {WATER_FULL_WT_PCT} wt%.</div> : null}
                   {gm.thermal ? <div>Surface temperature: measured by LRO Diviner (Williams et al. 2017), read at each cell's local time for every hour of the mission. Its score is the share of hours in a workable range: full marks from {TEMP_BAND.mildK} to {TEMP_BAND.hotOkK} K, none below {TEMP_BAND.coldK} K or above {TEMP_BAND.hotMaxK} K.</div> : null}

@@ -110,6 +110,11 @@ motor del polo sur, con una malla de toda la Luna de 0,5° (720 × 360, ~15 km e
 De momento solo con **fecha fija de aterrizaje**; buscar las mejores fechas sigue siendo
 solo del polo sur. La puntuación usa los factores con datos globales: luz, Tierra y pendiente.
 
+**Mare y Compare** también funcionan con la Luna entera: en el mapa, una celda tiene los
+botones «Open site» y «Compare». La ficha (Mare) muestra Overview y Sky & Time con la serie
+hora a hora de esa celda; Terrain y Lander's View son del mapa polar de 1 km y solo existen
+en el polo sur. Cada región compara sus propios lugares.
+
 Lo que no depende de la fecha ya está calculado y va en el repositorio
 (`web/public/data/global/`), así que no hay que ejecutar nada para usar la vista:
 

@@ -1,4 +1,6 @@
 // 03 Site: ficha de un lugar con pestañas Overview, Sky & Time, Terrain y Lander's View.
+// En la Luna entera (app.moon) el lugar es una celda de la malla global: se muestran Overview
+// y Sky & Time con sus datos; Terrain y Lander's View son del mapa polar de 1 km y no aplican.
 
 import { Suspense, lazy, useMemo, useState } from "react";
 import MapView from "../components/MapView.jsx";
@@ -29,18 +31,24 @@ function UpTag({ up }) {
   return <span className={cx("uptag", up ? "is-up" : "is-down")}>{up ? "Up" : "Down"}</span>;
 }
 
+/** En la Luna entera dos factores miden otra cosa que en el polo sur: se les cambia el nombre. */
+export const MOON_FACTOR_LABELS = {
+  temp: ["Thermal comfort", "Share of mission hours with a workable surface temperature (LRO Diviner)"],
+  ice: ["Water", "Water-equivalent hydrogen (Lunar Prospector); only above 70° latitude"],
+};
+
 /** Rejilla de propiedades: nombre, valor y barra (Overview y Compare). */
-export function PropGrid({ values }) {
+export function PropGrid({ values, labels }) {
   return (
     <div className="props">
       {FACTORS.map((f) => {
         const v = values?.[f.key];
         const ok = Number.isFinite(v);
         return (
-          <div key={f.key} className={cx("props__item", !ok && "is-off")} title={ok ? f.hint : `${f.label}: no data yet`}>
+          <div key={f.key} className={cx("props__item", !ok && "is-off")} title={ok ? labels?.[f.key]?.[1] || f.hint : `${labels?.[f.key]?.[0] || f.label}: no data yet`}>
             <div className="row-8">
               <Icon name={f.icon} size={14} style={{ color: ok ? f.color : undefined }} />
-              <span className="props__name">{f.label}</span>
+              <span className="props__name">{labels?.[f.key]?.[0] || f.label}</span>
               <span className="props__v">{ok ? Math.round(v) : "–"}</span>
             </div>
             <div className="bar">{ok ? <div className="bar__fill" style={{ width: `${v}%`, background: f.color }} /> : null}</div>
@@ -136,9 +144,51 @@ function GoodDaysStrip({ tl, missionWin, compact }) {
   );
 }
 
+/** Pestaña activa: en la Luna entera solo existen Overview y Sky & Time. */
+function siteTab(app) {
+  return app.moon && (app.tab === "terrain" || app.tab === "lander") ? "overview" : app.tab;
+}
+
+/** Datos del terreno de una celda de la malla global (Luna entera). */
+function GlobalGround({ app, pixel }) {
+  const L = app.G.L;
+  const num = (a) => (a ? a[pixel] : NaN);
+  const groups = [
+    { label: "Terrain", fields: [
+      ["Elevation", num(L.elev), (v) => `${Math.round(v).toLocaleString("en-US")} m`],
+      ["Mean slope", num(L.slope), (v) => `${v.toFixed(1)}°`],
+      ["Roughness", num(L.rough), (v) => `${v.toFixed(2)} m`],
+    ] },
+    { label: "Surface temperature in the mission", fields: [
+      ["Mean", num(L.temp), (v) => `${Math.round(v)} K`],
+      ["Coldest", num(L.tmin), (v) => `${Math.round(v)} K`],
+      ["Hottest", num(L.tmax), (v) => `${Math.round(v)} K`],
+    ] },
+    { label: "Shadow and water", fields: [
+      ["Permanent shadow", num(L.psr), (v) => `${Math.round(v * 100)}%`],
+      ["Water equivalent", num(L.water), (v) => `${v.toFixed(3)} wt%`],
+    ] },
+  ];
+  return (
+    <div className="ground-groups mt-12">
+      {groups.map((group) => (
+        <section className="ground-group" key={group.label}>
+          <h3 className="lbl">{group.label}</h3>
+          <dl className="ground-values">
+            {group.fields.map(([label, value, format]) => (
+              <div key={label}><dt>{label}</dt><dd>{Number.isFinite(value) ? format(value) : "No data"}</dd></div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function Header({ app, place, idx }) {
   // El Mare analiza un solo sitio: para cambiarlo se vuelve a Explore (sin flechas ‹ ›).
-  const { tab, setTab, mission, weights, openSettings, go, inCmp, toggleCmp, rankInfo, result } = app;
+  const { setTab, mission, weights, openSettings, go, inCmp, toggleCmp, rankInfo, result } = app;
+  const tab = siteTab(app);
   const scored = Number.isFinite(place.score);
   return (
     <header className="pagehead pagehead--site">
@@ -168,8 +218,7 @@ function Header({ app, place, idx }) {
           options={[
             { value: "overview", label: "Overview" },
             { value: "sky", label: "Sky & Time" },
-            { value: "terrain", label: "Terrain" },
-            { value: "lander", label: "Lander's View" },
+            ...(app.moon ? [] : [{ value: "terrain", label: "Terrain" }, { value: "lander", label: "Lander's View" }]),
           ]}
         />
         <div className="grow" />
@@ -208,8 +257,10 @@ function Overview({ app, place }) {
   const scored = FACTORS.filter((f) => Number.isFinite(place.factors?.[f.key])).sort((a, b) => place.factors[b.key] - place.factors[a.key]);
   const pros = scored.slice(0, 3).filter((f) => place.factors[f.key] >= 50);
   const cons = scored.slice(-3).reverse().filter((f) => place.factors[f.key] < 60);
-  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Milder temperatures", ice: "Close to stable ice" };
-  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Very cold", ice: "Far from stable ice" };
+  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Milder temperatures", ice: "Close to stable ice",
+    ...(app.moon ? { temp: "Workable temperatures", ice: "Water signal" } : {}) };
+  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Very cold", ice: "Far from stable ice",
+    ...(app.moon ? { temp: "Extreme temperatures", ice: "No water signal" } : {}) };
 
   // Escala de la mini-barra: cubre todo el tramo "Land between" y la misión, con margen;
   // las posiciones se recortan a 0–100 % para que nada se salga de la tarjeta.
@@ -280,7 +331,7 @@ function Overview({ app, place }) {
       <div className="flexrow">
         <Card className="f2">
           <CardHead title="Properties"><Fidelity level="computed" /></CardHead>
-          <PropGrid values={place.factors} />
+          <PropGrid values={place.factors} labels={app.moon ? MOON_FACTOR_LABELS : null} />
         </Card>
         <Card className="f1 f1--320">
           <CardHead title="Dark & outages" />
@@ -306,13 +357,13 @@ function Overview({ app, place }) {
           {tl ? <GoodDays tl={tl} missionWin={startMs != null ? [startMs, endMs] : null} kinds={GOOD_DAY_KINDS} /> : <p className="muted-12">–</p>}
         </Card>
         <Card className="f1">
-          <CardHead title="Ground data"><span className="muted-12">1 km cell</span></CardHead>
-          <GroundReadout data={data} pixel={p} />
+          <CardHead title="Ground data"><span className="muted-12">{app.moon ? `${app.gdata.manifest.grid.stepDeg}° cell` : "1 km cell"}</span></CardHead>
+          {app.moon ? <GlobalGround app={app} pixel={p} /> : <GroundReadout data={data} pixel={p} />}
           <div className="grid2 mt-12">
             <Stat label="Horizon max" value={Number.isFinite(horMax) ? horMax.toFixed(1) : "–"} unit="°" />
             <Stat label="Observer" value={mission.observerM} unit="m" />
           </div>
-          <Btn className="mt-16" icon="navigation" onClick={() => app.setTab("lander")}>Lander's View</Btn>
+          {app.moon ? null : <Btn className="mt-16" icon="navigation" onClick={() => app.setTab("lander")}>Lander's View</Btn>}
         </Card>
       </div>
 
@@ -336,8 +387,9 @@ function Overview({ app, place }) {
           <CardHead title="Data" />
           <div className="datalist mt-12">
             <div><span className="lbl">SPICE</span><span>DE440 · MOON_ME</span></div>
-            <div><span className="lbl">LOLA</span><span>LDEM_75S_240M · LDSM · LPSR</span></div>
-            <div><span className="lbl">Horizons</span><span>72 bins · 300 m – 300 km</span></div>
+            <div><span className="lbl">LOLA</span><span>{app.moon ? "LDEM_64 · LDRM_16 · LPSR 65N/65S" : "LDEM_75S_240M · LDSM · LPSR"}</span></div>
+            <div><span className="lbl">Horizons</span><span>{app.moon ? "72 bins · 500 m – 300 km · cell centre" : "72 bins · 300 m – 300 km"}</span></div>
+            {app.moon ? <div><span className="lbl">Diviner</span><span>Global temperatures by local time</span></div> : null}
             <div><span className="lbl">Cross-check</span><span>{validation}</span></div>
           </div>
         </Card>
@@ -552,7 +604,9 @@ function Terrain({ app, place }) {
 /* ------------------------------------------------------------------ página */
 
 export default function Site({ app }) {
-  const { selected, Rail, TimeBarEl, siteList, data, moonMission, result, sitesForMap, spotsForMap, timeMs, setTimeMs, tab, go } = app;
+  const { selected, Rail, TimeBarEl, siteList, moonMission, result, sitesForMap, spotsForMap, timeMs, setTimeMs, go } = app;
+  const data = app.moon ? app.gdata : app.data;
+  const tab = siteTab(app);
   const place = selected;
   if (!place || !data) {
     return (
@@ -563,7 +617,7 @@ export default function Site({ app }) {
           <Card className="emptycard">
             <Icon name="map-pin" size={20} />
             <h2 className="h-md">No site selected</h2>
-            <p className="muted-12">Pick a site in the ranking or click anywhere on the map.</p>
+            <p className="muted-12">{app.moon ? "Click a cell on the whole-Moon map, then Open site." : "Pick a site in the ranking or click anywhere on the map."}</p>
             <Btn variant="primary" iconRight="arrow-right" onClick={() => go("explore")}>Explore</Btn>
           </Card>
         </main>
