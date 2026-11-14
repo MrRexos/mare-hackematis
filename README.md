@@ -33,6 +33,23 @@ npm run dev
 
 Abre http://localhost:5173.
 
+
+## Capa global de la Tierra (trabajo T4 · Nil)
+
+`earth.visible_fraction.mean` en la malla G1K: fracción del tiempo en que el centro de
+la Tierra está por encima del horizonte LOLA (con paralaje). Depende del **periodo / día**.
+También genera `suitability.earth` (0–100). Código: `pipeline/moonsite/earth_global.py`.
+
+```bash
+cd pipeline
+python -m moonsite.fetch global              # SPICE + LDEM_64 (~531 MB)
+python -m moonsite.earth_global 2026-11-14   # un día (UTC)
+python -m moonsite.earth_global --mes 2026-11
+python -m moonsite.earth_global --estandar   # 60 meses + media 2026–2030
+```
+
+Preview web (W4, temporal): `python3 scripts/export_web_global_earth_preview.py --dias 2026-11-14 2026-11-21`
+
 ## Regenerar los datos (pipeline)
 
 Necesitas Python 3.11 o superior. La descarga ocupa unos 330 MB en `.cache/`, fuera de git.

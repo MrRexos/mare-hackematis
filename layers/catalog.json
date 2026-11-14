@@ -5,6 +5,8 @@
     "sun.psr_mask",
     "terrain.elevation",
     "terrain.slope",
-    "suitability.slope"
+    "suitability.slope",
+    "earth.visible_fraction.mean",
+    "suitability.earth"
   ]
 }
