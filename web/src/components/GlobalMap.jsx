@@ -21,6 +21,32 @@ function rampFor(layer, colors, extent) {
   return makeRamp(layer, colors, extent);
 }
 
+/**
+ * Imagen de una capa (una celda = un píxel, transparente donde no hay dato o la celda está
+ * descartada). La usan el mapa 2D y el globo 3D, así los colores son los mismos en los dos.
+ * `el` es un elemento del visor, para leer los colores del design system.
+ */
+export function layerCanvas(el, layer, values, cols, rows) {
+  const colors = {
+    both: cssColor(el, "--both"), sun: cssColor(el, "--sun"), earth: cssColor(el, "--earth"),
+    ink: cssColor(el, "--ink"), lineStrong: cssColor(el, "--line-strong"),
+    relief: [179, 157, 219], temp: [242, 139, 84],
+  };
+  let lo = Infinity, hi = -Infinity;
+  for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const ramp = rampFor(layer, colors, [lo, hi]);
+  const c = document.createElement("canvas");
+  c.width = cols; c.height = rows;
+  const ctx = c.getContext("2d");
+  const im = ctx.createImageData(cols, rows);
+  for (let p = 0; p < values.length; p++) {
+    const rgba = ramp(values[p], Math.floor(p / cols), p % cols);
+    if (rgba) im.data.set([rgba[0], rgba[1], rgba[2], rgba[3]], p * 4);
+  }
+  ctx.putImageData(im, 0, 0);
+  return c;
+}
+
 export default function GlobalMap({ grid, hillshade, layer, values, spots, selectedP, onSelect, onHover, children }) {
   const { cols, rows } = grid;
   const wrapRef = useRef(null);
@@ -45,26 +71,7 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
   // Capa coloreada: una imagen del tamaño de la malla que luego se escala (como en MapView).
   const [dataCanvas, setDataCanvas] = useState(null);
   useEffect(() => {
-    if (!values || !wrapRef.current) { setDataCanvas(null); return; }
-    const el = wrapRef.current;
-    const colors = {
-      both: cssColor(el, "--both"), sun: cssColor(el, "--sun"), earth: cssColor(el, "--earth"),
-      ink: cssColor(el, "--ink"), lineStrong: cssColor(el, "--line-strong"),
-      relief: [179, 157, 219], temp: [242, 139, 84],
-    };
-    let lo = Infinity, hi = -Infinity;
-    for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    const ramp = rampFor(layer, colors, [lo, hi]);
-    const c = document.createElement("canvas");
-    c.width = cols; c.height = rows;
-    const ctx = c.getContext("2d");
-    const im = ctx.createImageData(cols, rows);
-    for (let p = 0; p < values.length; p++) {
-      const rgba = ramp(values[p], Math.floor(p / cols), p % cols);
-      if (rgba) im.data.set([rgba[0], rgba[1], rgba[2], rgba[3]], p * 4);
-    }
-    ctx.putImageData(im, 0, 0);
-    setDataCanvas(c);
+    setDataCanvas(values && wrapRef.current ? layerCanvas(wrapRef.current, layer, values, cols, rows) : null);
   }, [values, layer, cols, rows]);
 
   const toScreen = useCallback((x, y) => [size.w / 2 + (x - view.cx) * scale, size.h / 2 + (y - view.cy) * scale], [size, view, scale]);

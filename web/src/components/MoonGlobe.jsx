@@ -3,10 +3,12 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { L, cssColor } from "../ds.js";
 import { IconBtn } from "../ui/kit.jsx";
+import { layerCanvas } from "./GlobalMap.jsx";
 
-// Globo 3D de la Luna entera. Es solo la Luna: fotografía real (mosaico LROC WAC) y relieve
-// real de LOLA, sin capas de datos. Encima van los marcadores de las mejores celdas y de la
-// celda elegida.
+// Globo 3D de la Luna entera: fotografía real (mosaico LROC WAC) y relieve real de LOLA.
+// Encima van los marcadores de las mejores celdas y de la celda elegida y, si se pide, una
+// capa de datos (`overlay`): la misma imagen que colorea el mapa 2D, como una segunda piel
+// semitransparente que sigue el relieve. Con capa, la foto se oscurece para que el color se lea.
 //   arrastrar: girar · rueda / pellizco: zoom · clic: elegir la celda de ese punto
 //
 // Calidad sin sacrificar velocidad:
@@ -38,7 +40,7 @@ function toLatLon(v) {
   return [lat, lon];
 }
 
-export default function MoonGlobe({ globe, grid, places, selected, onSelect, children }) {
+export default function MoonGlobe({ globe, grid, places, selected, onSelect, overlay, children }) {
   const wrapRef = useRef(null);
   const three = useRef(null);
   const [labels, setLabels] = useState([]);
@@ -88,6 +90,16 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, chi
     const moon = new THREE.Mesh(new THREE.SphereGeometry(1, SEGMENTS[0], SEGMENTS[1]), material);
     scene.add(moon);
 
+    // Piel de datos: misma malla y mismo relieve, un pelo por encima de la foto. Sin luz propia
+    // (color emisivo) para que el valor se lea igual en el centro que en el borde del disco.
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, roughness: 1, metalness: 0, transparent: true, depthWrite: false });
+    skinMat.displacementScale = material.displacementScale;
+    skinMat.displacementBias = material.displacementBias + 0.003;
+    const skin = new THREE.Mesh(moon.geometry, skinMat);
+    skin.renderOrder = 1;
+    skin.visible = false;
+    scene.add(skin);
+
     // Anillo sobre la celda elegida (se orienta tangente a la esfera).
     const ringC = cssColor(wrap, "--ink");
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.02, 0.026, 48),
@@ -124,7 +136,8 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, chi
     }).catch(() => {});
     if (globe.height) load(globe.height.file, false).then((t) => {
       if (!alive) return t.dispose();
-      material.displacementMap = t; material.needsUpdate = true; invalidate();
+      material.displacementMap = t; material.needsUpdate = true;
+      skinMat.displacementMap = t; skinMat.needsUpdate = true; invalidate();
       return undefined;
     }).catch(() => {});
 
@@ -205,6 +218,31 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, chi
 
     three.current = {
       invalidate,
+      wrap,
+      /** Pone (o quita, con null) la capa de datos: un canvas equirectangular con alfa. */
+      setOverlay: (canvas, ramp) => {
+        skinMat.map?.dispose();
+        if (!canvas) {
+          skinMat.map = skinMat.emissiveMap = null;
+          skin.visible = false;
+          material.color.setScalar(1);
+        } else {
+          const t = new THREE.CanvasTexture(canvas);
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.wrapS = THREE.RepeatWrapping;          // la costura de ±180° no deja línea
+          t.generateMipmaps = false;
+          t.minFilter = t.magFilter = THREE.LinearFilter;
+          skinMat.map = skinMat.emissiveMap = t;   // map da la transparencia; emissiveMap, el color
+          skin.visible = true;
+          // La foto hace de fondo, a media luz. La puntuación se pinta en claro (como en el 2D):
+          // sobre una foto en grises necesita un fondo más oscuro para que «más claro = mejor» se lea.
+          material.color.setScalar(ramp === "score" ? 0.28 : 0.5);
+          // Nunca del todo opaca: debajo se sigue viendo el relieve de la foto.
+          skinMat.opacity = ramp === "score" ? 0.9 : 0.8;
+        }
+        skinMat.needsUpdate = true;
+        invalidate();
+      },
       onSelect: null,
       zoom: (f) => { camera.position.setLength(Math.min(MAX_DIST, Math.max(MIN_DIST, camera.position.length() * f))); invalidate(); },
       home: () => { fly = { t0: performance.now(), from: camera.position.clone(), to: new THREE.Vector3(START_DIST, 0.55, 0.9).setLength(START_DIST) }; },
@@ -221,8 +259,9 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, chi
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointerup", onUp);
       controls.dispose();
-      for (const t of [material.map, material.normalMap, material.displacementMap]) t?.dispose();
+      for (const t of [material.map, material.normalMap, material.displacementMap, skinMat.map]) t?.dispose();
       material.dispose();
+      skinMat.dispose();
       moon.geometry.dispose();
       ring.geometry.dispose();
       ring.material.dispose();
@@ -235,6 +274,13 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, chi
   // El clic usa siempre el onSelect actual; los marcadores, las listas actuales.
   useEffect(() => { if (three.current) three.current.onSelect = onSelect; });
   useEffect(() => { three.current?.invalidate(); }, [places, selected?.key]);
+  // Capa de datos: se vuelve a pintar solo cuando cambia la capa o sus valores.
+  const oLayer = overlay?.layer, oValues = overlay?.values;
+  useEffect(() => {
+    const t = three.current;
+    if (!t) return;
+    t.setOverlay(oLayer && oValues ? layerCanvas(t.wrap, oLayer, oValues, grid.cols, grid.rows) : null, oLayer?.ramp);
+  }, [oLayer, oValues, grid]);
   // Al elegir un lugar (en el ranking o en el globo), el globo gira hasta ponerlo delante.
   useEffect(() => { if (selected) three.current?.flyTo(selected.lat, selected.lon); }, [selected?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 

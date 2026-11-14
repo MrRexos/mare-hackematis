@@ -68,6 +68,11 @@ const LAYERS = {
   },
 };
 const MAP_LAYERS = Object.keys(LAYERS);
+/** Capas que tiene el globo 3D además de la foto: las que cambian a gran escala y se leen bien
+ *  sobre una esfera. Pendiente, rugosidad y elevación quedan para el mapa 2D (el globo ya
+ *  enseña el relieve real, y a 15 km por celda no aportan). */
+const GLOBE_LAYERS = ["score", "sun", "earth", "temp", "water"];
+const PHOTO = { label: "Photograph of the Moon", short: "Photo" };
 
 /** Lecturas extra de la ficha del punto (no son capas de mapa). */
 const POINT_FIELDS = [
@@ -116,6 +121,7 @@ export default function GlobalExplore({ app }) {
   const grid = gm.grid;
   const { L, score, keys, spots, error, runError, loading, progress, ready, result } = G;
   const [layerKey, setLayerKey] = useState("score");
+  const [globeKey, setGlobeKey] = useState("photo"); // capa del globo 3D; "photo" = la Luna tal cual
   const [hoverP, setHoverP] = useState(null);
   const [hillshade, setHillshade] = useState(null);
   const sources = useRef(null);
@@ -129,14 +135,58 @@ export default function GlobalExplore({ app }) {
   }, [hillshadeUrl]);
 
   const layerKeys = MAP_LAYERS.filter((k) => k === "score" || (k === "temp" ? gm.thermal : k === "water" || k === "rough" ? gm.layers?.[k] : true));
-  const layer = LAYERS[layerKey];
-  const values = layerKey === "score" ? score : L[layerKey] || null;
-  const legendEnds = (() => {
-    if (!values || layer.legend) return layer.legend || ["–", "–"];
+  const valuesOf = (key) => (key === "score" ? score : L[key] || null);
+  const endsOf = (ly, vals) => {
+    if (!vals || ly.legend) return ly.legend || ["–", "–"];
     let lo = Infinity, hi = -Infinity;
-    for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    return Number.isFinite(hi) ? layer.legendOf(lo, hi) : ["–", "–"];
-  })();
+    for (const v of vals) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    return Number.isFinite(hi) ? ly.legendOf(lo, hi) : ["–", "–"];
+  };
+  const layer = LAYERS[layerKey];
+  const values = valuesOf(layerKey);
+  const legendEnds = endsOf(layer, values);
+  // Globo 3D: foto sola, o una de sus capas encima.
+  const globeKeys = ["photo", ...GLOBE_LAYERS.filter((k) => layerKeys.includes(k))];
+  const globeLayer = globeKey !== "photo" && globeKeys.includes(globeKey) ? LAYERS[globeKey] : null;
+  const globeValues = globeLayer ? valuesOf(globeKey) : null;
+
+  /** Barra de capas (la misma en 2D y en 3D). */
+  const layerBar = (keys, active, pick) => (
+    <div className="map-controls__row">
+      <div className="overlay layerbar" role="group" aria-label="Map layer">
+        <Icon name="layers" size={16} />
+        {keys.map((key) => {
+          const ly = LAYERS[key] || PHOTO;
+          return (
+            <button key={key} type="button" className={cx("layerbar__b", active === key && "is-on")}
+              aria-label={ly.label} title={ly.label} aria-pressed={active === key} onClick={() => pick(key)}>
+              <span className="layerbar__check">{active === key && <Icon name="check" size={12} />}</span>
+              {ly.short}
+            </button>
+          );
+        })}
+      </div>
+      <div className="overlay map-controls__extras">
+        <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
+      </div>
+    </div>
+  );
+  /** Leyenda desplegable de una capa. */
+  const legend = (ly, ends, isScore) => (
+    <details className="overlay map-legend">
+      <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
+      <div className="overlay legend__pop">
+        <div className="legend__row"><Shape kind="square" />Best cell</div>
+        <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
+        <div className="legend__ramp">
+          <span className="legend__name">{ly.label}</span>
+          <div className={cx("ramp", `ramp--${ly.ramp === "water" ? "earth" : ly.ramp}`)} style={ly.ramp === "water" ? { background: "linear-gradient(90deg, transparent, #4fd1c5)" } : undefined} />
+          <div className="legend__ends"><span>{ends[0]}</span><span>{ends[1]}</span></div>
+        </div>
+        {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
+      </div>
+    </details>
+  );
 
   const places = spots.map((s) => G.placeOf(s.p));
   const best = places[0] || null;
@@ -201,9 +251,12 @@ export default function GlobalExplore({ app }) {
             <section aria-label="Moon map" className="mapsec" data-theme="dark">
               {is3D ? (
                 <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                  <MoonGlobe globe={gm.globe} grid={grid} places={places} selected={selected} onSelect={setSel}>
+                  <MoonGlobe globe={gm.globe} grid={grid} places={places} selected={selected} onSelect={setSel}
+                    overlay={globeLayer && globeValues ? { layer: globeLayer, values: globeValues } : null}>
                     <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
                   </MoonGlobe>
+                  <div className="map-controls">{layerBar(globeKeys, globeLayer ? globeKey : "photo", setGlobeKey)}</div>
+                  {globeLayer ? legend(globeLayer, endsOf(globeLayer, globeValues), globeKey === "score") : null}
                   {selected ? (
                     // Celda elegida en el globo: las mismas acciones que la ficha del mapa 2D.
                     <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${selected.name}`}>
@@ -213,6 +266,12 @@ export default function GlobalExplore({ app }) {
                         <span className="num-15">{Number.isFinite(selected.score) ? Math.round(selected.score) : "–"}</span>
                       </div>
                       <span className="coords">{selected.coords}</span>
+                      {globeLayer && globeKey !== "score" ? (
+                        <div className="row-8">
+                          <span className="muted-12 grow">{globeLayer.label}</span>
+                          <strong className="num-13">{globeValues && Number.isFinite(globeValues[selected.p]) ? globeLayer.format(globeValues[selected.p]) : loading ? "Calculating…" : "No data"}</strong>
+                        </div>
+                      ) : null}
                       {selected.excluded ? <div className="note-12"><Icon name="info" size={12} />{selected.excluded}</div> : null}
                       <div className="row-6">
                         <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => openSite(selected)}>Open site</Btn>
@@ -236,37 +295,11 @@ export default function GlobalExplore({ app }) {
                 </GlobalMap>
 
                 <div className="map-controls">
-                  <div className="map-controls__row">
-                    <div className="overlay layerbar" role="group" aria-label="Map layer">
-                      <Icon name="layers" size={16} />
-                      {layerKeys.map((key) => (
-                        <button key={key} type="button" className={cx("layerbar__b", layerKey === key && "is-on")}
-                          aria-label={LAYERS[key].label} title={LAYERS[key].label} aria-pressed={layerKey === key} onClick={() => setLayerKey(key)}>
-                          <span className="layerbar__check">{layerKey === key && <Icon name="check" size={12} />}</span>
-                          {LAYERS[key].short}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="overlay map-controls__extras">
-                      <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
-                    </div>
-                  </div>
+                  {layerBar(layerKeys, layerKey, setLayerKey)}
                   {readout}
                 </div>
 
-                <details className="overlay map-legend">
-                  <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
-                  <div className="overlay legend__pop">
-                    <div className="legend__row"><Shape kind="square" />Best cell</div>
-                    <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
-                    <div className="legend__ramp">
-                      <span className="legend__name">{layer.label}</span>
-                      <div className={cx("ramp", `ramp--${layer.ramp === "water" ? "earth" : layer.ramp}`)} style={layer.ramp === "water" ? { background: "linear-gradient(90deg, transparent, #4fd1c5)" } : undefined} />
-                      <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
-                    </div>
-                    {layerKey === "score" ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
-                  </div>
-                </details>
+                {legend(layer, legendEnds, layerKey === "score")}
 
                 </>
               )}
@@ -280,7 +313,7 @@ export default function GlobalExplore({ app }) {
                   {layerKeys.map((key) => {
                     const { label, description, sources: links } = LAYERS[key];
                     return (
-                      <section key={key} className={cx("layer-info__item", layerKey === key && "layer-info__item--current")}>
+                      <section key={key} className={cx("layer-info__item", (is3D ? globeKey : layerKey) === key && "layer-info__item--current")}>
                         <h3>{label}</h3>
                         <p>{description}</p>
                         {links.length > 0 && (
@@ -291,6 +324,14 @@ export default function GlobalExplore({ app }) {
                       </section>
                     );
                   })}
+                  <section className="layer-info__item">
+                    <h3>3D globe</h3>
+                    <p>
+                      Photograph: LROC Wide Angle Camera global mosaic, 100 m per pixel (NASA/GSFC/Arizona State University). Relief: LOLA, exaggerated six times.
+                      Above 80° latitude the mosaic has no usable data and the globe shows shaded LOLA relief instead. The globe can also carry the score, Sun, Earth,
+                      temperature and water layers; slope, roughness and elevation stay on the 2D map.
+                    </p>
+                  </section>
                   <section className="layer-info__item">
                     <h3>Whole-Moon grid</h3>
                     <p>
