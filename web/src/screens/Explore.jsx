@@ -5,6 +5,7 @@ import MapView from "../components/MapView.jsx";
 import { Icon, Btn, Card, Tabs, Fidelity, FactorGrid, FactorSpark, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { PRESETS, presetOf } from "../engine/score.js";
+import { RegionTabs } from "./GlobalExplore.jsx";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
 
@@ -134,6 +135,7 @@ export default function Explore({ app }) {
         <header className="pagehead">
           <h1 className="h-page">Explore/</h1>
           <Tabs label="View" value={dim} onChange={setDim} options={[{ value: "2D", label: "2D", icon: "map" }, { value: "3D", label: "3D", icon: "globe" }]} />
+          {app.globalReady ? <RegionTabs region={app.region} setRegion={app.setRegion} globalReady /> : null}
           <div className="grow" />
           <MissionChip mission={mission} onClick={openSettings} />
         </header>

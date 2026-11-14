@@ -46,7 +46,7 @@ function WeightRow({ f, value, onChange }) {
   );
 }
 
-export default function SetupPriorities({ weights, setWeights, mission, sitesCount, go, openSettings }) {
+export default function SetupPriorities({ weights, setWeights, mission, sitesCount, go, openSettings, region, setRegion, globalManifest }) {
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
   const periodName = { next12: "Next 12 months", nofixed: "No fixed date", custom: "Custom window" }[mission.period];
@@ -107,8 +107,15 @@ export default function SetupPriorities({ weights, setWeights, mission, sitesCou
             <div className="stack-10">
               <div className="eyebrow-13">03 — Where/</div>
               <div className="row-10">
-                <Choice on icon="crosshair" title="South Pole" sub={`${sitesCount} regions · 1 km grid`} onClick={() => {}} />
-                <Choice disabled icon="globe" title="Whole Moon" sub="No data yet" />
+                <Choice on={region === "south"} icon="crosshair" title="South Pole" sub={`${sitesCount} regions · 1 km grid`} onClick={() => setRegion("south")} />
+                <Choice
+                  on={region === "moon"}
+                  disabled={!globalManifest}
+                  icon="globe"
+                  title="Whole Moon"
+                  sub={globalManifest ? `${Object.keys(globalManifest.layers).length} layers · 0.25° grid` : "No data yet"}
+                  onClick={() => setRegion("moon")}
+                />
               </div>
             </div>
             <Btn variant="primary" size="lg" iconRight="arrow-right" className="btn--block" onClick={() => go("explore")}>Find sites</Btn>
