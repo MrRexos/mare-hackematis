@@ -159,3 +159,15 @@ safety = result.suitability   # float32 / alias result.safety, 0–100
 
 Els binaris G1K són grans (~238 MB + ~60 MB): es generen localment / release;
 a git només `layer.json` (+ catàleg).
+
+**Memòria local del relleu.** La primera execució baixa el GeoTIFF de LOLA (8,5 GB, uns
+30 minuts) i desa el relleu ja remostrejat a G1K a `.cache/terrain/dem_g1k_m.npy`
+(238 MB, fora de git). Com que el relleu no canvia, les execucions següents el llegeixen
+d'allà i triguen un parell de minuts, sense xarxa. Per forçar una descàrrega nova:
+
+```bash
+python3 scripts/terrain_safety.py --refresh-dem
+```
+
+El script aplica el factor d'escala del GeoTIFF (DN × 0,5 = metres) i s'atura si les
+elevacions surten del rang lunar (−10 000 … +11 500 m).

@@ -1,8 +1,8 @@
 {
   "id": "suitability.slope",
   "version": "0.2.0",
-  "title": "Slope suitability (0\u2013100)",
-  "description": "Derived 0\u2013100 score from terrain.slope. Optional companion layer (contract \u00a76).",
+  "title": "Slope suitability (0–100)",
+  "description": "Derived 0–100 score from terrain.slope. Optional companion layer (contract §6); official scoring still uses degrees.",
   "units": "score",
   "validRange": [
     0,
@@ -11,7 +11,7 @@
   "kind": "static",
   "owner": "Jan / Equipo Global (T1)",
   "fidelity": "computed",
-  "method": "Derived from terrain.slope on G1K. function: 100 * max(0, 1 - slope_deg / 15)",
+  "method": "Derived from terrain.slope on the same G1K grid. function: 100 * max(0, 1 - slope_deg / 15)",
   "params": {
     "derivedFrom": "terrain.slope",
     "function": "100 * max(0, 1 - slope_deg / 15)",
@@ -21,7 +21,7 @@
     {
       "name": "Derived from terrain.slope",
       "url": "https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif",
-      "citation": "Contract v0.2 \u00a76 optional suitability layer"
+      "citation": "Contract v0.2 §6 optional suitability layer"
     }
   ],
   "files": [
@@ -33,7 +33,9 @@
       "scale": 1,
       "offset": 0,
       "nodata": 255,
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "ff46659c748115dde67971fe3fdc2d073def0b1ac99886076ae76d655f01ab78",
+      "min": 0.0,
+      "max": 100.0
     }
   ]
 }

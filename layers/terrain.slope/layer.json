@@ -12,7 +12,8 @@
   "fidelity": "computed",
   "method": "Median of 16 LOLA LDSM_75S_240M samples inside each 1 km pixel.",
   "params": {
-    "baselineM": 240
+    "baselineM": 240,
+    "baselineM_G1K": 1000.0
   },
   "sources": [
     {
@@ -30,6 +31,15 @@
       "sha256": "6eb0383ac79b78e84ddb63558c808f3231bfd8346c2cbb613186cbd29f4745da",
       "min": 1.1077499389648438,
       "max": 45.0
+    },
+    {
+      "grid": "G1K",
+      "period": "static",
+      "path": "G1K/static.f32",
+      "dtype": "float32",
+      "sha256": "895b0d15c62d765cdaa9c1f3249869ae924768461c3e407c6e327676fdfb3e92",
+      "min": 0.0,
+      "max": 89.71208953857422
     }
   ]
 }

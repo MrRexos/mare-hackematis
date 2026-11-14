@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -62,6 +63,18 @@ LLINDAR_VETO_GRAUS = 15.0
 SAFETY_MAX = 100.0
 MEDIAN_SIZE = 3
 BASELINE_M = 1000.0  # ~1 km (params.baselineM del contracte T1)
+
+# Rang físic del relleu lunar (LOLA: de −9,1 a +10,8 km). Si el DEM en surt, és que
+# les unitats estan malament (p. ex. el factor d'escala del GeoTIFF sense aplicar).
+ELEV_MIN_M = -10_000.0
+ELEV_MAX_M = 11_500.0
+
+# Memòria local del DEM ja remostrejat a G1K, en metres. El relleu no canvia, així que
+# només es baixa (8,5 GB, ~30 min) la primera vegada; després es llegeix d'aquí.
+REPO = Path(__file__).resolve().parents[1]
+CACHE_DIR = Path(os.environ.get("MOONSITE_CACHE", REPO / ".cache")) / "terrain"
+DEM_CACHE = CACHE_DIR / "dem_g1k_m.npy"
+DEM_CACHE_META = CACHE_DIR / "dem_g1k_m.json"
 
 CRS_MOON_EQC = CRS.from_proj4(
     f"+proj=eqc +lat_0=0 +lon_0=0 +lat_ts=0 +x_0=0 +y_0=0 "
@@ -178,16 +191,68 @@ def warp_g1k_dem(url: str = URL_LOLA_GLOBAL) -> tuple[np.ndarray, Affine, float,
             dst_nodata=np.nan,
             resampling=Resampling.average,
         )
-        n_valid = int(np.isfinite(dem).sum())
-        print(
-            f"      Píxels vàlids : {n_valid}/{dem.size} "
-            f"({100.0 * n_valid / dem.size:.1f} %)"
-        )
-        print(
-            f"      Elevació     : {float(np.nanmin(dem)):.1f} … "
-            f"{float(np.nanmax(dem)):.1f} m"
-        )
+        # El GeoTIFF de l'USGS és int16 amb escala 0,5 (DN × 0,5 = metres). rasterio
+        # retorna els DN crus: cal aplicar escala i desplaçament per tenir metres.
+        scale = float(src.scales[0]) if src.scales and src.scales[0] else 1.0
+        offset = float(src.offsets[0]) if src.offsets else 0.0
+        if scale != 1.0 or offset != 0.0:
+            dem *= np.float32(scale)
+            dem += np.float32(offset)
+            print(f"      Escala DN→m  : × {scale:g} + {offset:g}")
+    _check_elevation(dem)
+    n_valid = int(np.isfinite(dem).sum())
+    print(
+        f"      Píxels vàlids : {n_valid}/{dem.size} "
+        f"({100.0 * n_valid / dem.size:.1f} %)"
+    )
+    print(
+        f"      Elevació     : {float(np.nanmin(dem)):.1f} … "
+        f"{float(np.nanmax(dem)):.1f} m"
+    )
     return dem, dst_transform, res_x, res_y
+
+
+def _check_elevation(dem: np.ndarray) -> None:
+    """Atura el càlcul si el DEM no està en metres (rang impossible a la Lluna)."""
+    lo, hi = float(np.nanmin(dem)), float(np.nanmax(dem))
+    if lo < ELEV_MIN_M or hi > ELEV_MAX_M:
+        raise ValueError(
+            f"Elevació {lo:.0f} … {hi:.0f} m fora del rang lunar "
+            f"[{ELEV_MIN_M:.0f}, {ELEV_MAX_M:.0f}] m: unitats o escala del DEM incorrectes."
+        )
+
+
+def load_g1k_dem(
+    url: str = URL_LOLA_GLOBAL, refresh: bool = False
+) -> tuple[np.ndarray, Affine, float, float]:
+    """DEM G1K en metres: de la memòria local si hi és; si no, es baixa i s'hi desa."""
+    _w, _h, res_x, res_y, transform = g1k_grid()
+    if not refresh and DEM_CACHE.is_file() and DEM_CACHE_META.is_file():
+        meta = json.loads(DEM_CACHE_META.read_text(encoding="utf-8"))
+        if meta.get("url") == url and meta.get("shape") == [GRID_ROWS, GRID_COLS]:
+            dem = np.load(DEM_CACHE)
+            if dem.shape == (GRID_ROWS, GRID_COLS):
+                _check_elevation(dem)
+                print(f"[1-2/4] DEM {GRID_ID} llegit de la memòria local (sense descàrrega):")
+                print(f"        {DEM_CACHE}")
+                return dem, transform, res_x, res_y
+        print("      Memòria local del DEM no vàlida per a aquesta font: es torna a baixar.")
+
+    dem, transform, res_x, res_y = warp_g1k_dem(url)
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = DEM_CACHE.with_name(DEM_CACHE.name + ".part")
+        with tmp.open("wb") as fh:
+            np.save(fh, dem)
+        tmp.replace(DEM_CACHE)
+        DEM_CACHE_META.write_text(
+            json.dumps({"url": url, "grid": GRID_ID, "shape": [GRID_ROWS, GRID_COLS], "units": "m"}, indent=2),
+            encoding="utf-8",
+        )
+        print(f"      DEM desat a {DEM_CACHE} ({DEM_CACHE.stat().st_size / 1e6:.0f} MB)")
+    except OSError as e:  # sense memòria local el càlcul continua igualment
+        print(f"      Avís: no s'ha pogut desar la memòria local del DEM ({e})")
+    return dem, transform, res_x, res_y
 
 
 def clean_dem(dem: np.ndarray) -> np.ndarray:
@@ -242,6 +307,7 @@ def compute_slope_and_suitability(
 def compute_terrain_layers(
     url: str = URL_LOLA_GLOBAL,
     veto_deg: float = LLINDAR_VETO_GRAUS,
+    refresh_dem: bool = False,
 ) -> TerrainLayers:
     """Pipeline T1: G1K → slope (°) + suitability (0–100)."""
     print("=" * 60)
@@ -249,7 +315,7 @@ def compute_terrain_layers(
     print(f"  Malla {GRID_ID}: {GRID_COLS}×{GRID_ROWS} (contracte v0.2)")
     print("=" * 60)
 
-    dem, transform, res_x, res_y = warp_g1k_dem(url)
+    dem, transform, res_x, res_y = load_g1k_dem(url, refresh=refresh_dem)
     dem_net = clean_dem(dem)
     del dem
     slope, suitability = compute_slope_and_suitability(
@@ -493,12 +559,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Escriu layers/terrain.slope i layers/suitability.slope (defecte: sí)",
     )
     p.add_argument("--no-export-layers", action="store_true")
+    p.add_argument(
+        "--refresh-dem",
+        action="store_true",
+        help="Ignora la memòria local i torna a baixar el GeoTIFF (8,5 GB)",
+    )
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    result = compute_terrain_layers(url=args.url, veto_deg=args.veto)
+    result = compute_terrain_layers(url=args.url, veto_deg=args.veto, refresh_dem=args.refresh_dem)
     print(
         f"\nObjecte TerrainLayers  shape={result.shape}\n"
         f"  slope_deg     [{np.nanmin(result.slope_deg):.2f}, {np.nanmax(result.slope_deg):.2f}] °\n"
