@@ -28,6 +28,7 @@ function Section({ title, children, note }) {
 }
 
 export function SettingsDrawer({ app, onClose }) {
+  const moon = app.regionId === "moon"; // la Luna entera solo admite fecha fija
   const { mission, setPeriod, setCustom, setFixed, setDuration, setMissionOpts, periods, running, progress, restoreDefaults, dirty, limits, setLimits, problem } = app;
   const fixed = mission.period === "fixed";
   const ref = useRef(null);
@@ -44,19 +45,19 @@ export function SettingsDrawer({ app, onClose }) {
         </div>
         <div className="drawer__body">
           <Section title="Landing date">
-            <Tabs
+            {moon ? null : <Tabs
               label="Landing date"
               value={fixed ? "fixed" : "search"}
               onChange={(v) => setPeriod(v === "fixed" ? "fixed" : "next12")}
               options={[{ value: "fixed", label: "I have a date" }, { value: "search", label: "Find the best" }]}
               className="tabs--block"
-            />
+            />}
             {fixed ? (
               <>
                 <div className="dates">
                   <label><span className="lbl">Land</span><input type="date" aria-label="Landing date" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setFixed(fromInput(e.target.value))} /></label>
                 </div>
-                <p className="muted-12">Every site is scored for these same dates.</p>
+                <p className="muted-12">{moon ? "Every cell on the Moon is scored for these same dates." : "Every site is scored for these same dates."}</p>
               </>
             ) : (
               <>

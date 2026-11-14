@@ -144,7 +144,25 @@ def test_w4_misma_coordenada_que_g1k():
     LAT = np.broadcast_to(lat[:, None], (lat.size, lon.size)).astype(np.float32)
     LON = np.broadcast_to(lon[None, :], (lat.size, lon.size)).astype(np.float32)
     la4, lo4 = Wg.a_w4(LAT), Wg.a_w4(LON)
-    clat = 90 - (np.arange(Wg.W4_ROWS) + 0.5) * 0.25
-    clon = -180 + (np.arange(Wg.W4_COLS) + 0.5) * 0.25
+    paso = 180.0 / Wg.W4_ROWS            # malla web: 0,5° (la misma de los horizontes globales)
+    assert Wg.W4_COLS == 2 * Wg.W4_ROWS
+    clat = 90 - (np.arange(Wg.W4_ROWS) + 0.5) * paso
+    clon = -180 + (np.arange(Wg.W4_COLS) + 0.5) * paso
     assert np.abs(la4[:, 0] - clat).max() < 0.02
     assert np.abs(lo4[0, :] - clon).max() < 0.02
+
+
+def test_horizonte_global_coincide_con_referencia():
+    """Los horizontes de la vista Whole Moon (moonsite.horizon_global) dan, en cada celda,
+    el mismo perfil de 72 acimuts que el trazado de referencia sin atajos."""
+    from moonsite import horizon_global as HG
+    dem = dem_sintetico()
+    lat = np.array([62.25, 0.25, -41.75, -88.25])
+    lon = np.array([-170.25, 12.75, 95.25])
+    hor, elev = HG.calcular(dem, lat, lon)
+    assert hor.shape == (4, 3, 72) and elev.shape == (4, 3)
+    for i, la in enumerate(lat):
+        for j, lo in enumerate(lon):
+            ref, r0 = horizonte_ref(dem, float(la), float(lo))
+            assert np.abs(hor[i, j] - ref).max() < 0.01
+            assert abs(elev[i, j] - (r0 - 1_737_400.0 - 2.0)) < 0.5

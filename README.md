@@ -103,25 +103,36 @@ al pasar el ratón, latitud, longitud, fila/columna G1K y valor. Sirve para cual
 
 ## Vista "Whole Moon" (Luna entera)
 
-En la pantalla de prioridades, **Whole Moon** usa las matrices globales G1K de las ramas
-Jan (pendiente, T1), Nil (Tierra visible, T4) y pol (luz y noche más larga, T3);
-**South Pole** sigue usando el motor horario del polo sur, sin cambios. En el mapa se puede
-ver la puntuación combinada (mismos pesos y límites que el polo sur, solo con los factores
-que tienen capa global) o cada matriz por separado, con las 10 mejores celdas.
+En el paso **01 — Destination** se elige **Whole Moon**. La web calcula **al momento**, en el
+navegador, la luz, la Tierra visible y la noche más larga de cada celda para las fechas de
+la misión: día de aterrizaje + días en superficie (unos segundos para 14 días). Es el mismo
+motor del polo sur, con una malla de toda la Luna de 0,5° (720 × 360, ~15 km en el ecuador).
+De momento solo con **fecha fija de aterrizaje**; buscar las mejores fechas sigue siendo
+solo del polo sur. La puntuación usa los factores con datos globales: luz, Tierra y pendiente.
 
-Pasos para tener datos (desde la raíz del repositorio):
+Lo que no depende de la fecha ya está calculado y va en el repositorio
+(`web/public/data/global/`), así que no hay que ejecutar nada para usar la vista:
+
+| Fichero | Contenido |
+|---|---|
+| `horizon.u8` | Horizonte del terreno de cada celda en 72 acimuts (LOLA LDEM_64), 19 MB |
+| `elevation.f32` | Altura del centro de cada celda |
+| `slope/static.f32` | Pendiente media de la celda, de `terrain.slope` G1K (T1, Jan) |
+| `hillshade.png` | Relieve sombreado (ayuda visual) |
+
+Para regenerarlos (solo si cambia el relieve o la pendiente), desde `pipeline/`:
 
 ```bash
-python scripts/terrain_safety.py --export-layers                          # T1 pendiente (Jan)
-cd pipeline
-../.venv/Scripts/python -m moonsite.fetch global                         # LDEM_64 + SPICE
-../.venv/Scripts/python -m moonsite.sun_global 2026-11-14                # T3 luz, un día (o --mes / --estandar)
-../.venv/Scripts/python -m moonsite.earth_global 2026-11-14              # T4 Tierra, el mismo día
-../.venv/Scripts/python -m moonsite.web_global                           # G1K → web/public/data/global (W4)
+../.venv/Scripts/python -m moonsite.fetch global      # LDEM_64 + SPICE
+../.venv/Scripts/python -m moonsite.web_global        # horizontes (~2 min) + pendiente + relieve
 ```
 
-La web combina los periodos calculados que caen dentro de las fechas de la misión (media
-ponderada por horas) y avisa si solo hay datos para una parte de esas fechas.
+Precisión: un horizonte por celda, trazado en su centro. Comparado con la malla de 1 km para
+un solo día (el peor caso), el error medio de la luz es de 1–2 puntos sobre 100 por debajo
+de 60° de latitud y de 6–9 por encima de 70°, sin sesgo. Para los polos está el módulo de 1 km.
+
+Las matrices G1K de luz y Tierra (`moonsite.sun_global`, `moonsite.earth_global`) siguen
+sirviendo como referencia y para el contrato de datos, pero la web ya no las necesita.
 
 ## Design system
 
@@ -190,6 +201,5 @@ Llum, nit i Terra depenen de la data: aquí només hi ha el 14 de novembre de 20
 altres dies o mesos cal executar `moonsite.sun_global` i `moonsite.earth_global` (vegeu
 més amunt). Amb un sol dia, la nit més llarga no pot passar de 24 h.
 
-La versió reduïda per a la web (0,25°) de llum, nit, Terra i pendent és a
-`web/public/data/global/`, i la vista **Whole Moon** funciona sense cap pas previ. Si es
-canvia alguna matriu, cal regenerar-la amb `python -m moonsite.web_global`.
+La web ja no llegeix les matrius de llum, nit i Terra: les calcula al moment per a les dates
+de la missió (vegeu «Vista Whole Moon»). Aquestes matrius queden com a referència.

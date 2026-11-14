@@ -1,87 +1,72 @@
-// Vista "Whole Moon": capas globales W4 (1440 × 720, 0,25°) que genera
-// pipeline/moonsite/web_global.py a partir de las matrices G1K del contrato.
+// Vista "Whole Moon": Luna entera en una malla lat/lon de 0,5° (720 × 360).
 //
-//   sun    sun.visible_fraction.mean    (T3, rama pol)  fracción 0-1 por periodo
-//   night  sun.longest_night_h.max      (T3, rama pol)  horas por periodo
-//   earth  earth.visible_fraction.mean  (T4, rama Nil)  fracción 0-1 por periodo
-//   slope  terrain.slope                (T1, rama Jan)  grados, estática
+// La luz, la Tierra visible y la noche más larga se calculan AL MOMENTO para las fechas
+// de la misión, con el mismo motor que el polo sur (missionEngine + workers): cada celda
+// tiene su horizonte ya trazado (global/horizon.u8, 72 acimuts) y el navegador solo
+// compara, hora a hora, el Sol y la Tierra con ese horizonte. Con "best dates" cada celda
+// se queda con su mejor ventana dentro del periodo (por ejemplo, un mes).
+//
+// Lo que no depende de la fecha viene ya calculado por pipeline/moonsite/web_global.py:
+//   horizon    horizonte del terreno por celda          (LOLA LDEM_64)
+//   elevation  altura del centro de la celda            (LOLA LDEM_64)
+//   slope      pendiente media de la celda, en grados   (terrain.slope G1K, T1 · Jan)
 //
 // Puntuación (la misma regla que el polo sur, score.js):
-//   score = 100 · Σ wᵢ·fᵢ / Σ wᵢ, solo con los factores que tienen capa global.
-//   sun, earth: fracción del periodo; slope: 1 − pendiente / pendiente máxima.
+//   score = 100 · Σ wᵢ·fᵢ / Σ wᵢ, solo con los factores que tienen datos globales.
+//   sun, earth: fracción de la misión; slope: 1 − pendiente / pendiente máxima.
 // Filtros: pendiente > máxima, noche más larga que la autonomía (si se activa).
+
+import { MissionEngine } from "./missionEngine.js";
 
 const BASE = `${import.meta.env.BASE_URL}data/`;
 
 export const GLOBAL_FACTORS = ["sun", "earth", "slope"];
 
-/** Manifest de las capas globales, o null si todavía no se han generado. */
+/** Manifest de los datos globales, o null si todavía no se han generado. */
 export async function loadGlobalManifest() {
   try {
     const r = await fetch(`${BASE}global/manifest.json`);
     if (!r.ok) return null;
     const m = await r.json();
-    return m && m.layers && Object.keys(m.layers).length ? m : null;
+    return m && m.horizon && m.elevation && m.grid?.type === "latlon" ? m : null;
   } catch {
     return null;
   }
 }
 
-const bufCache = new Map();
-async function getF32(file) {
-  if (!bufCache.has(file)) {
-    bufCache.set(file, fetch(BASE + file).then((r) => {
-      if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
-      return r.arrayBuffer();
-    }).then((b) => new Float32Array(b)));
-  }
-  return bufCache.get(file);
+async function getBuffer(file) {
+  const r = await fetch(BASE + file);
+  if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
+  return r.arrayBuffer();
 }
 
-/**
- * Periodos de una capa que caen en [fromMs, toMs) y su peso (horas de solape).
- * Si la capa es estática, devuelve "static". Si ningún periodo solapa, devuelve [].
- */
-export function periodsFor(layer, fromMs, toMs) {
-  const out = [];
-  for (const [pid, p] of Object.entries(layer.periods || {})) {
-    if (pid === "static" || !p.start) {
-      out.push({ pid, w: 1, start: null, end: null });
-      continue;
-    }
-    const a = Date.parse(p.start), b = Date.parse(p.end);
-    const w = Math.max(0, Math.min(b, toMs) - Math.max(a, fromMs));
-    if (w > 0) out.push({ pid, w, start: a, end: b });
+let staticPromise = null;
+/** Horizontes, elevación y pendiente (se descargan una sola vez). */
+export function loadGlobalStatic(gm) {
+  if (!staticPromise) {
+    const slopeFile = gm.layers?.slope?.periods?.static?.file;
+    staticPromise = Promise.all([
+      getBuffer(gm.horizon.file).then((b) => new Uint8Array(b)),
+      getBuffer(gm.elevation.file).then((b) => new Float32Array(b)),
+      slopeFile ? getBuffer(slopeFile).then((b) => new Float32Array(b)) : null,
+    ]).then(([horizon, elevation, slope]) => ({ horizon, elevation, slope }))
+      .catch((e) => { staticPromise = null; throw e; });
   }
-  // Si hay una media larga (p. ej. 2026-2030) y periodos cortos, se usan los cortos.
-  const shortOnes = out.filter((x) => x.end && x.end - x.start < 400 * 86400e3);
-  return shortOnes.length ? shortOnes : out;
+  return staticPromise;
 }
 
-/** Combina los periodos de una capa en un solo Float32Array (media ponderada o máximo). */
-export async function layerFor(layer, fromMs, toMs) {
-  const sel = periodsFor(layer, fromMs, toMs);
-  if (!sel.length) return { values: null, used: [] };
-  const arrays = await Promise.all(sel.map((s) => getF32(layer.periods[s.pid].file)));
-  const n = arrays[0].length;
-  const out = new Float32Array(n);
-  if (layer.combine === "max") {
-    out.fill(NaN);
-    for (const a of arrays) for (let p = 0; p < n; p++) if (!(a[p] <= out[p])) out[p] = Number.isFinite(a[p]) ? a[p] : out[p];
-  } else {
-    const wsum = sel.reduce((s, x) => s + x.w, 0);
-    for (let p = 0; p < n; p++) {
-      let s = 0, ok = true;
-      for (let k = 0; k < arrays.length; k++) {
-        const v = arrays[k][p];
-        if (!Number.isFinite(v)) { ok = false; break; }
-        s += v * sel[k].w;
-      }
-      out[p] = ok ? s / wsum : NaN;
-    }
+let engine = null;
+/** Motor de misión de la Luna entera (el mismo del polo sur, con la malla global). */
+export function globalEngine(gm, stat, ephem, ephemMeta) {
+  if (!engine) {
+    engine = new MissionEngine({
+      manifest: { grid: gm.grid, ephem: ephemMeta, horizon: gm.horizon },
+      layers: { elevation: stat.elevation },
+      horizon: stat.horizon,
+      ephem,
+    });
   }
-  const covered = sel.reduce((s, x) => s + (x.start == null ? 0 : Math.min(x.end, toMs) - Math.max(x.start, fromMs)), 0);
-  return { values: out, used: sel.map((x) => x.pid), coverage: Math.min(1, covered / Math.max(1, toMs - fromMs)) };
+  return engine;
 }
 
 /** Factores 0-1 de una celda. */

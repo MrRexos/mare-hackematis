@@ -11,13 +11,16 @@ export class MissionEngine {
     this.horizonMeta = manifest.horizon;
     this.runId = 0;
     this.active = null;
-    const n = this.grid.n;
+    const n = this.grid.cols || this.grid.n;      // columnas
+    const nRows = this.grid.rows || this.grid.n;  // filas
+    this.cols = n;
+    this.rows = nRows;
     const k = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
-    const rowsPer = Math.ceil(n / k);
+    const rowsPer = Math.ceil(nRows / k);
     this.workers = [];
     for (let w = 0; w < k; w++) {
       const r0 = w * rowsPer;
-      const r1 = Math.min(n, r0 + rowsPer);
+      const r1 = Math.min(nRows, r0 + rowsPer);
       if (r0 >= r1) break;
       const worker = new Worker(new URL("./mission.worker.js", import.meta.url), { type: "module" });
       const bins = this.horizonMeta.bins;
@@ -56,8 +59,8 @@ export class MissionEngine {
     if (startIdx + landingHours + durationH > m.count) {
       throw new Error("The mission ends after the last date with ephemeris data.");
     }
-    const n = this.grid.n;
-    const total = n * n;
+    const n = this.cols;
+    const total = n * this.rows;
     const res = {
       sun: new Float32Array(total), earth: new Float32Array(total), both: new Float32Array(total),
       night: new Float32Array(total), best: new Int32Array(total),
@@ -99,7 +102,7 @@ export class MissionEngine {
               return;
             }
           }
-          onProgress(done.reduce((sum, count) => sum + count, 0) / n);
+          onProgress(done.reduce((sum, count) => sum + count, 0) / this.rows);
         };
         const onError = (e) => finish(null, new Error(e.message || "Mission calculation failed."));
         listeners.push({ worker, onMessage, onError });

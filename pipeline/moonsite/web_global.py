@@ -1,20 +1,18 @@
-"""Integración: capas G1K → versión web W4 para la vista "Whole Moon".
+"""Integración: datos de la vista "Whole Moon" de la web (web/public/data/global/).
 
-Lee las capas del contrato (layers/<id>/layer.json + binarios G1K) y escribe en
-web/public/data/global/ una copia reducida a W4 (1440 × 720, 0,25° por celda, misma
-orientación que G1K: columna 0 desde −180°, fila 0 desde +90°). Cada celda W4 es la
-media de las celdas G1K cuyo centro cae dentro (contrato §2: "media ponderada por área";
-dentro de una celda de 0,25° el peso cos(lat) es prácticamente constante).
+La web calcula la luz, la noche más larga y la Tierra visible AL MOMENTO, para las fechas
+de la misión, igual que en el polo sur. Para eso necesita lo que no depende de la fecha:
 
-Capas que usa la web (las que hay en las ramas Jan, Nil y pol):
-    sun     sun.visible_fraction.mean      (T3, pol)   fracción 0-1, por periodo
-    night   sun.longest_night_h.max        (T3, pol)   horas, por periodo
-    earth   earth.visible_fraction.mean    (T4, Nil)   fracción 0-1, por periodo
-    slope   terrain.slope                  (T1, Jan)   grados, estática
+    horizon.u8      horizonte del terreno de cada celda, 72 acimuts   (moonsite.horizon_global)
+    elevation.f32   altura del centro de cada celda
+    slope/static.f32  pendiente media de la celda, a partir de terrain.slope G1K (T1, Jan)
+    hillshade.png   relieve sombreado de LOLA LDEM_64 (solo ayuda visual)
 
-También genera global/hillshade.png (relieve sombreado de LOLA LDEM_64) si está en .cache.
+Malla web: 0,5° por celda (720 × 360), misma orientación que G1K (columna 0 desde −180°,
+fila 0 desde +90°). La pendiente de cada celda es la media de las celdas G1K cuyo centro
+cae dentro (contrato §2).
 
-Uso (desde pipeline/, después de generar las capas):
+Uso (desde pipeline/, con LDEM_64 en .cache y layers/terrain.slope/G1K):
     python -m moonsite.web_global
 """
 
@@ -27,15 +25,14 @@ from pathlib import Path
 import numpy as np
 
 from . import config as C
+from . import horizon_global as HG
 
 OUT = C.WEB_DATA / "global"
-W4_COLS, W4_ROWS = 1440, 720
+W4_COLS, W4_ROWS = HG.COLS, HG.ROWS      # malla web (0,5°)
+HS_COLS, HS_ROWS = 1440, 720              # relieve sombreado (solo imagen)
 DTYPES = {"float32": "<f4", "int16": "<i2", "uint16": "<u2", "uint8": "u1"}
 
 CAPAS = {
-    "sun": {"id": "sun.visible_fraction.mean", "label": "Sunlight", "branch": "pol (T3)"},
-    "night": {"id": "sun.longest_night_h.max", "label": "Longest night", "branch": "pol (T3)"},
-    "earth": {"id": "earth.visible_fraction.mean", "label": "Earth view", "branch": "Nil (T4)"},
     "slope": {"id": "terrain.slope", "label": "Slope", "branch": "Jan (T1)"},
 }
 
@@ -80,16 +77,16 @@ def _sombreado():
     from .pds import CylRaster
 
     d = CylRaster.open(img, C.LOLA_GLOBAL["ldem64"].url)
-    b = d.raw.shape[0] // W4_ROWS
-    z = d.raw.reshape(W4_ROWS, b, W4_COLS, b).mean(axis=(1, 3)) * d.k + d.add
+    b = d.raw.shape[0] // HS_ROWS
+    z = d.raw.reshape(HS_ROWS, b, HS_COLS, b).mean(axis=(1, 3)) * d.k + d.add
     # Recolocar para que la columna 0 empiece en −180° (LDEM_64 empieza en lon_west)
     desplaza = int(round(((-180.0 - d.lon_west) % 360.0) / 0.25))
     z = np.roll(z, -desplaza, axis=1)
-    lat = np.radians(90 - (np.arange(W4_ROWS) + 0.5) * 0.25)
-    px = 2 * np.pi * C.MOON_R_M / W4_COLS
+    lat = np.radians(90 - (np.arange(HS_ROWS) + 0.5) * 0.25)
+    px = 2 * np.pi * C.MOON_R_M / HS_COLS
     gy, gx = np.gradient(z)
     gx = gx / (px * np.cos(lat).clip(0.05)[:, None])
-    gy = -gy / (np.pi * C.MOON_R_M / W4_ROWS)
+    gy = -gy / (np.pi * C.MOON_R_M / HS_ROWS)
     nx, ny = -gx * 6, -gy * 6
     s = (-0.5 * nx + 0.5 * ny + 0.707) / np.sqrt(nx * nx + ny * ny + 1)
     g = np.clip(70 + 150 * s, 0, 255).astype(np.uint8)
@@ -101,8 +98,9 @@ def _sombreado():
 def main(argv=None) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     manifest = {
-        "grid": {"name": "W4", "cols": W4_COLS, "rows": W4_ROWS, "stepDeg": 0.25, "lon0": -180.0, "lat0": 90.0,
-                 "order": "row-major, row 0 at +90°, column 0 at −180°E", "from": "G1K 10916 × 5458, mean of cells"},
+        "grid": {"name": "W2", "type": "latlon", "cols": W4_COLS, "rows": W4_ROWS, "stepDeg": HG.STEP_DEG,
+                 "lon0": -180.0, "lat0": 90.0, "radiusM": C.MOON_R_M, "frame": "MOON_ME",
+                 "order": "row-major, row 0 at +90°, column 0 at −180°E"},
         "layers": {},
     }
     for key, spec in CAPAS.items():
@@ -130,6 +128,9 @@ def main(argv=None) -> None:
             "kind": meta.get("kind"), "combine": meta.get("combine", "none"), "fidelity": meta.get("fidelity"),
             "title": meta.get("title"), "sources": meta.get("sources", []), "periods": periodos,
         }
+    extra = HG.generar()
+    if extra:
+        manifest.update(extra)
     hs = _sombreado()
     if hs:
         manifest["hillshade"] = hs

@@ -1,30 +1,24 @@
-// 02 Explore · Whole Moon: mapa de calor de toda la Luna con las matrices globales
-// (luz de la rama pol, Tierra de la rama Nil, pendiente de la rama Jan).
-// El polo sur sigue usando Explore.jsx y su motor horario, sin cambios.
+// 02 Explore · Whole Moon: mapa de calor de toda la Luna para las fechas de la misión.
+// La luz, la Tierra visible y la noche más larga se calculan al momento en el navegador
+// (mismo motor que el polo sur) con los horizontes globales ya trazados; la pendiente es
+// la malla de la rama Jan. De momento solo con fecha fija de aterrizaje.
+// El polo sur sigue usando Explore.jsx, sin cambios.
 
 import { useEffect, useMemo, useState } from "react";
 import GlobalMap, { viridisCss } from "../components/GlobalMap.jsx";
 import { Icon, Btn, Card, Tabs, FactorGrid, Shape, cx } from "../ui/kit.jsx";
-import { MissionChip } from "../ui/Shell.jsx";
+import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { GOALS } from "./Explore.jsx";
 import { PRESETS, presetOf } from "../engine/score.js";
 import {
-  GLOBAL_FACTORS, cellLatLon, fmtLatLon, globalExclusionAt, globalFactorsAt, globalHotspots, globalScore, layerFor,
+  GLOBAL_FACTORS, cellLatLon, fmtLatLon, globalEngine, globalExclusionAt, globalFactorsAt, globalHotspots, globalScore, loadGlobalStatic,
 } from "../engine/globalScore.js";
-
-const DAY_MS = 86400000;
-const fmtDay = (ms) => new Date(ms).toISOString().slice(0, 10);
-const daysTxt = (cov, m) => {
-  const total = Math.round((m.toMs - m.fromMs) / DAY_MS);
-  const d = Math.round(cov * total * 10) / 10;
-  return `${d} of ${total} days`;
-};
 
 const VIEW = {
   sun: { label: "Sunlight", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
   earth: { label: "Earth view", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
   slope: { label: "Slope", unit: "°", fmt: (v) => `${v.toFixed(1)}°`, extent: () => [0, 30], invert: true },
-  night: { label: "Longest night", unit: "h", fmt: (v) => `${Math.round(v)} h`, extent: (a) => [0, maxOf(a) || 1], invert: true },
+  night: { label: "Longest night", unit: "h", fmt: (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`), extent: (a) => [0, maxOf(a) || 1], invert: true },
 };
 
 function maxOf(a) {
@@ -50,11 +44,10 @@ export function RegionTabs({ region, setRegion, globalReady }) {
 }
 
 export default function GlobalExplore({ app }) {
-  const { globalManifest: gm, mission, weights, setWeights, limits, openSettings, go, Rail, regionId: region, setRegion, useDates } = app;
+  const { globalManifest: gm, data, mission, request, problem, weights, setWeights, limits, openSettings, go, Rail, regionId: region, setRegion } = app;
   const grid = gm.grid;
-  const [L, setL] = useState({});
-  const [info, setInfo] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [stat, setStat] = useState(null);   // horizontes, elevación y pendiente (una sola descarga)
+  const [calc, setCalc] = useState(null);   // { request, progress, result, error, ms }
   const [error, setError] = useState(null);
   const [layerKey, setLayerKey] = useState("score");
   const [sel, setSel] = useState(null);
@@ -68,23 +61,37 @@ export default function GlobalExplore({ app }) {
     img.src = `${import.meta.env.BASE_URL}data/${gm.hillshade}`;
   }, [gm.hillshade]);
 
-  // Capas para las fechas de la misión (media ponderada por horas de los periodos que tocan).
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(null);
-    Promise.all(Object.entries(gm.layers).map(async ([k, layer]) => [k, await layerFor(layer, mission.fromMs, mission.toMs)]))
-      .then((list) => {
-        if (!alive) return;
-        const vals = {}, inf = {};
-        for (const [k, r] of list) { vals[k] = r.values; inf[k] = r; }
-        setL(vals);
-        setInfo(inf);
-      })
-      .catch((e) => alive && setError(e.message))
-      .finally(() => alive && setLoading(false));
+    loadGlobalStatic(gm).then((st) => alive && setStat(st)).catch((e) => alive && setError(e.message));
     return () => { alive = false; };
-  }, [gm, mission.fromMs, mission.toMs]);
+  }, [gm]);
+
+  // Cálculo para las fechas de la misión: Sol y Tierra contra el horizonte de cada celda, hora a hora.
+  const ready = !!(stat && data?.ephem);
+  useEffect(() => {
+    if (!ready || problem) return undefined;
+    const engine = globalEngine(gm, stat, data.ephem, data.manifest.ephem);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const t0 = performance.now();
+      try {
+        const result = await engine.run(request, (progress) => { if (!cancelled) setCalc({ request, progress }); });
+        if (result && !cancelled) setCalc({ request, result, progress: 1, ms: performance.now() - t0 });
+      } catch (e) {
+        if (!cancelled) setCalc({ request, error: e.message });
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); engine.cancel(); };
+  }, [ready, request, problem, gm, stat, data]);
+
+  const current = calc?.request === request ? calc : null;
+  const result = problem ? null : current?.result ?? null;
+  const runError = problem ? null : current?.error ?? null;
+  const loading = !error && !problem && !runError && !result;
+  const progress = current?.progress ?? 0;
+
+  const L = useMemo(() => (result ? { sun: result.sun, earth: result.earth, night: result.night, slope: stat?.slope || null } : {}), [result, stat]);
 
   const { score, keys } = useMemo(() => globalScore(L, weights, limits), [L, weights, limits]);
   const spots = useMemo(() => globalHotspots(score, grid, 10, 5), [score, grid]);
@@ -93,10 +100,6 @@ export default function GlobalExplore({ app }) {
   const values = layerKey === "score" ? score : L[layerKey];
   const extent = layerKey === "score" ? scoreExtent : VIEW[layerKey].extent(values);
   const invert = layerKey !== "score" && VIEW[layerKey].invert;
-
-  const missing = Object.entries(gm.layers).filter(([k]) => !L[k] && !loading).map(([k]) => k);
-  const timeLayers = Object.entries(gm.layers).filter(([, l]) => l.kind !== "static");
-  const allPeriods = [...new Set(timeLayers.flatMap(([, l]) => Object.entries(l.periods).filter(([pid]) => pid !== "static").map(([, p]) => p)))];
 
   const cellCard = (p, name) => {
     const [lat, lon] = cellLatLon(grid, p);
@@ -107,14 +110,13 @@ export default function GlobalExplore({ app }) {
   const best = spots[0] ? cellCard(spots[0].p, "Best cell 01") : null;
   const selected = sel != null ? cellCard(sel, spots.findIndex((s) => s.p === sel) >= 0 ? `Best cell ${String(spots.findIndex((s) => s.p === sel) + 1).padStart(2, "0")}` : "Your cell") : null;
   const goal = presetOf(weights);
-  const partial = Object.entries(info).map(([k, r]) => (gm.layers[k].kind !== "static" && r.used?.length && r.coverage < 0.95 ? r : null)).find(Boolean) || null;
   const ignored = Object.entries(weights).filter(([k, w]) => w > 0 && !GLOBAL_FACTORS.includes(k)).map(([k]) => k);
 
   const layerBar = (
     <div className="overlay layerbar">
       <Icon name="layers" size={16} />
       <span style={{ width: 6 }} />
-      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k]) => gm.layers[k])].map(([k, v]) => (
+      {[["score", { label: "Score" }], ...Object.entries(VIEW)].map(([k, v]) => (
         <button key={k} type="button" aria-pressed={layerKey === k} disabled={k !== "score" && !L[k]}
           className={cx("layerbar__b", layerKey === k && "is-on")} onClick={() => setLayerKey(k)}>
           {layerKey === k ? <Icon name="check" size={12} /> : null}
@@ -178,7 +180,7 @@ export default function GlobalExplore({ app }) {
                     <span className="num-15 grow ellipsis">{selected.name}</span>
                     <span className="num-15">{Number.isFinite(selected.score) ? Math.round(selected.score) : "–"}</span>
                   </div>
-                  <div className="coords">{selected.coords} · cell 0.25° (~7.6 km at the equator)</div>
+                  <div className="coords">{selected.coords} · {grid.stepDeg}° cell (~{Math.round(grid.stepDeg * 30.3)} km at the equator)</div>
                   {selected.excluded ? <div className="note-12"><Icon name="info" size={12} />{selected.excluded}</div> : null}
                   <FactorGrid values={selected.factors} />
                   <div className="row-6"><div className="grow" /><Btn size="sm" variant="ghost" icon="x" onClick={() => setSel(null)}>Clear</Btn></div>
@@ -190,14 +192,10 @@ export default function GlobalExplore({ app }) {
                 <span className="glegend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></span>
                 <span className="glegend__na"><i />Excluded / no data</span>
               </div>
-              {!loading && partial ? (
-                <div className="overlay mapnote">
-                  <Icon name="alert" size={14} />
-                  Data for {daysTxt(partial.coverage, mission)} of your dates ({partial.used.join(", ")}). The map shows those days only; compute more days or narrow your dates.
-                </div>
-              ) : null}
               {loading ? (
-                <div className="overlay mapnote"><Icon name="loader" size={14} className="spin" />Loading whole-Moon layers…</div>
+                <div className="overlay mapnote"><Icon name="loader" size={14} className="spin" />
+                  {ready ? `Computing Sun and Earth for every cell… ${Math.round(progress * 100)}%` : "Loading whole-Moon horizons…"}
+                </div>
               ) : null}
             </GlobalMap>
           </section>
@@ -221,19 +219,14 @@ export default function GlobalExplore({ app }) {
             <Card pad="md2" className="rank__best">
               <div className="stack-14">
                 <div className="row-8"><span className="lbl">Best on the whole Moon</span></div>
-                {error ? (
-                  <div className="state state--left"><Icon name="alert" size={16} style={{ color: "var(--danger)" }} /><span className="state__title">Could not load the layers</span><span className="state__text">{error}</span></div>
-                ) : missing.length && timeLayers.some(([k]) => missing.includes(k)) ? (
+                {error || runError ? (
+                  <div className="state state--left"><Icon name="alert" size={16} style={{ color: "var(--danger)" }} /><span className="state__title">{error ? "Could not load the whole-Moon data" : "Could not compute this mission"}</span><span className="state__text">{error || runError}</span></div>
+                ) : problem ? (
                   <div className="state state--left">
                     <Icon name="calendar" size={16} />
-                    <span className="state__title">No data for these dates</span>
-                    <span className="state__text">
-                      {missing.map((k) => VIEW[k]?.label || k).join(", ")}: nothing computed between {fmtDay(mission.fromMs)} and {fmtDay(mission.toMs)}.
-                      {allPeriods.length ? ` Computed: ${allPeriods.map((p) => `${p.start.slice(0, 10)}${p.end && Date.parse(p.end) - Date.parse(p.start) > DAY_MS ? ` → ${p.end.slice(0, 10)}` : ""}`).join(", ")}.` : ""}
-                    </span>
-                    {allPeriods.length ? (
-                      <Btn size="sm" icon="calendar" onClick={() => useDates(Date.parse(allPeriods[0].start), Date.parse(allPeriods[0].end) - DAY_MS)}>Use {allPeriods[0].start.slice(0, 10)}</Btn>
-                    ) : null}
+                    <span className="state__title">Check the mission dates</span>
+                    <span className="state__text">{problem}</span>
+                    <Btn size="sm" icon="sliders" onClick={openSettings}>Mission settings</Btn>
                   </div>
                 ) : !best ? (
                   <div className="state state--left">
@@ -246,7 +239,7 @@ export default function GlobalExplore({ app }) {
                       <span className="best__text">
                         <span className="best__rank">01</span>
                         <span className="best__name">{best.coords}</span>
-                        <span className="coords">0.25° cell</span>
+                        <span className="coords">{grid.stepDeg}° cell</span>
                       </span>
                       <span className="best__score"><span>{Math.round(best.score)}</span><span className="muted-11">/100</span></span>
                     </button>
@@ -254,9 +247,8 @@ export default function GlobalExplore({ app }) {
                   </>
                 )}
                 <div className="muted-11">
-                  {Object.entries(info).map(([k, r]) => (r.used?.length ? (
-                    <div key={k}>{VIEW[k]?.label || k} ({gm.layers[k].branch}): {r.used.join(", ")}{gm.layers[k].kind !== "static" && r.coverage < 0.999 ? ` · ${daysTxt(r.coverage, mission)} of your dates` : ""}</div>
-                  ) : null))}
+                  <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{current?.ms ? ` (${(current.ms / 1000).toFixed(1)} s)` : ""}.</div>
+                  <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1).</div>
                 </div>
               </div>
             </Card>

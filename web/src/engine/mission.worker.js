@@ -7,7 +7,7 @@
 //   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta}
 //   {type: "run", id, params}  ->  {type: "progress", id, done}  ...  {type: "result", id, ...}
 
-import { DEG, localFrame, pixelXY, xyToUnit } from "./geometry.js";
+import { DEG, cellUnit, localFrame } from "./geometry.js";
 
 const SUN_RADIUS_KM = 695700;
 const EARTH_RADIUS_DEG = 0.95; // radio angular medio de la Tierra vista desde la Luna
@@ -29,7 +29,7 @@ self.onmessage = (e) => {
 
 async function run(id, p) {
   const { grid, rows, elevation, horizon, horizonMeta, ephem, ephemMeta } = S;
-  const n = grid.n;
+  const n = grid.cols || grid.n; // columnas (malla polar: n × n; malla global: rows × cols)
   const bins = horizonMeta.bins;
   const binDeg = 360 / bins;
   const qs = horizonMeta.scaleDeg;
@@ -96,8 +96,7 @@ async function run(id, p) {
       }
       hor[bins] = hor[0];
 
-      const [x, y] = pixelXY(grid, i, j);
-      const u = xyToUnit(R, x, y);
+      const u = cellUnit(grid, i, j);
       const [up, east, north] = localFrame(u);
       const rObs = (R + h + h0) / 1000; // km
       const ox = u[0] * rObs, oy = u[1] * rObs, oz = u[2] * rObs;

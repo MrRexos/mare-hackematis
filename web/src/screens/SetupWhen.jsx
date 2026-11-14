@@ -61,6 +61,7 @@ export const SEARCH_RANGES = [["next12", "Next 12 months"], ["nofixed", "2026 �
 /** Paso 02 — When: todo lo temporal (un día concreto o buscar en un rango) y los días en superficie. */
 export default function SetupWhen({ mission, region, setPeriod, setCustom, setFixed, setDuration, periods, problem, go }) {
   const fixed = mission.period === "fixed";
+  const moon = region === "moon"; // la Luna entera solo admite fecha fija de aterrizaje
   const rangeText = mission.period === "next12" ? `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`
     : mission.period === "nofixed" ? `${fmtDay(periods.nofixed[0])} → ${fmtDay(periods.nofixed[1])}` : null;
 
@@ -69,7 +70,9 @@ export default function SetupWhen({ mission, region, setPeriod, setCustom, setFi
       step="when"
       eyebrow="02 — When/"
       title={<>When<br />do you<br />go?</>}
-      lead="Choose one landing day to compare every site on the same dates, or let the planner find each site's best days."
+      lead={moon
+        ? "Choose the landing day. Every cell on the Moon is scored for the same dates, computed on the spot."
+        : "Choose one landing day to compare every site on the same dates, or let the planner find each site's best days."}
       go={go}
       back="where"
       brief={<MissionBrief mission={mission} region={region} cta="Continue" onCta={() => go("priorities")} />}
@@ -95,11 +98,11 @@ export default function SetupWhen({ mission, region, setPeriod, setCustom, setFi
         </div>
 
         <div className={cx("opt", !fixed && "is-on")}>
-          <button type="button" role="radio" aria-checked={!fixed} className="opt__head" onClick={() => fixed && setPeriod("next12")}>
+          <button type="button" role="radio" aria-checked={!fixed} disabled={moon} className="opt__head" onClick={() => fixed && setPeriod("next12")}>
             <span className="opt__dot" />
             <span className="dest__text">
               <span className="dest__name">Find the best dates</span>
-              <span className="dest__sub">Each site gets its own best days within a range</span>
+              <span className="dest__sub">{moon ? "South Pole only for now" : "Each site gets its own best days within a range"}</span>
             </span>
           </button>
           {!fixed ? (

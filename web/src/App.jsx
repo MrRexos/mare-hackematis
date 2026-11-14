@@ -81,7 +81,7 @@ function useMedia(query) {
 export default function App() {
   // La app empieza en la portada (la de la Luna). Solo el polo sur tiene datos de momento.
   const [screen, setScreen] = useState("home");
-  const [region, setRegion] = useState("south");
+  const [region, setRegionRaw] = useState("south");
   const [tab, setTab] = useState("overview");
   const [dim, setDim] = useState("2D");
   const [overlay, setOverlay] = useState(null); // "settings" | "export"
@@ -137,6 +137,18 @@ export default function App() {
   //  - "fixed": tengo fecha de aterrizaje -> la misión va de esa fecha a fecha + duración;
   //    todas las celdas se evalúan en las MISMAS fechas.
   //  - búsqueda ("next12" | "nofixed" | "custom"): cada celda en SUS mejores días del periodo.
+  // La Luna entera solo trabaja con fecha fija de aterrizaje (todas las celdas en las mismas
+  // fechas). Al elegirla, si la misión estaba en modo búsqueda se pasa a fecha fija.
+  const setRegion = (r) => {
+    setRegionRaw(r);
+    if (r === "moon") {
+      setMission((m) => {
+        if (m.period === "fixed") return m;
+        const land = Math.min(Math.max(m.fromMs, todayMs(), periods.range[0]), periods.range[1] - m.durationDays * DAY_MS);
+        return { ...m, period: "fixed", fromMs: land, toMs: land + m.durationDays * DAY_MS };
+      });
+    }
+  };
   const setFixed = (landMs) => setMission((m) => ({ ...m, period: "fixed", fromMs: landMs, toMs: landMs + m.durationDays * DAY_MS }));
   const setPeriod = (period) => setMission((m) => {
     if (period === "fixed") {
@@ -174,7 +186,8 @@ export default function App() {
 
   useEffect(() => {
     const engine = engineRef.current;
-    if (!engineReady || problem) return undefined;
+    // Mientras se mira la Luna entera, el motor del polo sur no calcula (lo hace el global).
+    if (!engineReady || problem || region === "moon") return undefined;
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
@@ -191,7 +204,7 @@ export default function App() {
       clearTimeout(timer);
       engine.cancel();
     };
-  }, [engineReady, request, problem]);
+  }, [engineReady, request, problem, region]);
 
   // --- Puntuación, puntos calientes y regiones -----------------------------
   const score = useMemo(() => (data && result ? scoreGrid(result, data.layers, weights, limits) : null), [data, result, weights, limits]);
@@ -408,9 +421,6 @@ export default function App() {
     return `${fmtShort(a)} → ${fmtShort(a + result.durationH * H)}`;
   };
 
-  // Whole Moon: ajusta las fechas a un periodo que sí tiene mallas calculadas.
-  const useDates = (a, b) => setCustom(Math.floor(a / DAY_MS) * DAY_MS, Math.ceil((b + DAY_MS) / DAY_MS) * DAY_MS);
-
   const RailEl = <Rail screen={screen} go={go} onMission={() => setOverlay("settings")} onExport={() => setOverlay("export")} />;
   const TimeBarEl = (
     <TimeBar startMs={mission.fromMs} endMs={mission.toMs} timeMs={timeMs} setTimeMs={setTimeMs} windows={windowsMs} missionWin={missionWin} lanes={lanes} />
@@ -430,7 +440,7 @@ export default function App() {
     tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: "South Pole",
     datesFor, fixedDates: mission.period === "fixed",
     curWin,
-    regionId: region, setRegion, globalManifest, globalReady: !!globalManifest, useDates,
+    regionId: region, setRegion, globalManifest, globalReady: !!globalManifest, request,
     exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,
   };
 
