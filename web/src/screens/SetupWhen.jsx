@@ -60,15 +60,14 @@ export default function SetupWhen({ mission, setPeriod, setCustom, setDuration, 
   const [editDays, setEditDays] = useState(false);
 
   const cols = [
-    ["nofixed", "01", "No fixed\ndate", `${new Date(periods.nofixed[0]).getUTCFullYear()} → ${new Date(periods.nofixed[1]).getUTCFullYear()}`],
-    ["next12", "02", "Next\n12 months", `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`],
-    ["custom", "03", "Custom\nwindow", null],
+    ["nofixed", "01", "No fixed\ndate", `${fmtDay(periods.nofixed[0])} → ${fmtDay(periods.nofixed[1])}`],
+    ["custom", "02", "Custom\nwindow", null],
   ];
 
   return (
     <div className="when">
       <div className="when__lines" aria-hidden="true">
-        {[27, 42.65, 58.3, 73.95].map((x) => <span key={x} style={{ left: `${x}%` }} />)}
+        {[27, 47.87, 68.73].map((x) => <span key={x} style={{ left: `${x}%` }} />)}
       </div>
       <a href="#" className="when__brand" onClick={(e) => e.preventDefault()}>Mare Hackematis</a>
       <div className="when__menu">
@@ -106,7 +105,7 @@ export default function SetupWhen({ mission, setPeriod, setCustom, setDuration, 
           );
         })}
         <div className="when__col">
-          <span className="when__idx">04</span>
+          <span className="when__idx">03</span>
           <span className="when__opt is-on is-static">{`${lengthLong(mission.durationDays)}\non surface`}</span>
           {editDays ? <LengthSlider value={mission.durationDays} onChange={setDuration} /> : null}
           <button type="button" className="when__act" onClick={() => setEditDays(!editDays)}>{editDays ? "Done" : "Change"}</button>

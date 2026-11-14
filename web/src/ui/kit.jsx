@@ -113,7 +113,7 @@ export function Fidelity({ level = "computed", title }) {
   );
 }
 
-/** Rejilla 3 × 3 de factores: icono, barra y valor (0–100 o null = sin datos). */
+/** Rejilla de factores: icono, barra y valor (0–100 o null = sin datos). */
 export function FactorGrid({ values, dense }) {
   return (
     <div className={cx("fgrid", dense && "fgrid--dense")}>
@@ -134,7 +134,7 @@ export function FactorGrid({ values, dense }) {
   );
 }
 
-/** Mini histograma de los 9 factores (filas del ranking). */
+/** Mini histograma de factores (filas del ranking). */
 export function FactorSpark({ values }) {
   return (
     <span className="spark" aria-hidden="true">

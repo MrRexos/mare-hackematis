@@ -44,6 +44,10 @@ export function Rail({ screen, go, siteName, onMission, onExport }) {
       {item("site", "map-pin", "Mare")}
       {item("compare", "compare", "Compare")}
       <div className="grow rail__gap" />
+      <button type="button" className="rail__item rail__item--tool" onClick={() => go("priorities")}>
+        <span className="rail__dot rail__dot--tool"><Icon name="layers" size={18} /></span>
+        <span className="rail__label">Weights</span>
+      </button>
       <button type="button" className="rail__item rail__item--tool" onClick={onMission} title={siteName ? undefined : "Mission settings"}>
         <span className="rail__dot rail__dot--tool"><Icon name="sliders" size={18} /></span>
         <span className="rail__label">Mission</span>

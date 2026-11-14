@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { L, cssColor } from "../ds.js";
+import { Icon } from "../ui/kit.jsx";
 import { DEG, formatUtc, latLonToXY, localFrame, pixelXY, xyToPixel, xyToUnit } from "../engine/geometry.js";
 
 // Vista 3D del polo sur.
@@ -26,7 +27,7 @@ function srgbToLinear(c) {
   return (c / 255) ** 2.2;
 }
 
-export default function Moon3D({ data, mission, result, sites, spots, selected, viewSwitch, timeMs: extTime, onTimeChange }) {
+export default function Moon3D({ data, mission, result, sites, spots, selected, viewSwitch, toolbarActions, onPick, timeMs: extTime, onTimeChange }) {
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
@@ -179,6 +180,54 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     };
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Un clic elige el píxel de 1 km; arrastrar y los gestos táctiles solo mueven la cámara.
+  useEffect(() => {
+    const t = three.current;
+    if (!t || !onPick) return undefined;
+    const canvas = t.renderer.domElement;
+    const raycaster = new THREE.Raycaster();
+    const cursor = new THREE.Vector2();
+    const vertex = new THREE.Vector3();
+    let pointer = null;
+    const down = (e) => {
+      pointer = e.isPrimary && e.button === 0 ? { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false } : null;
+    };
+    const move = (e) => {
+      if (pointer?.id === e.pointerId && Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) > 6) pointer.moved = true;
+    };
+    const cancel = () => { pointer = null; };
+    const up = (e) => {
+      const start = pointer;
+      pointer = null;
+      if (!start || start.id !== e.pointerId || start.moved || e.button !== 0
+        || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      if (!rect.width || !rect.height || x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+      cursor.set((x / rect.width) * 2 - 1, 1 - (y / rect.height) * 2);
+      raycaster.setFromCamera(cursor, t.camera);
+      const hit = raycaster.intersectObject(t.terrain)[0];
+      if (!hit?.face) return;
+      // Cada vértice corresponde al mismo píxel que se selecciona en Explore.
+      let picked = null, nearest = Infinity;
+      for (const p of [hit.face.a, hit.face.b, hit.face.c]) {
+        const distance = vertex.fromBufferAttribute(t.geom.attributes.position, p).distanceToSquared(hit.point);
+        if (distance < nearest) { nearest = distance; picked = p; }
+      }
+      if (picked != null) onPick(picked);
+    };
+    canvas.addEventListener("pointerdown", down);
+    canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerup", up);
+    canvas.addEventListener("pointercancel", cancel);
+    return () => {
+      canvas.removeEventListener("pointerdown", down);
+      canvas.removeEventListener("pointermove", move);
+      canvas.removeEventListener("pointerup", up);
+      canvas.removeEventListener("pointercancel", cancel);
+    };
+  }, [data, onPick]);
+
   // --- Posiciones (cambian con la exageración) + normales reales -------------
   const normals = useRef(null);
   useEffect(() => {
@@ -279,7 +328,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     const [eaz, eel] = azEl(refPixel, earthVec(refPixel));
     place(t.sun, S, sel + sunRad > horizonAt(refPixel, saz));
     place(t.earth, earthVec(refPixel), eel > horizonAt(refPixel, eaz));
-  }, [sky, mode, aid, exag, pre]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sky, mode, aid, exag, pre, refPixel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Coloca la cámara detrás del punto de referencia, mirando hacia un astro
   // (el Sol y la Tierra van casi a ras de horizonte en el polo).
@@ -316,8 +365,9 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
       out.push({ key: s.key, text: Number.isFinite(s.score) ? `${s.name} · ${Math.round(s.score)}` : s.name, p: Math.round(fi) * n + Math.round(fj), kind: "site" });
     }
     for (const s of spots.slice(0, 5)) out.push({ key: s.key, text: `${String(s.rank).padStart(2, "0")} ${s.name} · ${Math.round(s.score)}`, p: s.peak, kind: "spot" });
+    if (selected?.type === "pick") out.push({ key: selected.key, text: "Your spot", p: selected.p, kind: "pick" });
     return out;
-  }, [sites, spots, grid, n]);
+  }, [sites, spots, grid, n, selected?.type, selected?.key, selected?.p]);
 
   useEffect(() => {
     const t = three.current;
@@ -361,7 +411,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
   const where = selected ? selected.name : "South pole";
 
   return (
-    <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label="3D view of the lunar south pole with the Sun and Earth. Drag to rotate, scroll to zoom, right-drag to pan.">
+    <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label={`3D view of the lunar south pole with the Sun and Earth. ${onPick ? "Click terrain to choose your spot. " : ""}Drag to rotate, scroll to zoom, right-drag to pan.`}>
       {labels.map((l) => (
         <span key={l.key} className={`label3d label3d--${l.kind} ${selected?.key === l.key ? "is-selected" : ""}`} style={{ transform: `translate(${l.xy[0]}px, ${l.xy[1]}px)` }}>
           {l.kind === "sun" || l.kind === "earth" ? <L.Icon name={l.kind} size={14} className={`lh-k-${l.kind}`} /> : null}
@@ -385,10 +435,13 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
             onChange={(v) => setExag(Number(v))}
             options={[{ value: "1", label: "×1" }, { value: "3", label: "×3" }, { value: "6", label: "×6" }]}
           />
+          {toolbarActions}
         </div>
+        {onPick ? <div className="row-6 caption lh-muted mt-12"><Icon name="crosshair" size={12} />Click terrain to choose your spot</div> : null}
       </L.Panel>
       <L.Panel tone="overlay" padding="compact" className="hud hud--readings">
         <div className="readout-sm">{where}</div>
+        {selected?.coords ? <div className="caption lh-muted">{selected.coords}</div> : null}
         <div className="caption lh-muted">{formatUtc(timeMs)}</div>
         <div className="hover-grid hover-grid--2">
           <L.Readout size="sm" label="Sun elevation" kind="sun" value={reading.sel.toFixed(2)} unit="°" hint={`skyline ${reading.sh.toFixed(1)}°`} />

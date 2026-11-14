@@ -85,7 +85,7 @@ function Header({ app, place, idx, total }) {
   return (
     <header className="pagehead pagehead--site">
       <div className="pagehead__title">
-        <div className="eyebrow-13">Mare/ {String(idx + 1).padStart(2, "0")} · {place.short}</div>
+        <div className="eyebrow-13">Mare/ {place.type === "pick" ? place.short : `${String(idx + 1).padStart(2, "0")} · ${place.short}`}</div>
         <h1 className="h-page">{place.name}</h1>
         <div className="coords">{place.coords}</div>
       </div>
@@ -107,11 +107,11 @@ function Header({ app, place, idx, total }) {
           ]}
         />
         <div className="grow" />
-        <div className="pager">
+        {place.type !== "pick" ? <div className="pager">
           <IconBtn icon="chevron-left" label="Previous site" variant="raised" size={40} onClick={() => stepSite(-1)} disabled={total < 2} />
           <span className="num-13">{String(idx + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</span>
           <IconBtn icon="chevron-right" label="Next site" variant="raised" size={40} onClick={() => stepSite(1)} disabled={total < 2} />
-        </div>
+        </div> : null}
         <Btn icon={inCmp(place) ? "check" : "plus"} aria-pressed={inCmp(place)} onClick={() => toggleCmp(place)}>Compare</Btn>
       </div>
     </header>
@@ -416,7 +416,7 @@ const TERRAIN_LAYERS = [
   { value: "ice", label: "Water ice" },
   { value: "slope", label: "Slope" },
   { value: "temp", label: "Temperature", disabled: true, title: "No temperature data yet" },
-  { value: "relief", label: "Relief" },
+  { value: "relief", label: "Terrain" },
 ];
 
 function Terrain({ app, place }) {
@@ -434,7 +434,7 @@ function Terrain({ app, place }) {
     ["ice", "Water ice", Number.isFinite(l.psrDistKm?.[p]) ? `${l.psrDistKm[p].toFixed(1)} km` : "–", "to permanent shadow"],
     ["slope", "Slope", Number.isFinite(l.slope?.[p]) ? `${l.slope[p].toFixed(1)}°` : "–", "median, 240 m baseline"],
     ["temp", "Temperature", "–", "no data yet"],
-    ["relief", "Relief", Number.isFinite(l.relief?.[p]) ? `${Math.round(l.relief[p])} m` : "–", "height range, 3 × 3 km"],
+    ["relief", "Terrain", Number.isFinite(l.relief?.[p]) ? `${Math.round(l.relief[p])} m` : "–", "height range, 3 × 3 km"],
   ];
   const cur = rows.find((r) => r[0] === key);
   return (
@@ -482,7 +482,7 @@ function Terrain({ app, place }) {
 /* ------------------------------------------------------------------ página */
 
 export default function Site({ app }) {
-  const { selected, Rail, TimeBarEl, siteList, data, moonMission, result, sitesForMap, spotsForMap, timeMs, setTimeMs, tab, go } = app;
+  const { selected, Rail, TimeBarEl, siteList, data, moonMission, result, sitesForMap, spotsForMap, timeMs, setTimeMs, setSelRef, tab, go } = app;
   const place = selected;
   if (!place || !data) {
     return (
@@ -512,7 +512,11 @@ export default function Site({ app }) {
         {tab === "lander" ? (
           <section aria-label="Lander's view" className="mapsec mapsec--tall">
             <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-              <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={place} timeMs={timeMs} onTimeChange={setTimeMs} />
+              <Moon3D
+                data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={place}
+                timeMs={timeMs} onTimeChange={setTimeMs} onPick={(p) => setSelRef({ type: "pick", p })}
+                toolbarActions={<IconBtn icon="astronaut-helmet" label="First-person terrain view (coming soon)" variant="raised" size={36} iconSize={20} disabled />}
+              />
             </Suspense>
           </section>
         ) : null}

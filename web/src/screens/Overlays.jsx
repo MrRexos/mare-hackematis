@@ -46,7 +46,7 @@ export function SettingsDrawer({ app, onClose }) {
               label="Period"
               value={mission.period === "custom" ? "custom" : mission.period}
               onChange={(v) => setPeriod(v)}
-              options={[{ value: "next12", label: "Next 12 months" }, { value: "nofixed", label: "No fixed date" }, { value: "custom", label: "Custom" }]}
+              options={[{ value: "nofixed", label: "No fixed date" }, { value: "custom", label: "Custom" }]}
               className="tabs--block"
             />
             <div className={cx("dates", mission.period !== "custom" && "is-dim")}>

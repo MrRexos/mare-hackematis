@@ -10,8 +10,7 @@
 //   slope   1 − pendiente / pendiente máxima                          [LOLA]
 //   relief  1 − desnivel local (3 × 3 km) / 600 m                     [LOLA]
 //   ice     1 − distancia a sombra permanente / alcance               [LOLA]
-// Factores del diseño sin datos todavía (temperatura, impactos, radiación,
-// ciencia): se muestran, pero no puntúan (peso 0) hasta tener una fuente.
+// La temperatura se muestra, pero no puntúa (peso 0) hasta tener una fuente.
 //
 // Filtros: pendiente > máxima, píxel mayoritariamente en sombra permanente,
 // noche más larga que la autonomía de baterías (si se activa).
@@ -22,24 +21,21 @@ export const FACTORS = [
   { key: "sun", label: "Sunlight", icon: "sun", color: "var(--sun)", hint: "Share of the mission with the Sun above the terrain" },
   { key: "earth", label: "Earth contact", icon: "earth", color: "var(--earth)", hint: "Share of the mission with Earth above the terrain" },
   { key: "slope", label: "Slope", icon: "slope", color: "#8bd17c", hint: "Lower slope scores higher (LOLA, 240 m baseline)" },
-  { key: "relief", label: "Relief", icon: "relief", color: "#b39ddb", hint: "Smaller height range in the surrounding 3 × 3 km scores higher" },
+  { key: "relief", label: "Terrain", icon: "stone", color: "#b39ddb", hint: "Smaller height range in the surrounding 3 × 3 km scores higher" },
   { key: "temp", label: "Temperature", icon: "thermometer", color: "#f28b54", noData: true, hint: "No temperature data in this build" },
   { key: "ice", label: "Water ice", icon: "droplet", color: "#4fd1c5", hint: "Closer to permanently shadowed regions, where ice may be" },
-  { key: "impacts", label: "Impacts", icon: "zap", color: "#f06292", noData: true, hint: "No impact data in this build" },
-  { key: "rad", label: "Radiation", icon: "radiation", color: "#a1887f", noData: true, hint: "No radiation data in this build" },
-  { key: "sci", label: "Science", icon: "microscope", color: "#7986cb", noData: true, hint: "No science-value data in this build" },
 ];
 export const FACTOR_KEYS = FACTORS.map((f) => f.key);
 export const SCORED_KEYS = FACTORS.filter((f) => !f.noData).map((f) => f.key);
 
-// Perfiles del diseño (en %). Los factores sin datos se reparten entre los demás.
+// Pesos relativos de los perfiles. Los factores con datos se normalizan al 100 %.
 const RAW_PRESETS = {
-  Balanced: { sun: 12, earth: 11, slope: 11, relief: 11, temp: 11, ice: 11, impacts: 11, rad: 11, sci: 11 },
-  "Power first": { sun: 36, earth: 8, slope: 8, relief: 8, temp: 8, ice: 8, impacts: 8, rad: 8, sci: 8 },
-  "Earth contact first": { sun: 8, earth: 36, slope: 8, relief: 8, temp: 8, ice: 8, impacts: 8, rad: 8, sci: 8 },
-  Colonize: { sun: 18, earth: 14, slope: 10, relief: 8, temp: 12, ice: 18, impacts: 6, rad: 8, sci: 6 },
-  Research: { sun: 10, earth: 10, slope: 8, relief: 6, temp: 6, ice: 12, impacts: 6, rad: 6, sci: 36 },
-  "Safe landing": { sun: 10, earth: 10, slope: 30, relief: 24, temp: 6, ice: 3, impacts: 8, rad: 6, sci: 3 },
+  Balanced: { sun: 12, earth: 11, slope: 11, relief: 11, temp: 11, ice: 11 },
+  "Power first": { sun: 36, earth: 8, slope: 8, relief: 8, temp: 8, ice: 8 },
+  "Earth contact first": { sun: 8, earth: 36, slope: 8, relief: 8, temp: 8, ice: 8 },
+  Colonize: { sun: 18, earth: 14, slope: 10, relief: 8, temp: 12, ice: 18 },
+  Research: { sun: 10, earth: 10, slope: 8, relief: 6, temp: 6, ice: 12 },
+  "Safe landing": { sun: 10, earth: 10, slope: 30, relief: 24, temp: 6, ice: 3 },
 };
 
 /** Reparte `total` entre las claves de forma proporcional a `w` (resto mayor). */
@@ -104,7 +100,7 @@ export function factorsAt(p, mission, layers, limits) {
     slope: Number.isFinite(slope) ? Math.max(0, 1 - slope / limits.maxSlopeDeg) : NaN,
     relief: Number.isFinite(rel) ? Math.max(0, 1 - rel / RELIEF_MAX_M) : NaN,
     ice: Number.isFinite(dist) ? Math.max(0, 1 - dist / limits.iceReachKm) : NaN,
-    temp: null, impacts: null, rad: null, sci: null,
+    temp: null,
   };
 }
 

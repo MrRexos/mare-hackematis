@@ -24,7 +24,7 @@ const LAYERS = {
   sun: { label: "Sunlight", ramp: "sun", legend: ["0%", "100%"] },
   earth: { label: "Earth view", ramp: "earth", legend: ["0%", "100%"] },
   slope: { label: "Slope", ramp: "slope", legend: ["0°", "30°+"] },
-  relief: { label: "Relief", ramp: "relief", legend: ["0 m", "600 m+"] },
+  relief: { label: "Terrain", ramp: "relief", legend: ["0 m", "600 m+"] },
   shadow: { label: "Water ice", ramp: "shadow", legend: ["Far", "Near"] },
 };
 
@@ -41,8 +41,7 @@ function computePeriods(ephem) {
   const from = Math.min(Math.max(t, r0), r1 - 30 * DAY_MS);
   return {
     range: [r0, r1],
-    next12: [from, Math.min(r1, from + 365 * DAY_MS)],
-    nofixed: [from, r1],
+    nofixed: [from, Math.min(r1, from + 365 * DAY_MS)],
   };
 }
 
@@ -96,7 +95,7 @@ export default function App() {
   const [periods, setPeriods] = useState(() => computePeriods(null));
   const [mission, setMission] = useState(() => {
     const p = computePeriods(null);
-    return { period: "next12", fromMs: p.next12[0], toMs: p.next12[1], ...DEFAULT_OPTS };
+    return { period: "nofixed", fromMs: p.nofixed[0], toMs: p.nofixed[1], ...DEFAULT_OPTS };
   });
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
@@ -140,10 +139,10 @@ export default function App() {
   const setDuration = (durationDays) => setMission((m) => ({ ...m, durationDays }));
   const setMissionOpts = (o) => setMission((m) => ({ ...m, ...o }));
   const restoreDefaults = () => {
-    setMission({ period: "next12", fromMs: periods.next12[0], toMs: periods.next12[1], ...DEFAULT_OPTS });
+    setMission({ period: "nofixed", fromMs: periods.nofixed[0], toMs: periods.nofixed[1], ...DEFAULT_OPTS });
     setLimits(DEFAULT_LIMITS);
   };
-  const dirty = mission.period !== "next12" || mission.sunMode !== DEFAULT_OPTS.sunMode || mission.earthMode !== DEFAULT_OPTS.earthMode
+  const dirty = mission.period !== "nofixed" || mission.sunMode !== DEFAULT_OPTS.sunMode || mission.earthMode !== DEFAULT_OPTS.earthMode
     || mission.durationDays !== DEFAULT_OPTS.durationDays || JSON.stringify(limits) !== JSON.stringify(DEFAULT_LIMITS);
   const landEndMs = Math.max(mission.fromMs + H, mission.toMs - mission.durationDays * DAY_MS);
 
