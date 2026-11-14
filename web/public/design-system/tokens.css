@@ -1,0 +1,126 @@
+/* Generado por tools/sync_design_system.py a partir de tokens.json.
+   Fuente: https://claude.ai/artifact/6UWwQmPqAZQVqjzMsYRU5Y. No editar a mano. */
+
+:root {
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --radius-full: 999px;
+  --control-sm: 32px;
+  --control-md: 40px;
+  --control-lg: 48px;
+  --touch-min: 44px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --rail-width: 76px;
+  --timebar-height: 72px;
+  --z-map: 0;
+  --z-hud: 10;
+  --z-tray: 20;
+  --z-timebar: 30;
+  --z-popover: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+}
+
+:root, [data-theme="dark"] {
+  --canvas: #0b0b0c;
+  --surface: #1c1c1e;
+  --surface-raised: #2a2a2d;
+  --surface-hover: #343438;
+  --surface-sunken: #121213;
+  --surface-pill: #323236;
+  --surface-overlay: rgba(28, 28, 30, 0.74);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --edge: #ffffff0f;
+  --line: #2c2c30;
+  --line-strong: #7a7a82;
+  --ink: #f5f5f7;
+  --ink-secondary: #a1a1a6;
+  --ink-tertiary: #98989e;
+  --ink-disabled: #4c4c52;
+  --on-ink: #0a0a0b;
+  --focus-ring: #ffffff;
+  --sun: #f2c14e;
+  --sun-soft: #f2c14e29;
+  --on-sun: #0a0a0b;
+  --earth: #6cb4ff;
+  --earth-soft: #6cb4ff29;
+  --on-earth: #0a0a0b;
+  --both: #eeeef0;
+  --both-soft: #eeeef024;
+  --on-both: #0a0a0b;
+  --horizon: #38383d;
+  --danger: #ff6b5f;
+  --danger-soft: #ff6b5f1f;
+  --shadow-overlay: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] {
+  --canvas: #efeff0;
+  --surface: #ffffff;
+  --surface-raised: #f4f4f5;
+  --surface-hover: #e9e9ec;
+  --surface-sunken: #e9e9eb;
+  --surface-pill: #ffffff;
+  --surface-overlay: rgba(255, 255, 255, 0.82);
+  --scrim: rgba(10, 10, 11, 0.32);
+  --edge: #0b0b0c12;
+  --line: #e4e4e7;
+  --line-strong: #808088;
+  --ink: #0b0b0c;
+  --ink-secondary: #52525a;
+  --ink-tertiary: #64646c;
+  --ink-disabled: #b4b4ba;
+  --on-ink: #ffffff;
+  --focus-ring: #0b0b0c;
+  --sun: #b47a00;
+  --sun-soft: #b47a001f;
+  --on-sun: #0a0a0b;
+  --earth: #1f6fe0;
+  --earth-soft: #1f6fe01f;
+  --on-earth: #ffffff;
+  --both: #111113;
+  --both-soft: #1111131a;
+  --on-both: #ffffff;
+  --horizon: #d6d6db;
+  --danger: #c2271f;
+  --danger-soft: #c2271f14;
+  --shadow-overlay: 0 12px 32px rgba(17, 17, 19, 0.10);
+  --shadow-pop: 0 1px 3px rgba(17, 17, 19, 0.12);
+}
+
+.display-xl { font-family: var(--font-sans); font-size: 88px; line-height: 0.92; font-weight: 600; letter-spacing: -0.04em; }
+.display { font-family: var(--font-sans); font-size: 56px; line-height: 0.98; font-weight: 600; letter-spacing: -0.035em; }
+.title-lg { font-family: var(--font-sans); font-size: 32px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; }
+.title { font-family: var(--font-sans); font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.012em; }
+.heading { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 600; letter-spacing: -0.006em; }
+.body-lg { font-family: var(--font-sans); font-size: 17px; line-height: 26px; font-weight: 400; }
+.body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; }
+.body-sm { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 400; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; }
+.index { font-family: var(--font-sans); font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.figure-xl { font-family: var(--font-sans); font-size: 64px; line-height: 1; font-weight: 600; letter-spacing: -0.04em; }
+.figure { font-family: var(--font-sans); font-size: 28px; line-height: 32px; font-weight: 600; letter-spacing: -0.02em; }
+.readout { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 600; }
+.readout-sm { font-family: var(--font-sans); font-size: 13px; line-height: 16px; font-weight: 600; }
+.label { font-family: var(--font-sans); font-size: 10px; line-height: 14px; font-weight: 500; letter-spacing: 0.06em; }
+.eyebrow { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0; }
+.code { font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 400; }

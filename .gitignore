@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Descargas grandes de la NASA (LOLA, SPICE): nunca al repositorio
+.cache/
+*.log
+
+# Web
+web/node_modules/
+web/dist/
+
+# Sistema
+.DS_Store
+Thumbs.db

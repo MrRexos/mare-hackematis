@@ -1,0 +1,60 @@
+{
+  "horizons": {
+    "window": [
+      "2027-01-01 00:00",
+      "2027-01-31 00:00",
+      "6 h"
+    ],
+    "maxArcmin": {
+      "sun": 4.1178917966642124e-05,
+      "earth": 0.0015923975479134633
+    },
+    "rows": [
+      {
+        "site": "Connecting ridge",
+        "body": "sun",
+        "n": 121,
+        "maxArcmin": 4.1178917966642124e-05
+      },
+      {
+        "site": "Connecting ridge",
+        "body": "earth",
+        "n": 121,
+        "maxArcmin": 0.0015923975479134633
+      },
+      {
+        "site": "Malapert Massif",
+        "body": "sun",
+        "n": 121,
+        "maxArcmin": 4.09845080088766e-05
+      },
+      {
+        "site": "Malapert Massif",
+        "body": "earth",
+        "n": 121,
+        "maxArcmin": 0.0015809301315033192
+      },
+      {
+        "site": "Haworth",
+        "body": "sun",
+        "n": 121,
+        "maxArcmin": 4.050238110783505e-05
+      },
+      {
+        "site": "Haworth",
+        "body": "earth",
+        "n": 121,
+        "maxArcmin": 0.0015676017605046548
+      }
+    ],
+    "note": "Airless apparent az/el; Horizons API vs SPICE DE440 MOON_ME (same formulas as the web)."
+  },
+  "avgvisib": {
+    "points": 2000,
+    "meanAbsDiffPct": 1.44111600406834,
+    "biasPct": -0.11502066373489786,
+    "p90AbsDiffPct": 3.1197685396044563,
+    "strideHours": 3,
+    "note": "Ours: 2026-2030 (5 years) from 1 km grid horizons; LOLA AVGVISIB: 18.6-year average at 120 m. Differences include the shorter period and the coarser terrain."
+  }
+}

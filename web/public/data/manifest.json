@@ -1,0 +1,185 @@
+{
+  "ephem": {
+    "file": "ephem.f32",
+    "startUtc": "2026-01-01T00:00:00Z",
+    "startUnixMs": 1767225600000,
+    "stepSeconds": 3600.0,
+    "count": 43824,
+    "columns": [
+      "sunX",
+      "sunY",
+      "sunZ",
+      "earthX",
+      "earthY",
+      "earthZ"
+    ],
+    "units": "km",
+    "frame": "MOON_ME",
+    "abcorr": "LT+S",
+    "source": "NASA/JPL NAIF SPICE: DE440 (de440s.bsp), moon_pa_de440_200625.bpc, moon_de440_250416.tf"
+  },
+  "generated": "2026-11-14T12:35:38Z",
+  "grid": {
+    "n": 400,
+    "pxM": 1000.0,
+    "halfM": 200000.0,
+    "radiusM": 1737400.0,
+    "projection": "south polar stereographic (LOLA): x = rho·sin(lon), y = rho·cos(lon), row 0 = +y",
+    "frame": "MOON_ME",
+    "order": "row-major, row 0 at the top (+y, towards 0°E)"
+  },
+  "sites": {
+    "groups": [
+      {
+        "id": "artemis3",
+        "label": "Artemis III candidate regions",
+        "shape": "circle",
+        "fidelity": "approximate",
+        "note": "NASA announced nine ~15 × 15 km candidate regions on 2024-10-28. Points are approximate region centres, not landing sites.",
+        "source": "NASA (2024); centres via Lunar Horizon / LROC mosaics (Henriksen et al. 2023)"
+      }
+    ],
+    "sites": [
+      {
+        "id": "artemis3-peak-near-cabeus-b",
+        "name": "Peak near Cabeus B",
+        "lat": -83.6,
+        "lon": -68.8,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-haworth",
+        "name": "Haworth",
+        "lat": -86.75,
+        "lon": -23.67,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-malapert-massif",
+        "name": "Malapert Massif",
+        "lat": -85.98,
+        "lon": -0.26,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-mons-mouton-plateau",
+        "name": "Mons Mouton Plateau",
+        "lat": -84.3,
+        "lon": 30.6,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-mons-mouton",
+        "name": "Mons Mouton",
+        "lat": -85.43,
+        "lon": 31.83,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-nobile-rim-1",
+        "name": "Nobile Rim 1",
+        "lat": -85.44,
+        "lon": 37.44,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-nobile-rim-2",
+        "name": "Nobile Rim 2",
+        "lat": -83.95,
+        "lon": 58.74,
+        "group": "artemis3"
+      },
+      {
+        "id": "artemis3-de-gerlache-rim-2",
+        "name": "de Gerlache Rim 2",
+        "lat": -88.22,
+        "lon": -63.43,
+        "group": "artemis3"
+      }
+    ]
+  },
+  "layers": {
+    "elevation": {
+      "label": "Elevation",
+      "units": "m",
+      "source": "LOLA LDEM_75S_240M (PDS)",
+      "fidelity": "computed",
+      "description": "Height above the 1737.4 km reference sphere, bilinear at the pixel centre.",
+      "file": "layers/elevation.f32",
+      "dtype": "float32",
+      "min": -5481.611328125,
+      "max": 6996.51025390625
+    },
+    "slope": {
+      "label": "Slope",
+      "units": "deg",
+      "source": "LOLA LDSM_75S_240M (PDS)",
+      "fidelity": "computed",
+      "description": "Median of 16 slope samples (240 m baseline) inside the 1 km pixel.",
+      "file": "layers/slope.f32",
+      "dtype": "float32",
+      "min": 1.1077499389648438,
+      "max": 45.0
+    },
+    "psrShare": {
+      "label": "Permanent shadow share",
+      "units": "fraction",
+      "source": "LOLA LPSR_75S_120M (PDS)",
+      "fidelity": "computed",
+      "description": "Share of the pixel in permanently shadowed regions.",
+      "file": "layers/psrShare.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 1.0
+    },
+    "psrDistKm": {
+      "label": "Distance to permanent shadow",
+      "units": "km",
+      "source": "LOLA LPSR_75S_120M (PDS)",
+      "fidelity": "computed",
+      "description": "Distance from the pixel centre to the nearest PSR cell (ice proxy).",
+      "file": "layers/psrDistKm.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 12.191669464111328
+    },
+    "avgSun": {
+      "label": "Long-term sunlight (LOLA)",
+      "units": "fraction",
+      "source": "LOLA AVGVISIB_75S_120M (PDS)",
+      "fidelity": "validated",
+      "description": "Average visible Sun fraction over 18.6 years (Mazarico et al. 2011).",
+      "file": "layers/avgSun.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 0.54117751121521
+    }
+  },
+  "hillshade": {
+    "file": "hillshade.png",
+    "size": 1600,
+    "pxM": 250.0,
+    "exaggeration": 2.0,
+    "light": {
+      "azimuthDeg": 315,
+      "altitudeDeg": 35
+    },
+    "note": "Relief shading is a visual aid, not sunlight.",
+    "source": "LOLA LDEM_75S_240M (PDS)"
+  },
+  "horizon": {
+    "file": "horizon.u8",
+    "dtype": "uint8",
+    "bins": 72,
+    "binCentreDeg": "k * 360 / bins, clockwise from north (north = away from the south pole)",
+    "scaleDeg": 0.1,
+    "offsetDeg": -5.0,
+    "observerHeightM": 2.0,
+    "minDistanceM": 300.0,
+    "maxDistanceM": 300000.0,
+    "source": "Ray-marched over LOLA LDEM_75S_240M (PDS)",
+    "fidelity": "approximate",
+    "note": "1 km grid, 5° azimuth bins: regional screening, not site certification."
+  },
+  "validation": "validation.json"
+}
