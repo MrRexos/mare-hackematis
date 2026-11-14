@@ -1,9 +1,9 @@
 // 04 Decide — Compare: hasta 4 lugares lado a lado.
 
 import { useMemo, useState } from "react";
-import { Icon, Btn, Card, CardHead, Tabs, Fidelity, IconBtn, Shape, cx } from "../ui/kit.jsx";
+import { Icon, Btn, Card, CardHead, Fidelity, IconBtn, Shape, cx } from "../ui/kit.jsx";
 import { MissionChip, ProfileChip } from "../ui/Shell.jsx";
-import { FACTORS, PRESETS, presetOf, scoreFromFactors } from "../engine/score.js";
+import { FACTORS, PRESETS, scoreFromFactors } from "../engine/score.js";
 import { goodHoursPerDay } from "../engine/timeline.js";
 import { PropGrid } from "./Site.jsx";
 
@@ -23,14 +23,18 @@ function goodDaysByMonth(tl) {
 }
 
 export default function Compare({ app }) {
-  const { Rail, cmpPlaces, toggleCmp, weights, setWeights, mission, openSettings, go, setSelRef, timelineFor, region } = app;
-  const [preset, setPreset] = useState(presetOf(weights) || "Balanced");
-  const w = PRESETS[preset];
+  const { Rail, cmpPlaces, toggleCmp, weights, mission, openSettings, openWeights, go, setSelRef, timelineFor, region } = app;
+  const [preset, setPreset] = useState(null);
 
   const scored = useMemo(
-    // Los factores de cada lugar van de 0 a 100; scoreFromFactors espera 0–1.
-    () => cmpPlaces.map((p) => ({ ...p, cmpScore: scoreFromFactors(p.factors || {}, w) / 100 })).sort((a, b) => (b.cmpScore || -1) - (a.cmpScore || -1)),
-    [cmpPlaces, w],
+    // La vista previa cambia los pesos sobre los factores de la ventana calculada.
+    () => cmpPlaces.map((p) => ({
+      ...p,
+      cmpScore: preset && Number.isFinite(p.score)
+        ? scoreFromFactors(p.factors, PRESETS[preset]) / 100
+        : p.score,
+    })).sort((a, b) => (Number.isFinite(b.cmpScore) ? b.cmpScore : -1) - (Number.isFinite(a.cmpScore) ? a.cmpScore : -1)),
+    [cmpPlaces, preset],
   );
   const top = scored[0];
   const second = scored[1];
@@ -59,7 +63,7 @@ export default function Compare({ app }) {
           </div>
           <div className="grow" />
           <div className="pagehead__chips">
-            <ProfileChip weights={weights} onClick={() => go("priorities")} />
+            <ProfileChip weights={weights} onClick={openWeights} />
             <MissionChip mission={mission} onClick={openSettings} />
           </div>
         </header>
@@ -115,15 +119,17 @@ export default function Compare({ app }) {
                 <div className="mt-16"><PropGrid values={top.factors} /></div>
                 <div className="stack-10 mt-20">
                   <div className="row-base">
-                    <span className="lbl">Profile</span>
+                    <span className="lbl">Profile preview</span>
                     <div className="grow" />
-                    <button type="button" className="linkbtn linkbtn--12" onClick={() => { setWeights({ ...w }); go("priorities"); }}>Weights<Icon name="chevron-right" size={12} /></button>
+                    <button type="button" className="linkbtn linkbtn--12" onClick={openWeights}>Mission weights<Icon name="chevron-right" size={12} /></button>
                   </div>
                   <div className="chips">
+                    <button type="button" className={cx("chip", !preset && "is-on")} aria-pressed={!preset} onClick={() => setPreset(null)}>Current mission</button>
                     {Object.keys(PRESETS).map((k) => (
                       <button key={k} type="button" className={cx("chip", preset === k && "is-on")} aria-pressed={preset === k} onClick={() => setPreset(k)}>{k}</button>
                     ))}
                   </div>
+                  {preset && <p className="muted-12">Reweights the current mission windows.</p>}
                 </div>
               </Card>
 

@@ -28,11 +28,12 @@ export function durationLabel(days) {
 
 /* ------------------------------------------------------------------ carril */
 
-export function Rail({ screen, go, siteName, onMission, onExport }) {
+export function Rail({ screen, go, siteName, canAnalyze, onMission, onExport }) {
   const item = (id, icon, label, target = id) => {
     const on = screen === id;
     return (
-      <button type="button" className={cx("rail__item", on && "is-on")} aria-current={on ? "page" : undefined} onClick={() => go(target)} key={id}>
+      <button type="button" className={cx("rail__item", on && "is-on")} aria-current={on ? "page" : undefined}
+        disabled={!canAnalyze && !["explore", "home"].includes(target)} onClick={() => go(target)} key={id}>
         <span className="rail__dot"><Icon name={icon} size={20} /></span>
         <span className="rail__label">{label}</span>
       </button>
@@ -44,7 +45,7 @@ export function Rail({ screen, go, siteName, onMission, onExport }) {
       <button type="button" className="rail__brand" title="Mare Hackematis · home" aria-label="Mare Hackematis, home" onClick={() => go("home")}>
         MH<small>Home</small>
       </button>
-      {item("explore", "orbit", "Explore")}
+      {item("explore", "orbit", canAnalyze ? "Explore" : "Plan", canAnalyze ? "explore" : "home")}
       {item("site", "map-pin", "Mare")}
       {item("compare", "compare", "Compare")}
       <div className="grow rail__gap" />
@@ -52,7 +53,7 @@ export function Rail({ screen, go, siteName, onMission, onExport }) {
         <span className="rail__dot rail__dot--tool"><Icon name="sliders" size={18} /></span>
         <span className="rail__label">Mission</span>
       </button>
-      <button type="button" className="rail__item rail__item--tool" onClick={onExport}>
+      <button type="button" className="rail__item rail__item--tool" onClick={onExport} disabled={!onExport}>
         <span className="rail__dot rail__dot--tool"><Icon name="share" size={18} /></span>
         <span className="rail__label">Export</span>
       </button>
@@ -66,9 +67,9 @@ export function MissionChip({ mission, onClick }) {
   return (
     <button type="button" className="mchip" aria-label="Mission settings" onClick={onClick}>
       <Icon name="calendar" size={16} />
-      <span className="mchip__main">{fmtDay(mission.fromMs)} → {fmtDay(mission.toMs)}</span>
+      <span className="mchip__main">{mission.fromMs != null && mission.toMs != null ? `${fmtDay(mission.fromMs)} → ${fmtDay(mission.toMs)}` : "Set mission dates"}</span>
       <span className="mchip__sep" />
-      <span className="mchip__sub">{durationLabel(mission.durationDays)}</span>
+      <span className="mchip__sub">{mission.durationDays == null ? "Set duration" : durationLabel(mission.durationDays)}</span>
       <span className="mchip__sep mchip__hide" />
       <span className="mchip__sub mchip__hide">Lander {mission.observerM} m · UTC</span>
       <span className="mchip__btn"><Icon name="sliders" size={14} /></span>

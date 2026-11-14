@@ -73,7 +73,7 @@ function makeRamp(layer, colors, extent) {
   }
 }
 
-export default function MapView({ data, layer, values, sites, spots, selected, onSelect, onPick, showIceEvidence, hoverPixel, onHover, children }) {
+export default function MapView({ data, layer, values, sites, spots, selected, selectionKey = selected?.key, onSelect, onPick, showIceEvidence, hoverPixel, onHover, children }) {
   const grid = data.manifest.grid;
   const n = grid.n;
   const [iceRegions, setIceRegions] = useState(null);
@@ -83,6 +83,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
   const overlayRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ zoom: 1, cx: n / 2, cy: n / 2 });
+  const centeredKey = useRef(null);
   const [impactOpen, setImpactOpen] = useState(false);
   const impactButton = useRef(null);
   useEffect(() => {
@@ -337,8 +338,11 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
   };
 
   // Centrar en lo seleccionado (punto caliente, región o punto elegido).
+  const resolvedKey = selected?.key;
   useEffect(() => {
-    if (!selected) return;
+    if (!selectionKey) centeredKey.current = null;
+    if (!resolvedKey || centeredKey.current === resolvedKey) return;
+    centeredKey.current = resolvedKey;
     setView((v) => {
       const zoom = Math.max(v.zoom, 3);
       const viewport = sizeRef.current;
@@ -347,7 +351,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
       return clampView({ zoom, cx: selected.j + 0.5, cy: selected.i + 0.5 - verticalOffset });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.key]);
+  }, [selectionKey, resolvedKey]);
 
   // Barra de escala: el largo "bonito" (1, 2, 5, 10… km) que ocupa ~80-160 px.
   const pxPerKm = scale / (grid.pxM / 1000);
@@ -397,7 +401,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
             key={s.id}
             label={label}
             shape="circle"
-            category="Artemis III candidate region"
+            category="Artemis III reference region"
             state={selected?.key === `site-${s.id}` ? "selected" : "default"}
             showLabel={view.zoom >= 2}
             style={markerPos(i, j)}
@@ -411,7 +415,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
           label={`${s.name} · ${Math.round(s.peakScore)}`}
           shape="square"
           rank={s.rank}
-          category="Best spot for this mission"
+          category="Candidate calculated for this mission"
           state={selected?.key === `spot-${s.rank}` ? "selected" : "default"}
           showLabel={s.rank <= 3 || view.zoom >= 3}
           style={markerPos(s.i, s.j)}

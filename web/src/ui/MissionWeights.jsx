@@ -1,9 +1,9 @@
-// Paso 03 — What matters: pesos (%) de cada factor.
-
 import { useRef } from "react";
-import { Icon, cx } from "../ui/kit.jsx";
+import { Icon, cx } from "./kit.jsx";
 import { FACTORS, PRESETS, presetOf, rebalance } from "../engine/score.js";
-import SetupShell, { MissionBrief } from "./SetupShell.jsx";
+import MissionOptions from "./MissionOptions.jsx";
+
+const PROFILES = Object.keys(PRESETS).map((name) => ({ value: name, label: name }));
 
 function WeightRow({ f, value, onChange }) {
   const drag = useRef(false);
@@ -47,37 +47,41 @@ function WeightRow({ f, value, onChange }) {
   );
 }
 
-export default function SetupPriorities({ weights, setWeights, mission, region, openSettings }) {
+export default function MissionWeights({ weights, setWeights, compact = false }) {
+  const profiles = <MissionOptions label="Scoring profile" value={weights ? presetOf(weights) : null} options={PROFILES}
+    onChange={(profile) => setWeights({ ...PRESETS[profile] })} />;
+  if (!weights) return <div className="mission-weights">{profiles}</div>;
+
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
+  const details = (
+    <div className="wrows">
+      <p className="muted-12">The site score is a weighted average. The weights add up to {total}%.</p>
+      {FACTORS.map((f) => (
+        <WeightRow key={f.key} f={f} value={weights[f.key] || 0} onChange={(v) => setWeights((w) => rebalance(w, f.key, v))} />
+      ))}
+    </div>
+  );
 
   return (
-    <SetupShell
-      eyebrow="03 — What matters/"
-      title={<>What<br />matters<br />most?</>}
-      lead="Each factor scores a site from 0 to 100. Its final score is the weighted average, so the weights always add up to 100%."
-      brief={<MissionBrief mission={mission} region={region} openSettings={openSettings} />}
-    >
-          <div className="stack-10">
-            <div className="row-base">
-              <span className="lbl">Weights</span>
-              <div className="grow" />
-              <span className="num-15">{total}%</span>
-            </div>
-            <div role="img" aria-label="Weights" className="wstack">
-              {FACTORS.map((f) => (weights[f.key] > 0 ? <div key={f.key} title={`${f.label} ${weights[f.key]}%`} style={{ flex: `${weights[f.key]} 1 0`, background: f.color }} /> : null))}
-            </div>
-            <div className="chips">
-              {Object.keys(PRESETS).map((p) => (
-                <button key={p} type="button" className={cx("chip", p === match && "is-on")} aria-pressed={p === match} onClick={() => setWeights({ ...PRESETS[p] })}>{p}</button>
-              ))}
-            </div>
-          </div>
-          <div className="wrows">
-            {FACTORS.map((f) => (
-              <WeightRow key={f.key} f={f} value={weights[f.key] || 0} onChange={(v) => setWeights(rebalance(weights, f.key, v))} />
-            ))}
-          </div>
-    </SetupShell>
+    <div className="mission-weights">
+      {profiles}
+      {!match && !compact && <p className="muted-12">Custom weights active</p>}
+      <div
+        role="img"
+        aria-label={FACTORS.map((f) => `${f.label}: ${weights[f.key] || 0}%`).join(", ")}
+        className="wstack"
+      >
+        {FACTORS.map((f) => weights[f.key] > 0 && (
+          <div key={f.key} title={`${f.label} ${weights[f.key]}%`} style={{ flex: `${weights[f.key]} 1 0`, background: f.color }} />
+        ))}
+      </div>
+      {compact ? (
+        <details className="mission-details">
+          <summary>Adjust weights</summary>
+          {details}
+        </details>
+      ) : details}
+    </div>
   );
 }

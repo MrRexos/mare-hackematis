@@ -26,7 +26,7 @@ function srgbToLinear(c) {
   return (c / 255) ** 2.2;
 }
 
-export default function Moon3D({ data, mission, result, sites, spots, selected, viewSwitch, timeMs: extTime, onTimeChange, onSelect }) {
+export default function Moon3D({ data, mission, result, sites, spots, selected, selectionKey = selected?.key, viewSwitch, timeMs: extTime, onTimeChange, onSelect }) {
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
@@ -36,6 +36,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
 
   const wrapRef = useRef(null);
   const three = useRef(null);
+  const cameraFocus = useRef(null);
   const [mode, setMode] = useState("sun");
   const [exag, setExag] = useState(3);
   const [aid, setAid] = useState(true);
@@ -294,6 +295,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
   };
 
   // Pin del punto de referencia y objetivo de la cámara.
+  const resolvedKey = selected?.key;
   useEffect(() => {
     const t = three.current;
     if (!t) return;
@@ -302,9 +304,12 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     const s = toScene(pre.unit[p * 3] * r, pre.unit[p * 3 + 1] * r, pre.unit[p * 3 + 2] * r, R);
     t.pin.position.set(s[0], s[1] + 6, s[2]);
     t.pin.visible = !!selected;
+    if (selectionKey && !resolvedKey) return;
+    if (cameraFocus.current?.key === selectionKey && cameraFocus.current?.exag === exag) return;
+    cameraFocus.current = { key: selectionKey, exag };
     t.controls.target.set(selected ? s[0] : 0, selected ? s[1] : 0, selected ? s[2] : 0);
     face(sky.sun);
-  }, [selected?.key, exag]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectionKey, resolvedKey, refPixel, exag]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Etiquetas HTML (Sol, Tierra, regiones, puntos calientes) proyectadas cada fotograma.
   const labelSrc = useMemo(() => {

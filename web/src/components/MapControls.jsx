@@ -71,8 +71,8 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
       <details className="overlay map-legend">
         <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
         <div className="overlay legend__pop">
-          <div className="legend__row"><Shape kind="circle" />Artemis region</div>
-          <div className="legend__row"><Shape kind="square" />Hotspot</div>
+          <div className="legend__row"><Shape kind="circle" />Artemis III reference</div>
+          <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
           <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
           <div className="legend__ramp">
             <span className="legend__name">{layer.label}</span>

@@ -1,26 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadData } from "./data/loadData.js";
 import { MissionEngine } from "./engine/missionEngine.js";
-import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
+import { DAY_MS, changePeriod, resolveMission, validateTiming } from "./engine/missionTiming.js";
+import { DEFAULT_LIMITS, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
 import { LAYERS } from "./data/mapLayers.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
 import { landingWindows, runs, siteTimeline, windowDetails } from "./engine/timeline.js";
 import { Rail, TimeBar, fmtShort } from "./ui/Shell.jsx";
 import Home from "./screens/Home.jsx";
-import SetupWhere from "./screens/SetupWhere.jsx";
-import SetupWhen from "./screens/SetupWhen.jsx";
-import SetupPriorities from "./screens/SetupPriorities.jsx";
-import SetupLayout from "./screens/SetupLayout.jsx";
 import Explore from "./screens/Explore.jsx";
 import Site from "./screens/Site.jsx";
 import Compare from "./screens/Compare.jsx";
 import { ExportDialog, SettingsDrawer } from "./screens/Overlays.jsx";
 import LearnPage from "./components/LearnPage.jsx";
 
-const DAY_MS = 86400000;
 const H = 3600e3;
 const REGION_HALF_PX = 7; // regiones Artemis III de ~15 × 15 km -> 15 × 15 píxeles de 1 km
+const ANALYSIS_SCREENS = ["explore", "site", "compare"];
 
 const todayMs = () => {
   const d = new Date();
@@ -36,19 +33,11 @@ function computePeriods(ephem) {
   return {
     range: [r0, r1],
     next12: [from, Math.min(r1, from + 365 * DAY_MS)],
-    nofixed: [from, r1],
   };
 }
 
-const DEFAULT_OPTS = { durationDays: 14, sunMode: "any", earthMode: "centre", observerM: 2 };
-
-function missionProblem(m, range) {
-  if (!(m.toMs > m.fromMs)) return "The end date must be after the start date.";
-  if (m.fromMs < range[0]) return `Ephemeris starts on ${new Date(range[0]).toISOString().slice(0, 10)}.`;
-  if (m.toMs > range[1]) return `Ephemeris ends on ${new Date(range[1]).toISOString().slice(0, 10)}.`;
-  if (m.toMs - m.fromMs < m.durationDays * DAY_MS) return `A ${m.durationDays}-day mission does not fit in this period.`;
-  return null;
-}
+const DEFAULT_RULES = { sunMode: "any", earthMode: "centre", observerM: 2 };
+const EMPTY_MISSION = { period: null, fromMs: null, toMs: null, durationDays: null, ...DEFAULT_RULES };
 
 /** Nombre corto de un lugar: "NR1", "PCB"… */
 function shortNames(names) {
@@ -66,67 +55,50 @@ function shortNames(names) {
   });
 }
 
-function useMedia(query) {
-  const [m, setM] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const on = () => setM(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [query]);
-  return m;
-}
-
-// Portada y pasos de configuración, en orden (comparten el mismo marco).
-const SETUP_ORDER = ["home", "where", "when", "priorities"];
-
 export default function App() {
-  // La app empieza en la portada (la de la Luna). Solo el polo sur tiene datos de momento.
   const [screen, setScreen] = useState("home");
-  const [region, setRegion] = useState("south");
   const [tab, setTab] = useState("overview");
   const [dim, setDim] = useState("2D");
-  const [overlay, setOverlay] = useState(null); // "settings" | "export"
+  const [overlay, setOverlay] = useState(null);
   const [data, setData] = useState(null);
   const [loadState, setLoadState] = useState({ done: 0, total: 1, error: null });
   const engineRef = useRef(null);
-  useMedia("(max-width: 767px)");
 
   const [periods, setPeriods] = useState(() => computePeriods(null));
-  const [mission, setMission] = useState(() => {
-    const p = computePeriods(null);
-    return { period: "next12", fromMs: p.next12[0], toMs: p.next12[1], ...DEFAULT_OPTS };
-  });
-  const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
+  const [missionInput, setMissionInput] = useState(EMPTY_MISSION);
+  const [destination, setDestination] = useState(null);
+  const [weights, setWeights] = useState(null);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
   const [calculation, setCalculation] = useState(null);
   const [layerKey, setLayerKey] = useState("score");
   const [terrainLayer, setTerrainLayer] = useState("sun");
   const [showIceEvidence, setShowIceEvidence] = useState(false);
   const [selRef, setSelRef] = useState(null); // {type:"spot",rank} | {type:"site",id} | {type:"pick",p}
-  const [group, setGroup] = useState("artemis");
+  const [group, setGroup] = useState("spots");
   const [cmpRefs, setCmpRefs] = useState([]);
   const [timeMs, setTimeMs] = useState(() => todayMs());
 
-  // Dirección de la transición entre la portada y los pasos: +1 adelante, -1 atrás, 0 sin animar.
-  const [dir, setDir] = useState(0);
-  const screenRef = useRef(screen);
+  const analysisActive = ANALYSIS_SCREENS.includes(screen);
+  const mission = useMemo(() => resolveMission(missionInput, periods), [missionInput, periods]);
+  const { timingMissing, problem } = validateTiming(mission, periods);
+  const destinationReady = destination === "south";
+  const timingReady = destinationReady && !timingMissing && !problem;
+  const planReady = timingReady && weights != null;
+  const planStarted = destination != null || weights != null || mission.period != null || mission.durationDays != null;
+  const openSettings = () => setOverlay(analysisActive ? "dates" : "rules");
+  const openWeights = () => setOverlay("weights");
   const go = useCallback((s) => {
-    const a = SETUP_ORDER.indexOf(screenRef.current), b = SETUP_ORDER.indexOf(s);
-    setDir(a >= 0 && b >= 0 && a !== b ? Math.sign(b - a) : 0);
-    screenRef.current = s;
-    setScreen(s);
+    setScreen(ANALYSIS_SCREENS.includes(s) && !planReady ? "home" : s);
     window.scrollTo(0, 0);
-  }, []);
+  }, [planReady]);
+  const closeOverlay = () => setOverlay(null);
 
   // --- Carga de datos y motor ---------------------------------------------
   useEffect(() => {
     loadData((done, total) => setLoadState((s) => ({ ...s, done, total })))
       .then((d) => {
         if (d.horizon && d.ephem) engineRef.current = new MissionEngine(d);
-        const p = computePeriods(d.manifest.ephem);
-        setPeriods(p);
-        setMission((m) => (m.period === "custom" || m.period === "fixed" ? m : { ...m, fromMs: p[m.period][0], toMs: p[m.period][1] }));
+        setPeriods(computePeriods(d.manifest.ephem));
         setData(d);
       })
       .catch((e) => setLoadState((s) => ({ ...s, error: e.message })));
@@ -134,51 +106,54 @@ export default function App() {
   }, []);
 
   const engineReady = !!engineRef.current;
-  const problem = missionProblem(mission, periods.range);
-
   // --- Mission setters -------------------------------------------------------
-  // Dos modos de misión:
-  //  - "fixed": tengo fecha de aterrizaje -> la misión va de esa fecha a fecha + duración;
-  //    todas las celdas se evalúan en las MISMAS fechas.
-  //  - búsqueda ("next12" | "nofixed" | "custom"): cada celda en SUS mejores días del periodo.
-  const setFixed = (landMs) => setMission((m) => ({ ...m, period: "fixed", fromMs: landMs, toMs: landMs + m.durationDays * DAY_MS }));
-  const setPeriod = (period) => setMission((m) => {
-    if (period === "fixed") {
-      const land = m.period === "fixed" ? m.fromMs : Math.max(periods.range[0], m.fromMs);
-      return { ...m, period, fromMs: land, toMs: land + m.durationDays * DAY_MS };
-    }
-    if (period === "custom") return { ...m, period, toMs: Math.max(m.toMs, m.fromMs + (m.durationDays + 30) * DAY_MS) };
-    return { ...m, period, fromMs: periods[period][0], toMs: periods[period][1] };
-  });
-  const setCustom = (fromMs, toMs) => setMission((m) => ({ ...m, period: "custom", fromMs, toMs }));
-  const setDuration = (durationDays) => setMission((m) => (m.period === "fixed" ? { ...m, durationDays, toMs: m.fromMs + durationDays * DAY_MS } : { ...m, durationDays }));
-  const setMissionOpts = (o) => setMission((m) => ({ ...m, ...o }));
-  const restoreDefaults = () => {
-    setMission({ period: "next12", fromMs: periods.next12[0], toMs: periods.next12[1], ...DEFAULT_OPTS });
-    setLimits(DEFAULT_LIMITS);
+  const chooseDestination = (value) => {
+    if (value === destination) return;
+    setDestination(value);
+    setWeights(null);
   };
-  const dirty = mission.period !== "next12" || mission.sunMode !== DEFAULT_OPTS.sunMode || mission.earthMode !== DEFAULT_OPTS.earthMode
-    || mission.durationDays !== DEFAULT_OPTS.durationDays || JSON.stringify(limits) !== JSON.stringify(DEFAULT_LIMITS);
-  const landEndMs = Math.max(mission.fromMs + H, mission.toMs - mission.durationDays * DAY_MS);
+  const setPeriod = (period) => setMissionInput((m) => changePeriod(m, period));
+  const updateMission = (changes) => setMissionInput((m) => ({ ...m, ...changes }));
+  const applySettings = ({ input, weights, limits }) => {
+    setMissionInput(input);
+    setWeights(weights);
+    setLimits(limits);
+    closeOverlay();
+  };
+  const selectFirst = useRef(true);
+  const resetPlan = () => {
+    setMissionInput(EMPTY_MISSION);
+    setDestination(null);
+    setWeights(null);
+    setLimits(DEFAULT_LIMITS);
+    setCalculation(null);
+    setSelRef(null);
+    setCmpRefs([]);
+    selectFirst.current = true;
+    setOverlay(null);
+    go("home");
+  };
+  const landEndMs = planReady ? Math.max(mission.fromMs + H, mission.toMs - mission.durationDays * DAY_MS) : null;
 
   // --- Cálculo automático (con un pequeño retardo) -------------------------
   const request = useMemo(() => ({
     windowStartMs: mission.fromMs,
     windowEndMs: landEndMs,
     durationDays: mission.durationDays,
-    weights: { sun: weights.sun, earth: weights.earth },
+    weights: { sun: weights?.sun, earth: weights?.earth },
     sunMode: mission.sunMode,
     earthMode: mission.earthMode,
-  }), [mission.fromMs, landEndMs, mission.durationDays, weights.sun, weights.earth, mission.sunMode, mission.earthMode]);
+  }), [mission.fromMs, landEndMs, mission.durationDays, weights?.sun, weights?.earth, mission.sunMode, mission.earthMode]);
   const current = calculation?.request === request ? calculation : null;
-  const result = problem ? null : current?.result ?? null;
-  const runError = problem ? null : current?.error ?? null;
-  const running = engineReady && !problem && !result && !runError;
+  const result = planReady ? current?.result ?? null : null;
+  const runError = planReady ? current?.error ?? null : null;
+  const settled = !!(result || runError);
+  const running = analysisActive && engineReady && planReady && !settled;
   const progress = current?.progress ?? 0;
 
   useEffect(() => {
     const engine = engineRef.current;
-    if (!engineReady || problem) return undefined;
+    if (!running) return undefined;
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
@@ -194,8 +169,9 @@ export default function App() {
       cancelled = true;
       clearTimeout(timer);
       engine.cancel();
+      setCalculation((current) => current?.request === request && !current.result && !current.error ? null : current);
     };
-  }, [engineReady, request, problem]);
+  }, [running, request]);
 
   // --- Puntuación, puntos calientes y regiones -----------------------------
   const score = useMemo(() => (data && result ? scoreGrid(result, data.layers, weights, limits) : null), [data, result, weights, limits]);
@@ -274,9 +250,9 @@ export default function App() {
   }, [data, score, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = useMemo(() => {
-    const a = [...sites]; a.label = "Artemis III";
-    const b = [...spots]; b.label = "Hotspots";
-    return { artemis: a, spots: b };
+    const candidates = [...spots]; candidates.label = "Calculated candidates";
+    const references = [...sites]; references.label = "Artemis III references";
+    return { spots: candidates, artemis: references };
   }, [sites, spots]);
 
   const resolve = useCallback((ref) => {
@@ -296,14 +272,13 @@ export default function App() {
     return s ? { ...s, type: s.type || selRef.type } : null;
   }, [resolve, selRef]);
 
-  // Primera vez que hay resultados: seleccionar la mejor región (como en el diseño).
-  const autoSel = useRef(false);
+  const firstPlace = groups[group][0];
   useEffect(() => {
-    if (!autoSel.current && sites[0] && Number.isFinite(sites[0].score)) {
-      autoSel.current = true;
-      setSelRef((r) => r || sites[0].ref);
+    if (analysisActive && selectFirst.current && Number.isFinite(firstPlace?.score)) {
+      selectFirst.current = false;
+      setSelRef((r) => r || firstPlace.ref);
     }
-  }, [sites]);
+  }, [analysisActive, firstPlace]);
 
   // --- Comparar ----------------------------------------------------------------
   const refKey = (r) => (r.type === "spot" ? `spot-${r.rank}` : r.type === "site" ? `site-${r.id}` : `pick-${r.p}`);
@@ -318,10 +293,11 @@ export default function App() {
 
   // --- Serie temporal del lugar seleccionado ---------------------------------
   const modes = { sunMode: mission.sunMode, earthMode: mission.earthMode };
-  const tl = useMemo(() => (selected && data?.ephem && data?.horizon ? siteTimeline(data, selected.p, mission.fromMs, mission.toMs, modes) : null),
-    [selected?.p, data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const showTimeline = analysisActive && planReady;
+  const tl = useMemo(() => (showTimeline && selected && data?.ephem && data?.horizon ? siteTimeline(data, selected.p, mission.fromMs, mission.toMs, modes) : null),
+    [showTimeline, selected?.p, data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const lw = useMemo(() => (tl ? landingWindows(tl, mission.durationDays * 24, { sun: weights.sun, earth: weights.earth }, landEndMs) : null),
-    [tl, mission.durationDays, weights.sun, weights.earth, landEndMs]);
+    [tl, mission.durationDays, weights?.sun, weights?.earth, landEndMs]);
   const toMs = (rr) => rr.map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]);
   const windowsMs = tl && lw ? toMs(lw.windows) : [];
   // Solo la MEJOR ventana: la tarjeta, la nota y las barras de Sol/Tierra hablan
@@ -333,19 +309,21 @@ export default function App() {
   // Serie de cualquier lugar (Compare), con caché.
   const tlCache = useRef(new Map());
   const timelineFor = useCallback((place) => {
-    if (!place || !data?.ephem || !data?.horizon) return null;
+    if (!planReady || !place || !data?.ephem || !data?.horizon) return null;
     const k = `${place.p}|${mission.fromMs}|${mission.toMs}|${mission.sunMode}|${mission.earthMode}`;
     if (!tlCache.current.has(k)) {
       if (tlCache.current.size > 24) tlCache.current.clear();
       tlCache.current.set(k, siteTimeline(data, place.p, mission.fromMs, mission.toMs, modes));
     }
     return tlCache.current.get(k);
-  }, [data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [planReady, data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // El reloj compartido salta al inicio de la mejor ventana al cambiar de lugar.
   const winStart = missionWin?.[0];
   useEffect(() => { if (winStart != null) setTimeMs(winStart); }, [selected?.key, winStart]);
-  useEffect(() => { setTimeMs((t) => Math.min(mission.toMs, Math.max(mission.fromMs, t))); }, [mission.fromMs, mission.toMs]);
+  useEffect(() => {
+    if (planReady) setTimeMs((t) => Math.min(mission.toMs, Math.max(mission.fromMs, t)));
+  }, [planReady, mission.fromMs, mission.toMs]);
 
   // --- Valores de las capas -------------------------------------------------
   const cache = useMemo(() => new Map(), [data, result, score, limits.iceReachKm]);
@@ -412,18 +390,20 @@ export default function App() {
     return `${fmtShort(a)} → ${fmtShort(a + result.durationH * H)}`;
   };
 
-  const RailEl = <Rail screen={screen} go={go} onMission={() => setOverlay("settings")} onExport={() => setOverlay("export")} />;
-  const TimeBarEl = (
+  const RailEl = <Rail screen={screen} go={go} canAnalyze={planReady} onMission={openSettings} onExport={planReady && data ? () => setOverlay("export") : undefined} />;
+  const TimeBarEl = planReady && (
     <TimeBar startMs={mission.fromMs} endMs={mission.toMs} timeMs={timeMs} setTimeMs={setTimeMs} windows={windowsMs} missionWin={missionWin} lanes={lanes} />
   );
 
   const app = {
     data, result, running, progress, runError, problem, loadState, engineReady,
-    places: [...sites, ...spots], groups, group, setGroup, selected, setSelRef, weights, setWeights, limits, setLimits,
+    places: [...sites, ...spots], groups, group, setGroup, selected, selectionKey: selRef ? refKey(selRef) : null,
+    setSelRef, weights, setWeights, limits, setLimits,
     layerKey, setLayerKey, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
     terrainLayer, setTerrainLayer, showIceEvidence, setShowIceEvidence,
-    dim, setDim, mission, periods, setPeriod, setCustom, setFixed, setDuration, setMissionOpts, restoreDefaults, dirty,
-    openSettings: () => setOverlay("settings"), go, tab, setTab,
+    dim, setDim, mission, periods, setPeriod, updateMission,
+    destination, destinationReady, chooseDestination, timingMissing, timingReady, planReady, planStarted, resetPlan,
+    openSettings, openWeights, go, tab, setTab,
     cmp: cmpRefs, toggleCmp, inCmp, cmpPlaces, addBest3, canAddBest: ranked.length > 0,
     timeMs, setTimeMs, Rail: RailEl, TimeBarEl,
     moonMission: { windowStartMs: mission.fromMs, windowEndMs: landEndMs, durationDays: mission.durationDays },
@@ -435,24 +415,9 @@ export default function App() {
   };
 
   let page;
-  if (SETUP_ORDER.includes(screen)) {
-    const openSettings = () => setOverlay("settings");
-    const nav = {
-      home: { back: null, next: { label: "Start", aria: "Start: step 01, destination", onClick: () => go("where") } },
-      where: { back: "home", next: { label: "Next", aria: "Next: step 02, when", onClick: () => go("when") } },
-      when: { back: "where", next: { label: "Next", aria: "Next: step 03, what matters", onClick: () => go("priorities"), disabled: !!problem } },
-      priorities: { back: "when", next: { label: "Find sites", onClick: () => go("explore"), disabled: !!problem } },
-    }[screen];
-    let content;
-    if (screen === "home") content = <Home region={region} mission={mission} weights={weights} go={go} />;
-    else if (screen === "where") content = <SetupWhere region={region} setRegion={setRegion} mission={mission} />;
-    else if (screen === "when") content = <SetupWhen mission={mission} region={region} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} />;
-    else content = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} region={region} openSettings={openSettings} />;
-    page = (
-      <SetupLayout screen={screen} dir={dir} go={go} back={nav.back} next={nav.next} openSettings={openSettings} openLearn={() => go("learn")}>
-        {content}
-      </SetupLayout>
-    );
+  const showPlanner = screen === "home" || (analysisActive && !planReady);
+  if (showPlanner) {
+    page = <Home app={app} />;
   } else if (screen === "site") {
     page = <Site app={app} />;
   } else if (screen === "compare") {
@@ -470,9 +435,12 @@ export default function App() {
 
   return (
     <>
-      {page}
-      {overlay === "settings" ? <SettingsDrawer app={app} onClose={() => setOverlay(null)} /> : null}
-      {overlay === "export" ? <ExportDialog app={app} onClose={() => setOverlay(null)} /> : null}
+      {analysisActive && !showPlanner ? <div className="analysis-enter">{page}</div> : page}
+      {overlay === "export"
+        ? planReady && data && <ExportDialog app={app} onClose={closeOverlay} />
+        : overlay && <SettingsDrawer initialSection={overlay} rulesOnly={!analysisActive} region={app.region}
+          input={missionInput} periods={periods} weights={weights} limits={limits} defaultRules={DEFAULT_RULES}
+          onApply={applySettings} onClose={closeOverlay} />}
     </>
   );
 }

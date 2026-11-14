@@ -138,7 +138,7 @@ function GoodDaysStrip({ tl, missionWin, compact }) {
 
 function Header({ app, place, idx }) {
   // El Mare analiza un solo sitio: para cambiarlo se vuelve a Explore (sin flechas ‹ ›).
-  const { tab, setTab, mission, weights, openSettings, go, inCmp, toggleCmp, rankInfo, result } = app;
+  const { tab, setTab, mission, weights, openSettings, openWeights, go, inCmp, toggleCmp, rankInfo, result } = app;
   const scored = Number.isFinite(place.score);
   return (
     <header className="pagehead pagehead--site">
@@ -157,7 +157,7 @@ function Header({ app, place, idx }) {
       </div>
       <div className="grow" />
       <div className="pagehead__chips">
-        <ProfileChip weights={weights} onClick={() => go("priorities")} />
+        <ProfileChip weights={weights} onClick={openWeights} />
         <MissionChip mission={mission} onClick={openSettings} />
       </div>
       <div className="pagehead__row">
@@ -182,7 +182,7 @@ function Header({ app, place, idx }) {
 /* --------------------------------------------------------------- Overview */
 
 function Overview({ app, place }) {
-  const { tl, lw, result, mission, timeMs, data, rankInfo, validation, curWin } = app;
+  const { tl, lw, result, mission, data, rankInfo, validation, curWin } = app;
   const p = place.p;
   const D = lw?.D ?? mission.durationDays * 24;
   // La tarjeta muestra la MEJOR ventana del sitio (la misma que da su nota).
@@ -190,7 +190,6 @@ function Overview({ app, place }) {
   const endMs = startMs != null ? startMs + D * H : null;
   const landRun = curWin ? [curWin.a, curWin.b] : null;
 
-  const now = tl ? hourIndex(tl, timeMs) : 0;
   const dark = useMemo(() => {
     if (!tl) return null;
     const nights = runs(tl.sun, 0), outs = runs(tl.earth, 0);
@@ -262,18 +261,20 @@ function Overview({ app, place }) {
           )}
         </Card>
         <Card className="f1">
-          <CardHead title="Now"><span className="muted-12">{fmtShort(timeMs)} · {fmtHM(timeMs)}</span></CardHead>
-          {tl ? (
+          <CardHead title="Sky at landing">
+            {startMs != null && <span className="muted-12">{fmtShort(startMs)} · {fmtHM(startMs)} UTC</span>}
+          </CardHead>
+          {tl && curWin ? (
             <div className="nowlist">
               {[["sun", "Sun", tl.sun, tl.sunAz, tl.sunEl], ["earth", "Earth", tl.earth, tl.earthAz, tl.earthEl]].map(([k, name, vis, az, el]) => (
                 <div key={k} className="nowrow">
                   <span className="nowrow__icon" style={{ color: `var(--${k})` }}><Icon name={k} size={18} /></span>
-                  <span className="nowrow__text"><b>{name}</b><span className="muted-12">az {az[now].toFixed(1)}° · el {el[now].toFixed(1)}°</span></span>
-                  <UpTag up={!!vis[now]} />
+                  <span className="nowrow__text"><b>{name}</b><span className="muted-12">az {az[curWin.start].toFixed(1)}° · el {el[curWin.start].toFixed(1)}°</span></span>
+                  <UpTag up={!!vis[curWin.start]} />
                 </div>
               ))}
             </div>
-          ) : <p className="muted-12">Needs the horizons and ephemeris files.</p>}
+          ) : <p className="muted-12">{tl ? "No landing time in this period." : "Needs the horizons and ephemeris files."}</p>}
         </Card>
       </div>
 
@@ -587,8 +588,7 @@ export default function Site({ app }) {
             </Suspense>
           </section>
         ) : null}
-        {/* Terrain muestra capas de misión y de terreno fijo: ahí la hora no cambia nada. */}
-        {tab !== "terrain" ? TimeBarEl : null}
+        {(tab === "sky" || tab === "lander") && TimeBarEl}
       </main>
     </div>
   );

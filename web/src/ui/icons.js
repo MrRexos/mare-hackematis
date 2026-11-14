@@ -37,6 +37,7 @@ export const ICONS = {
  "pause": "<rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"></rect><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"></rect>",
  "chevron-left": "<path d=\"m15 18-6-6 6-6\"></path>",
  "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\"></circle><polyline points=\"12 6 12 12 16 14\"></polyline>",
+ "lock": "<rect x=\"4\" y=\"11\" width=\"16\" height=\"10\" rx=\"2\"></rect><path d=\"M8 11V7a4 4 0 0 1 8 0v4\"></path>",
  "skip-forward": "<polygon points=\"5 4 15 12 5 20 5 4\"></polygon><line x1=\"19\" x2=\"19\" y1=\"5\" y2=\"19\"></line>",
  "chevron-up": "<path d=\"m18 15-6-6-6 6\"></path>",
  "chevron-down": "<path d=\"m6 9 6 6 6-6\"></path>",

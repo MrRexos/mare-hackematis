@@ -6,11 +6,10 @@ import MapControls, { MapPointReadout } from "../components/MapControls.jsx";
 import { LAYERS } from "../data/mapLayers.js";
 import { Icon, Btn, Card, Tabs, Fidelity, FactorGrid, FactorSpark, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
-import { PRESETS, presetOf } from "../engine/score.js";
+import { presetOf } from "../engine/score.js";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
 
-export const GOALS = ["Balanced", "Power first", "Earth contact first"];
 const MAP_LAYERS = Object.keys(LAYERS);
 
 /** Recorte del relieve LOLA alrededor de un lugar (miniatura del ranking). */
@@ -71,9 +70,9 @@ export default function Explore({ app }) {
   const [hoveredPixel, setHoveredPixel] = useState(null);
   const {
     data, result, running, progress, runError, problem, loadState, engineReady,
-    groups, group, setGroup, selected, setSelRef, weights, setWeights,
+    groups, group, setGroup, selected, selectionKey, setSelRef, weights,
     layerKey, setLayerKey, layer, values, legendEnds, showIceEvidence, setShowIceEvidence,
-    dim, setDim, mission, openSettings, go, toggleCmp, inCmp, cmpPlaces,
+    dim, setDim, mission, openSettings, openWeights, go, toggleCmp, inCmp, cmpPlaces,
     timeMs, setTimeMs, Rail, TimeBarEl, moonMission, sitesForMap, spotsForMap,
   } = app;
 
@@ -81,7 +80,7 @@ export default function Explore({ app }) {
   const list = groups[group] || [];
   const ranked = list.filter((p) => Number.isFinite(p.score));
   const best = ranked[0] || null;
-  const rest = (ranked.length ? ranked.slice(1) : list.slice(1));
+  const rest = best ? ranked.slice(1) : list;
   const sel = selected;
   const n = data?.manifest.grid.n || 400;
 
@@ -121,7 +120,7 @@ export default function Explore({ app }) {
                 </div>
               ) : dim === "3D" ? (
                 <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                  <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
+                  <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} selectionKey={selectionKey} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
                   {sel ? (
                     // Sitio pulsado en 3D: las mismas acciones que el popup del mapa 2D.
                     <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${sel.name}`}>
@@ -150,6 +149,7 @@ export default function Explore({ app }) {
                   sites={sitesForMap}
                   spots={spotsForMap}
                   selected={sel}
+                  selectionKey={selectionKey}
                   onSelect={setSelRef}
                   onPick={(p) => setSelRef({ type: "pick", p })}
                   showIceEvidence={showIceEvidence}
@@ -189,11 +189,11 @@ export default function Explore({ app }) {
             <Card pad="md" className="rank__goal">
               <div className="stack-10">
                 <div className="row-base">
-                  <span className="lbl">Goal</span>
+                  <span className="lbl">Scoring profile</span>
                   <div className="grow" />
-                  <button type="button" className="linkbtn linkbtn--12" onClick={() => go("priorities")}>Weights<Icon name="chevron-right" size={12} /></button>
+                  <button type="button" className="linkbtn linkbtn--12" onClick={openWeights}>Edit weights<Icon name="chevron-right" size={12} /></button>
                 </div>
-                <Tabs label="Goal" value={goal} onChange={(g) => setWeights({ ...PRESETS[g] })} options={GOALS.map((g) => ({ value: g, label: g }))} className="tabs--block" />
+                <span className="num-15">{goal || "Custom weights"}</span>
               </div>
             </Card>
 
@@ -271,12 +271,12 @@ export default function Explore({ app }) {
                   ))}
                 </div>
                 <div className="rows">
-                  {rest.length === 0 && !running && data ? (
+                  {list.length === 0 && !running && data ? (
                     <p className="muted-12 px-4">{group === "spots" ? "No hotspot passes your limits. Raise the maximum slope in Mission settings." : "Nothing to rank yet."}</p>
                   ) : null}
                   {rest.map((p, k) => (
                     <div key={p.key} className={cx("rrow", sel?.key === p.key && "is-sel")}>
-                      <span className="rrow__rank">{String((ranked.length ? 2 : 2) + k).padStart(2, "0")}</span>
+                      <span className="rrow__rank">{String(k + (best ? 2 : 1)).padStart(2, "0")}</span>
                       <button type="button" className="rrow__main" onClick={() => setSelRef(p.ref)}>
                         <Thumb place={p} n={n} />
                         <span className="rrow__text">
