@@ -5,22 +5,52 @@ const HOUR_MS = 3600 * 1000;
 
 export class MissionEngine {
   constructor(data) {
-    const { manifest, layers, horizon, ephem } = data;
+    const { manifest, layers, horizon, ephem, temp, horizonSub } = data;
+    this.tempMeta = temp ? manifest.thermal : null; // curva de temperatura por hora local (solo Luna entera)
     this.grid = manifest.grid;
     this.ephemMeta = manifest.ephem;
     this.horizonMeta = manifest.horizon;
     this.runId = 0;
     this.active = null;
-    const n = this.grid.n;
+    const n = this.grid.cols || this.grid.n;      // columnas
+    const nRows = this.grid.rows || this.grid.n;  // filas
+    this.cols = n;
+    this.rows = nRows;
+    // Subpuntos (malla global): en las filas de alta latitud cada celda lleva sub.n × sub.n
+    // horizontes. subIdx[fila] = posición de la fila dentro de horizonSub, o −1 si no tiene.
+    const sub = horizonSub ? this.horizonMeta.sub : null;
+    const subIdx = new Int32Array(nRows).fill(-1);
+    if (sub) { let c = 0; for (const [a, b] of sub.rowRanges) for (let r = a; r < b; r++) subIdx[r] = c++; }
     const k = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
-    const rowsPer = Math.ceil(n / k);
+    // Reparto de filas entre workers por coste (no por número): una fila con subpuntos cuesta
+    // sub.n² veces más. Sin subpuntos el reparto queda en franjas iguales, como siempre.
+    const cost = (r) => (subIdx[r] >= 0 ? sub.n * sub.n : 1);
+    let totalCost = 0;
+    for (let r = 0; r < nRows; r++) totalCost += cost(r);
+    const cuts = [0];
+    for (let r = 0, acc = 0; r < nRows && cuts.length < k; r++) {
+      acc += cost(r);
+      if (acc >= (totalCost * cuts.length) / k) cuts.push(r + 1);
+    }
+    cuts.push(nRows);
     this.workers = [];
-    for (let w = 0; w < k; w++) {
-      const r0 = w * rowsPer;
-      const r1 = Math.min(n, r0 + rowsPer);
-      if (r0 >= r1) break;
+    for (let w = 0; w + 1 < cuts.length; w++) {
+      const r0 = cuts[w];
+      const r1 = cuts[w + 1];
+      if (r0 >= r1) continue;
       const worker = new Worker(new URL("./mission.worker.js", import.meta.url), { type: "module" });
       const bins = this.horizonMeta.bins;
+      // Solo la parte de horizonSub que toca a las filas de este worker.
+      let subBase = 0, subPart = null;
+      if (sub) {
+        let lo = Infinity, hi = -1;
+        for (let r = r0; r < r1; r++) if (subIdx[r] >= 0) { lo = Math.min(lo, subIdx[r]); hi = Math.max(hi, subIdx[r]); }
+        if (hi >= 0) {
+          const per = n * sub.n * sub.n * bins;
+          subBase = lo;
+          subPart = horizonSub.slice(lo * per, (hi + 1) * per);
+        }
+      }
       worker.postMessage({
         type: "init",
         grid: this.grid,
@@ -30,6 +60,9 @@ export class MissionEngine {
         horizonMeta: this.horizonMeta,
         ephem,
         ephemMeta: this.ephemMeta,
+        temp: this.tempMeta ? temp.slice(r0 * n * this.tempMeta.bins, r1 * n * this.tempMeta.bins) : null,
+        tempMeta: this.tempMeta,
+        sub: subPart ? { n: sub.n, base: subBase, idx: subIdx.slice(r0, r1), horizon: subPart } : null,
       });
       this.workers.push({ worker, rows: [r0, r1] });
     }
@@ -56,18 +89,19 @@ export class MissionEngine {
     if (startIdx + landingHours + durationH > m.count) {
       throw new Error("The mission ends after the last date with ephemeris data.");
     }
-    const n = this.grid.n;
-    const total = n * n;
+    const n = this.cols;
+    const total = n * this.rows;
     const res = {
       sun: new Float32Array(total), earth: new Float32Array(total), both: new Float32Array(total),
       night: new Float32Array(total), best: new Int32Array(total),
     };
+    if (this.tempMeta) for (const key of ["tavg", "tmin", "tmax", "tfit"]) res[key] = new Float32Array(total);
     const done = new Array(this.workers.length).fill(0);
     // Unas ~2600 muestras por píxel: 1 h en ventanas cortas, 3-4 h en un año, más en varios años.
     const strideH = Math.max(1, Math.ceil((landingHours + durationH) / 2600));
     const p = {
       startIdx, landingHours, durationH, strideH, candidateStepH: params.candidateStepH || 1, weights: params.weights,
-      sunMode: params.sunMode, earthMode: params.earthMode,
+      sunMode: params.sunMode, earthMode: params.earthMode, tempBand: params.tempBand,
     };
 
     return new Promise((resolve, reject) => {
@@ -99,7 +133,7 @@ export class MissionEngine {
               return;
             }
           }
-          onProgress(done.reduce((sum, count) => sum + count, 0) / n);
+          onProgress(done.reduce((sum, count) => sum + count, 0) / this.rows);
         };
         const onError = (e) => finish(null, new Error(e.message || "Mission calculation failed."));
         listeners.push({ worker, onMessage, onError });

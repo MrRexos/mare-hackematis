@@ -22,7 +22,7 @@ const MAX_ZOOM = 16;
 const NICE_KM = [1, 2, 5, 10, 20, 50, 100, 200];
 
 /** Rampa de color de cada capa: (valor) -> [r, g, b, a 0-255] o null. */
-function makeRamp(layer, colors, extent) {
+export function makeRamp(layer, colors, extent) {
   const { both, sun, earth, ink, lineStrong, relief, temp } = colors;
   switch (layer.ramp) {
     case "score": {

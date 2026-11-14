@@ -74,7 +74,8 @@ function LengthSlider({ value, onChange }) {
   );
 }
 
-export default function MissionTiming({ mission, setPeriod, updateMission, periods, problem }) {
+/** fixedOnly: la Luna entera solo admite fecha fija de aterrizaje (buscar fechas es del polo sur). */
+export default function MissionTiming({ mission, setPeriod, updateMission, periods, problem, fixedOnly = false }) {
   const statusId = useId();
   const fixed = mission.period === "fixed";
   const searching = ["search", "custom", "next12"].includes(mission.period);
@@ -84,7 +85,9 @@ export default function MissionTiming({ mission, setPeriod, updateMission, perio
   return (
     <div className="mission-timing">
       <div role="group" aria-label="Landing date mode" className="tabs tabs--block">
-        <button type="button" className={cx("tabs__tab", searching && "is-on")} aria-pressed={searching} onClick={() => !searching && setPeriod("search")}>Find best dates</button>
+        <button type="button" className={cx("tabs__tab", searching && "is-on")} aria-pressed={searching} disabled={fixedOnly}
+          title={fixedOnly ? "Whole Moon uses a fixed landing date; best-date search is South Pole only" : undefined}
+          onClick={() => !searching && setPeriod("search")}>Find best dates</button>
         <button type="button" className={cx("tabs__tab", fixed && "is-on")} aria-pressed={fixed} onClick={() => !fixed && setPeriod("fixed")}>Fixed date</button>
       </div>
       {fixed && (

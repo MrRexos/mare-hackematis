@@ -86,13 +86,17 @@ function MissionRules({ mission, updateMission, limits, setLimits, reset, canRes
         {limits.maxNightH != null && (
           <L.Slider label="Battery autonomy" value={limits.maxNightH} min={6} max={240} step={6} onChange={(v) => updateLimit("maxNightH", v)} format={(v) => `${v} h`} />
         )}
+        <Toggle checked={limits.minEarthPct != null} onChange={(v) => updateLimit("minEarthPct", v ? 50 : null)} label="Require Earth contact" description="Exclude sites where Earth is in view for too little of the mission (no direct radio link)." />
+        {limits.minEarthPct != null && (
+          <L.Slider label="Minimum Earth contact" value={limits.minEarthPct} min={5} max={100} step={5} onChange={(v) => updateLimit("minEarthPct", v)} format={(v) => `${v}%`} description="Share of the mission with Earth above the horizon." />
+        )}
         <Btn variant="ghost" size="sm" className="drawer__reset" icon="rotate-ccw" onClick={reset} disabled={!canReset}>Reset rules</Btn>
       </section>
     </>
   );
 }
 
-export function SettingsDrawer({ initialSection, rulesOnly, region, input, periods, weights, limits, defaultRules, onApply, onClose }) {
+export function SettingsDrawer({ initialSection, rulesOnly, region, fixedOnly, input, periods, weights, limits, defaultRules, onApply, onClose }) {
   const id = useId();
   const ref = useRef(null);
   const [section, setSection] = useState(initialSection);
@@ -144,7 +148,7 @@ export function SettingsDrawer({ initialSection, rulesOnly, region, input, perio
           <div key={key} id={`${id}-panel-${key}`} className="drawer__body" hidden={section !== key}
             role={rulesOnly ? undefined : "tabpanel"} aria-labelledby={rulesOnly ? undefined : `${id}-tab-${key}`}>
             {key === "dates" && (
-              <MissionTiming mission={mission} periods={periods} problem={problem}
+              <MissionTiming mission={mission} periods={periods} problem={problem} fixedOnly={fixedOnly}
                 setPeriod={(value) => setDraft((current) => changePeriod(current, value))} updateMission={updateMission} />
             )}
             {key === "weights" && <MissionWeights weights={draftWeights} setWeights={setDraftWeights} />}

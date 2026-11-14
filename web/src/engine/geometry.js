@@ -36,6 +36,23 @@ export function xyToUnit(R, x, y) {
   return [2 * ys * k, 2 * xs * k, -(1 - t2) * k];
 }
 
+/**
+ * Vector unitario (MOON_ME) del centro de la celda (i, j).
+ * Malla polar (polo sur, n × n) o malla global lat/lon (grid.type === "latlon":
+ * fila 0 desde lat0 hacia el sur, columna 0 desde lon0 hacia el este).
+ * En la malla global, (fi, fj) eligen un punto dentro de la celda (0,5 = centro).
+ */
+export function cellUnit(grid, i, j, fi = 0.5, fj = 0.5) {
+  if (grid.type === "latlon") {
+    const lat = (grid.lat0 - (i + fi) * grid.stepDeg) * RAD;
+    const lon = (grid.lon0 + (j + fj) * grid.stepDeg) * RAD;
+    const cl = Math.cos(lat);
+    return [cl * Math.cos(lon), cl * Math.sin(lon), Math.sin(lat)];
+  }
+  const [x, y] = pixelXY(grid, i, j);
+  return xyToUnit(grid.radiusM, x, y);
+}
+
 /** Marco local a partir del vector unitario: [up, east, north]. */
 export function localFrame(u) {
   const cl = Math.hypot(u[0], u[1]) || 1e-12;

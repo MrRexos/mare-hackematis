@@ -5,7 +5,7 @@
 // Con ella se dibujan la TimeBar (ventanas, carriles de Sol y Tierra), la tarjeta
 // "Now", los eventos (ocaso, salida de la Tierra…) y los "Good days".
 
-import { DEG, localFrame, pixelXY, xyToUnit } from "./geometry.js";
+import { DEG, cellUnit, localFrame } from "./geometry.js";
 
 const SUN_RADIUS_KM = 695700;
 const EARTH_RADIUS_DEG = 0.95;
@@ -16,14 +16,13 @@ export function pixelContext(data, p) {
   const { manifest, layers, horizon } = data;
   const grid = manifest.grid;
   const hm = manifest.horizon;
-  const n = grid.n;
+  const n = grid.cols || grid.n; // malla polar (n × n) o global (rows × cols)
   const bins = hm.bins;
   const i = Math.floor(p / n), j = p % n;
   const hor = new Float32Array(bins + 1);
   for (let k = 0; k < bins; k++) hor[k] = horizon[p * bins + k] * hm.scaleDeg + hm.offsetDeg;
   hor[bins] = hor[0];
-  const [x, y] = pixelXY(grid, i, j);
-  const u = xyToUnit(grid.radiusM, x, y);
+  const u = cellUnit(grid, i, j);
   const [up, east, north] = localFrame(u);
   const h = layers.elevation[p];
   const rObs = (grid.radiusM + (Number.isFinite(h) ? h : 0) + hm.observerHeightM) / 1000;

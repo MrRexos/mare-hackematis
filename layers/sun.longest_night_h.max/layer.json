@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "owner": "T3 · Luz (pol)",
+  "fidelity": "computed",
+  "sources": [
+    {
+      "name": "LOLA LDEM_64",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/",
+      "citation": "Smith et al. (2010), LOLA GDR, NASA PDS Geosciences Node"
+    },
+    {
+      "name": "NAIF SPICE DE440",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/",
+      "citation": "Park et al. (2021), AJ 161:105; moon_pa_de440_200625.bpc, moon_de440_250416.tf; Sun position and radius"
+    }
+  ],
+  "id": "sun.longest_night_h.max",
+  "title": "Longest night",
+  "description": "Longest continuous run with visible Sun fraction < 0.05 inside the period.",
+  "units": "h",
+  "validRange": [
+    0,
+    1100
+  ],
+  "kind": "series",
+  "combine": "max",
+  "method": "LOLA LDEM_64 horizons ray-marched on the 1737.4 km sphere (72 azimuths, observer 2 m, 0.5-300 km), computed on demand in the Sun's azimuth and only as far as terrain could still hide the lower solar limb; SPICE DE440 Sun in MOON_ME, LT+S, real angular radius; visible disk fraction per sample. Night = visible fraction < 0.05; run length in samples × step.",
+  "params": {
+    "observerHeightM": 2.0,
+    "sunCriterion": "diskFraction",
+    "samplingSeconds": 600,
+    "azimuths": 72,
+    "horizonMinM": 500.0,
+    "horizonMaxM": 300000.0,
+    "frame": "MOON_ME",
+    "abcorr": "LT+S",
+    "nightThreshold": 0.05
+  },
+  "periods": {
+    "2026-11-14": {
+      "start": "2026-11-14T00:00:00Z",
+      "end": "2026-11-15T00:00:00Z"
+    }
+  },
+  "files": [
+    {
+      "grid": "G1K",
+      "period": "2026-11-14",
+      "path": "G1K/2026-11-14.u16",
+      "dtype": "uint16",
+      "scale": 0.016666666666666666,
+      "offset": 0,
+      "nodata": 65535,
+      "sha256": "8ee3ad1d347614de71064dcbbb31e3be1897cd70d535c40596640f6268cad2e4",
+      "min": 0.0,
+      "max": 24.0
+    }
+  ]
+}

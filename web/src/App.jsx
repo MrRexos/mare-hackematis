@@ -10,6 +10,9 @@ import { landingWindows, runs, siteTimeline, windowDetails } from "./engine/time
 import { Rail, TimeBar, fmtShort } from "./ui/Shell.jsx";
 import Home from "./screens/Home.jsx";
 import Explore from "./screens/Explore.jsx";
+import GlobalExplore from "./screens/GlobalExplore.jsx";
+import { loadGlobalManifest } from "./engine/globalScore.js";
+import { useGlobalMission } from "./engine/useGlobalMission.js";
 import Site from "./screens/Site.jsx";
 import Compare from "./screens/Compare.jsx";
 import { ExportDialog, SettingsDrawer } from "./screens/Overlays.jsx";
@@ -77,11 +80,15 @@ export default function App() {
   const [group, setGroup] = useState("spots");
   const [cmpRefs, setCmpRefs] = useState([]);
   const [timeMs, setTimeMs] = useState(() => todayMs());
+  // Luna entera: datos globales ya calculados (si existen) y celda elegida en su malla.
+  const [globalManifest, setGlobalManifest] = useState(null);
+  const [gSel, setGSel] = useState(null);
+  useEffect(() => { loadGlobalManifest().then(setGlobalManifest); }, []);
 
   const analysisActive = ANALYSIS_SCREENS.includes(screen);
   const mission = useMemo(() => resolveMission(missionInput, periods), [missionInput, periods]);
   const { timingMissing, problem } = validateTiming(mission, periods);
-  const destinationReady = destination === "south";
+  const destinationReady = destination === "south" || (destination === "moon" && !!globalManifest);
   const timingReady = destinationReady && !timingMissing && !problem;
   const planReady = timingReady && weights != null;
   const planStarted = destination != null || weights != null || mission.period != null || mission.durationDays != null;
@@ -111,6 +118,17 @@ export default function App() {
     if (value === destination) return;
     setDestination(value);
     setWeights(null);
+    if (value === "moon") fixedOnlyDates();
+  };
+  // La Luna entera solo trabaja con fecha fija de aterrizaje: si la misión estaba en modo
+  // búsqueda se pasa a fecha fija, empezando el primer día del rango que había.
+  const fixedOnlyDates = () => setMissionInput((m) => (m.period && m.period !== "fixed"
+    ? { ...changePeriod(m, "fixed"), fromMs: resolveMission(m, periods).fromMs ?? null } : m));
+  // Pestañas South Pole / Whole Moon de Explore: cambian de región sin rehacer el plan.
+  const setRegion = (value) => {
+    if (value === destination) return;
+    setDestination(value);
+    if (value === "moon") fixedOnlyDates();
   };
   const setPeriod = (period) => setMissionInput((m) => changePeriod(m, period));
   const updateMission = (changes) => setMissionInput((m) => ({ ...m, ...changes }));
@@ -128,6 +146,7 @@ export default function App() {
     setLimits(DEFAULT_LIMITS);
     setCalculation(null);
     setSelRef(null);
+    setGSel(null);
     setCmpRefs([]);
     selectFirst.current = true;
     setOverlay(null);
@@ -148,7 +167,9 @@ export default function App() {
   const result = planReady ? current?.result ?? null : null;
   const runError = planReady ? current?.error ?? null : null;
   const settled = !!(result || runError);
-  const running = analysisActive && engineReady && planReady && !settled;
+  const moon = destination === "moon" && !!globalManifest; // región activa: Luna entera
+  // En la Luna entera calcula su propio motor (useGlobalMission): el del polo sur no arranca.
+  const running = analysisActive && engineReady && planReady && !settled && !moon;
   const progress = current?.progress ?? 0;
 
   useEffect(() => {
@@ -172,6 +193,10 @@ export default function App() {
       setCalculation((current) => current?.request === request && !current.result && !current.error ? null : current);
     };
   }, [running, request]);
+
+  // --- Luna entera: mismo cálculo con la malla global (lo comparten Explore, Mare y Compare).
+  const G = useGlobalMission({ gm: globalManifest, data, request, problem: planReady ? problem : "Plan not ready",
+    weights: weights || {}, limits, active: moon && planReady && analysisActive });
 
   // --- Puntuación, puntos calientes y regiones -----------------------------
   const score = useMemo(() => (data && result ? scoreGrid(result, data.layers, weights, limits) : null), [data, result, weights, limits]);
@@ -267,35 +292,43 @@ export default function App() {
     };
   }, [spots, sites, data, score, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selected = useMemo(() => {
+  const southSelected = useMemo(() => {
     const s = resolve(selRef);
     return s ? { ...s, type: s.type || selRef.type } : null;
   }, [resolve, selRef]);
+  // En la Luna entera el lugar es una celda de la malla global ({type: "gcell", p}).
+  const resolveAny = (ref) => (ref?.type === "gcell" ? G.placeOf(ref.p) : resolve(ref));
+  const selected = moon ? (gSel != null ? G.placeOf(gSel) : null) : southSelected;
+  const selectRef = (ref) => (ref?.type === "gcell" ? setGSel(ref.p) : setSelRef(ref));
 
   const firstPlace = groups[group][0];
   useEffect(() => {
-    if (analysisActive && selectFirst.current && Number.isFinite(firstPlace?.score)) {
+    if (!moon && analysisActive && selectFirst.current && Number.isFinite(firstPlace?.score)) {
       selectFirst.current = false;
       setSelRef((r) => r || firstPlace.ref);
     }
-  }, [analysisActive, firstPlace]);
+  }, [moon, analysisActive, firstPlace]);
 
   // --- Comparar ----------------------------------------------------------------
-  const refKey = (r) => (r.type === "spot" ? `spot-${r.rank}` : r.type === "site" ? `site-${r.id}` : `pick-${r.p}`);
+  const refKey = (r) => (r.type === "gcell" ? `gcell-${r.p}` : r.type === "spot" ? `spot-${r.rank}` : r.type === "site" ? `site-${r.id}` : `pick-${r.p}`);
   const inCmp = (place) => !!place && cmpRefs.some((r) => refKey(r) === place.key);
   const toggleCmp = (place) => setCmpRefs((list) => {
     if (list.some((r) => refKey(r) === place.key)) return list.filter((r) => refKey(r) !== place.key);
-    return list.length >= 4 ? list : [...list, place.ref];
+    const g = place.ref.type === "gcell"; // máximo 4 por región
+    return list.filter((r) => (r.type === "gcell") === g).length >= 4 ? list : [...list, place.ref];
   });
-  const cmpPlaces = useMemo(() => cmpRefs.map(resolve).filter(Boolean), [cmpRefs, resolve]);
-  const ranked = (groups[group] || []).filter((p) => Number.isFinite(p.score));
-  const addBest3 = () => setCmpRefs(ranked.slice(0, 3).map((p) => p.ref));
+  // Cada región compara sus propios lugares (los del polo sur y los de la Luna entera no se mezclan).
+  const cmpPlaces = cmpRefs.filter((r) => (r.type === "gcell") === moon).map(resolveAny).filter(Boolean);
+  const gPlaces = moon ? G.spots.map((sp) => G.placeOf(sp.p)) : [];
+  const ranked = moon ? gPlaces : (groups[group] || []).filter((p) => Number.isFinite(p.score));
+  const addBest3 = () => setCmpRefs((list) => [...list.filter((r) => (r.type === "gcell") !== moon), ...ranked.slice(0, 3).map((p) => p.ref)]);
 
   // --- Serie temporal del lugar seleccionado ---------------------------------
   const modes = { sunMode: mission.sunMode, earthMode: mission.earthMode };
   const showTimeline = analysisActive && planReady;
-  const tl = useMemo(() => (showTimeline && selected && data?.ephem && data?.horizon ? siteTimeline(data, selected.p, mission.fromMs, mission.toMs, modes) : null),
-    [showTimeline, selected?.p, data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tdata = moon ? G.gdata : data; // datos del punto: malla global o polo sur
+  const tl = useMemo(() => (showTimeline && selected && tdata?.ephem && tdata?.horizon ? siteTimeline(tdata, selected.p, mission.fromMs, mission.toMs, modes) : null),
+    [showTimeline, selected?.p, tdata, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const lw = useMemo(() => (tl ? landingWindows(tl, mission.durationDays * 24, { sun: weights.sun, earth: weights.earth }, landEndMs) : null),
     [tl, mission.durationDays, weights?.sun, weights?.earth, landEndMs]);
   const toMs = (rr) => rr.map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]);
@@ -309,14 +342,14 @@ export default function App() {
   // Serie de cualquier lugar (Compare), con caché.
   const tlCache = useRef(new Map());
   const timelineFor = useCallback((place) => {
-    if (!planReady || !place || !data?.ephem || !data?.horizon) return null;
-    const k = `${place.p}|${mission.fromMs}|${mission.toMs}|${mission.sunMode}|${mission.earthMode}`;
+    if (!planReady || !place || !tdata?.ephem || !tdata?.horizon) return null;
+    const k = `${moon ? "g" : "s"}${place.p}|${mission.fromMs}|${mission.toMs}|${mission.sunMode}|${mission.earthMode}`;
     if (!tlCache.current.has(k)) {
       if (tlCache.current.size > 24) tlCache.current.clear();
-      tlCache.current.set(k, siteTimeline(data, place.p, mission.fromMs, mission.toMs, modes));
+      tlCache.current.set(k, siteTimeline(tdata, place.p, mission.fromMs, mission.toMs, modes));
     }
     return tlCache.current.get(k);
-  }, [planReady, data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [planReady, tdata, moon, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // El reloj compartido salta al inicio de la mejor ventana al cambiar de lugar.
   const winStart = missionWin?.[0];
@@ -368,14 +401,15 @@ export default function App() {
   const values = valuesFor(layerKey);
 
   // --- Lista de navegación de la ficha --------------------------------------
-  const siteList = selected?.type === "spot" ? spots : sites;
+  const siteList = moon ? gPlaces : selected?.type === "spot" ? spots : sites;
   const stepSite = (d) => {
     if (!siteList.length) return;
     const k = siteList.findIndex((p) => p.key === selected?.key);
     const next = siteList[(k + d + siteList.length) % siteList.length];
-    setSelRef(next.ref);
+    selectRef(next.ref);
   };
-  const rankInfo = selected && (selected.type === "site" || selected.type === "spot") && Number.isFinite(selected.score)
+  const rankInfo = moon ? (selected?.rank ? { rank: selected.rank, total: gPlaces.length } : null)
+    : selected && (selected.type === "site" || selected.type === "spot") && Number.isFinite(selected.score)
     ? { rank: siteList.findIndex((p) => p.key === selected.key) + 1, total: siteList.filter((p) => Number.isFinite(p.score)).length }
     : null;
   const v = data?.validation?.horizons?.maxArcmin;
@@ -396,9 +430,9 @@ export default function App() {
   );
 
   const app = {
-    data, result, running, progress, runError, problem, loadState, engineReady,
-    places: [...sites, ...spots], groups, group, setGroup, selected, selectionKey: selRef ? refKey(selRef) : null,
-    setSelRef, weights, setWeights, limits, setLimits,
+    data, result: moon ? G.result : result, running, progress, runError, problem, loadState, engineReady,
+    places: [...sites, ...spots], groups, group, setGroup, selected, selectionKey: moon ? (gSel != null ? `gcell-${gSel}` : null) : selRef ? refKey(selRef) : null,
+    setSelRef: selectRef, weights, setWeights, limits, setLimits,
     layerKey, setLayerKey, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
     terrainLayer, setTerrainLayer, showIceEvidence, setShowIceEvidence,
     dim, setDim, mission, periods, setPeriod, updateMission,
@@ -408,7 +442,9 @@ export default function App() {
     timeMs, setTimeMs, Rail: RailEl, TimeBarEl,
     moonMission: { windowStartMs: mission.fromMs, windowEndMs: landEndMs, durationDays: mission.durationDays },
     sitesForMap: sites, spotsForMap: spots,
-    tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: "South Pole",
+    tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: moon ? "Whole Moon" : "South Pole",
+    regionId: moon ? "moon" : "south", setRegion, globalManifest, globalReady: !!globalManifest,
+    moon, G, gdata: G.gdata, gSel, setGSel, request,
     datesFor, fixedDates: mission.period === "fixed",
     curWin,
     exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,
@@ -429,6 +465,8 @@ export default function App() {
         <main className="shell__main">{data ? <div className="card card--flush"><LearnPage data={data} /></div> : null}</main>
       </div>
     );
+  } else if (moon) {
+    page = <GlobalExplore app={app} />;
   } else {
     page = <Explore app={app} />;
   }
@@ -439,7 +477,7 @@ export default function App() {
       {overlay === "export"
         ? planReady && data && <ExportDialog app={app} onClose={closeOverlay} />
         : overlay && <SettingsDrawer initialSection={overlay} rulesOnly={!analysisActive} region={app.region}
-          input={missionInput} periods={periods} weights={weights} limits={limits} defaultRules={DEFAULT_RULES}
+          fixedOnly={moon} input={missionInput} periods={periods} weights={weights} limits={limits} defaultRules={DEFAULT_RULES}
           onApply={applySettings} onClose={closeOverlay} />}
     </>
   );

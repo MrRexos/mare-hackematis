@@ -1,9 +1,16 @@
 {
-  "contractVersion": "0.1",
+  "contractVersion": "0.2",
   "layers": [
     "ice.psr_distance_km",
     "sun.psr_mask",
     "terrain.elevation",
-    "terrain.slope"
+    "terrain.slope",
+    "suitability.slope",
+    "ice.water_equivalent_wt_pct",
+    "sun.visible_fraction.mean",
+    "sun.longest_night_h.max",
+    "earth.visible_fraction.mean",
+    "thermal.max_temp_k",
+    "thermal.min_temp_k"
   ]
 }

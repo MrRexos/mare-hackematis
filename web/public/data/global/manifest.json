@@ -1,0 +1,157 @@
+{
+  "grid": {
+    "name": "W2",
+    "type": "latlon",
+    "cols": 720,
+    "rows": 360,
+    "stepDeg": 0.5,
+    "lon0": -180.0,
+    "lat0": 90.0,
+    "radiusM": 1737400.0,
+    "frame": "MOON_ME",
+    "order": "row-major, row 0 at +90°, column 0 at −180°E"
+  },
+  "layers": {
+    "slope": {
+      "id": "terrain.slope",
+      "label": "Slope",
+      "branch": "Jan (T1)",
+      "units": "deg",
+      "kind": "static",
+      "combine": "none",
+      "fidelity": "computed",
+      "title": "Pendent (slope)",
+      "sources": [
+        {
+          "name": "LOLA LDSM_75S_240M",
+          "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/",
+          "citation": "Smith et al. (2010), NASA PDS"
+        }
+      ],
+      "periods": {
+        "static": {
+          "file": "global/slope/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
+    },
+    "water": {
+      "id": "ice.water_equivalent_wt_pct",
+      "label": "Water",
+      "branch": "Joel (T9)",
+      "units": "wt%",
+      "kind": "static",
+      "combine": "none",
+      "fidelity": "approximate",
+      "title": "Polar water-equivalent hydrogen (excess over background)",
+      "sources": [
+        {
+          "name": "Lunar Prospector GRS/NS special products (0.5°)",
+          "url": "https://pds-geosciences.wustl.edu/missions/lunarp/reduced_special.html",
+          "citation": "Lunar Prospector Spectrometer Team, NASA PDS Geosciences Node"
+        },
+        {
+          "name": "Reference",
+          "citation": "Feldman et al. (2001), JGR 106, 23231; Lawrence et al. (2006), JGR 111"
+        }
+      ],
+      "periods": {
+        "static": {
+          "file": "global/water/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
+    },
+    "rough": {
+      "id": "terrain.roughness",
+      "label": "Roughness",
+      "units": "m",
+      "source": "LOLA LDRM_16 (PDS): median of the 8 × 8 samples in each 0.5° cell",
+      "kind": "static",
+      "fidelity": "computed",
+      "periods": {
+        "static": {
+          "file": "global/rough/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
+    },
+    "psr": {
+      "id": "sun.psr_share",
+      "label": "Permanent shadow",
+      "units": "fraction",
+      "source": "LOLA LPSR_65N/65S_240M (Mazarico et al. 2011): share of each 0.5° cell; 0 below 65° latitude",
+      "kind": "static",
+      "fidelity": "computed",
+      "periods": {
+        "static": {
+          "file": "global/psr/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
+    }
+  },
+  "horizon": {
+    "file": "global/horizon.u8",
+    "dtype": "uint8",
+    "bins": 72,
+    "binCentreDeg": "k * 360 / bins, clockwise from north",
+    "scaleDeg": 0.25,
+    "offsetDeg": -6.5,
+    "observerHeightM": 2.0,
+    "minDistanceM": 500.0,
+    "maxDistanceM": 300000.0,
+    "source": "Ray-marched over LOLA LDEM_64 (PDS)",
+    "fidelity": "approximate",
+    "note": "One horizon per 0.5° cell, traced at the cell centre: regional screening, not site certification.",
+    "sub": {
+      "file": "global/horizon_sub.u8",
+      "n": 2,
+      "minAbsLatDeg": 60.0,
+      "rowRanges": [
+        [
+          0,
+          60
+        ],
+        [
+          300,
+          360
+        ]
+      ],
+      "order": "[high-latitude row, column, sub-latitude, sub-longitude, azimuth bin]",
+      "note": "Above 60° latitude each cell has 2×2 horizons at points spread inside it; sunlight and Earth view are the mean over them."
+    }
+  },
+  "elevation": {
+    "file": "global/elevation.f32",
+    "units": "m",
+    "source": "LOLA LDEM_64 (PDS), bilinear at the cell centre"
+  },
+  "thermal": {
+    "file": "global/temp_diurnal.u8",
+    "dtype": "uint8",
+    "bins": 48,
+    "scaleK": 1.6,
+    "nodata": 255,
+    "binCentreHours": "(k + 0.5) * 24 / bins of local solar time (12 = noon)",
+    "localTime": "12 + (cell longitude − subsolar longitude) / 15, in hours, wrapped to 0–24",
+    "quantity": "bolometric brightness temperature of the surface (K), 2009–2015 mean of nadir observations",
+    "source": "LRO Diviner Global Cumulative Products (Williams et al. 2017), NASA PDS",
+    "sources": [
+      {
+        "name": "LRO Diviner Global Cumulative Products (GCP)",
+        "url": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_gcp/",
+        "citation": "Williams et al. (2017), Icarus 283, 300-325; LRO-L-DLRE-5-GCP-V1.0, NASA PDS Geosciences Node"
+      }
+    ],
+    "fidelity": "measured",
+    "gapsFilledPct": 10.76,
+    "cellsFromLatitudeMeanPct": 0.0,
+    "measuredQuarterHourBinsPct": 68.22
+  },
+  "hillshade": "global/hillshade.png"
+}

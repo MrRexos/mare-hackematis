@@ -68,6 +68,33 @@ DIVINER = {
 #: Profundidad máxima (m) a la que consideramos el hielo "accesible" para la capa de cercanía.
 ICE_ACCESSIBLE_DEPTH_M = 0.5
 
+#: LRO Diviner Global Cumulative Products (Williams et al. 2017, Icarus 283): temperatura
+#: bolométrica MEDIDA de toda la Luna en celdas de 0,5° y 0,25 h de hora local (nadir,
+#: 2009-2015). 18 franjas de 10° de latitud, 156 MB cada una (2,8 GB). Lo usa
+#: moonsite.thermal_global. Se descarga con `python -m moonsite.fetch thermal`.
+DIVINER_GCP_BANDS = [f"{a:02d}s{a - 10:02d}s" for a in range(90, 0, -10)] + [f"{a:02d}n{a + 10:02d}n" for a in range(0, 90, 10)]
+DIVINER_GCP = {
+    b: Remote(f"{PDS_DIVINER}/data_derived_gcp/global_cumul_avg_cyl_{b}_002.tab",
+              RAW / "diviner_gcp" / f"global_cumul_avg_cyl_{b}_002.tab", 156_211_313,
+              f"Diviner GCP {b} (LRO-L-DLRE-5-GCP-V1.0)")
+    for b in DIVINER_GCP_BANDS
+}
+
+#: Relieve global LOLA (cilíndrica simple, 64 px/grado ≈ 474 m en el ecuador). Lo usa
+#: el trabajo T4 (Tierra visible en la malla global G1K). Se descarga con
+#: `python -m moonsite.fetch global`.
+LOLA_GLOBAL = {
+    "ldem64": Remote(f"{PDS_LOLA}/data/lola_gdr/cylindrical/img/ldem_64.img", RAW / "ldem_64.img",
+                     530_841_600, "Elevación LOLA global 64 px/grado (23040 x 11520, int16)"),
+    # Vista Whole Moon (moonsite.surface_global): rugosidad global y sombra permanente de los dos polos.
+    "ldrm16": Remote(f"{PDS_LOLA}/data/lola_gdr/cylindrical/img/ldrm_16.img", RAW / "ldrm_16.img",
+                     33_177_600, "Rugosidad LOLA global 16 px/grado (5760 x 2880, int16, mm)"),
+    "lpsr65n": Remote(f"{PDS_LOLA}/extras/illumination/img/lpsr_65n_240m_201608.img", RAW / "lpsr_65n_240m.img",
+                      82_432_800, "Sombra permanente 65-90°N (Mazarico et al. 2011), 240 m/px"),
+    "lpsr65s": Remote(f"{PDS_LOLA}/extras/illumination/img/lpsr_65s_240m_201608.img", RAW / "lpsr_65s_240m.img",
+                      82_432_800, "Sombra permanente 65-90°S (Mazarico et al. 2011), 240 m/px"),
+}
+
 #: Kernels SPICE: efemérides DE440 y orientación de la Luna.
 SPICE = {
     "lsk": Remote(f"{NAIF}/lsk/naif0012.tls", KERNELS / "naif0012.tls", note="segundos intercalares"),
@@ -109,4 +136,18 @@ EPHEM_STEP_S = 3600.0                  # una posición por hora
 EPHEM_FRAME = "MOON_ME"                # marco de LOLA (Mean Earth / Polar Axis)
 ABCORR = "LT+S"                        # posiciones aparentes, como Horizons "airless apparent"
 SUN_RADIUS_KM = 695_700.0
+
+# ---------------------------------------------------------------------------
+# Malla global G1K (contrato de datos v0.2, §2) y capa Tierra (T4)
+# ---------------------------------------------------------------------------
+G1K_COLS = 10_916            # columna 0 empieza en -180°E
+G1K_ROWS = 5_458             # fila 0 empieza en +90°
+#: El DEM global es de ~474 m: por debajo de esta distancia el relieve no se resuelve.
+G1K_HORIZON_MIN_M = 500.0
+G1K_HORIZON_STEP_M = 474.0
+LAYERS_DIR = REPO / "layers"
+#: Nota derivada 0-100 (suitability.earth): por debajo de este % del tiempo con la
+#: Tierra visible la celda vale 0. La puntuación oficial la calcula la web con los
+#: límites del usuario (contrato §6); esto es solo la vista rápida.
+EARTH_MIN_PCT = 25.0
 EARTH_RADIUS_KM = 6_378.1366

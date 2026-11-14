@@ -5,7 +5,7 @@ import { Icon, Btn, Card, CardHead, Fidelity, IconBtn, Shape, cx } from "../ui/k
 import { MissionChip, ProfileChip } from "../ui/Shell.jsx";
 import { FACTORS, PRESETS, scoreFromFactors } from "../engine/score.js";
 import { goodHoursPerDay } from "../engine/timeline.js";
-import { PropGrid } from "./Site.jsx";
+import { MOON_FACTOR_LABELS, PropGrid } from "./Site.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY = 86400e3;
@@ -58,7 +58,7 @@ export default function Compare({ app }) {
       <main className="shell__main">
         <header className="pagehead">
           <div className="pagehead__title">
-            <div className="eyebrow-13">04 — {scored.length} of 4 sites · {region}</div>
+            <div className="eyebrow-13">04 — {scored.length} of 4 sites · {app.moon ? "Whole Moon" : "South Pole"}</div>
             <h1 className="h-page">Compare/</h1>
           </div>
           <div className="grow" />
@@ -72,7 +72,7 @@ export default function Compare({ app }) {
           <Card className="emptycard">
             <Icon name="compare" size={20} />
             <h2 className="h-md">Nothing to compare yet</h2>
-            <p className="muted-12">Add up to four sites from the ranking or the map with the + button.</p>
+            <p className="muted-12">{app.moon ? "Add up to four cells from the whole-Moon map with the Compare button." : "Add up to four sites from the ranking or the map with the + button."}</p>
             <div className="row-8">
               <Btn variant="primary" icon="plus" onClick={app.addBest3} disabled={!app.canAddBest}>Add best 3</Btn>
               <Btn iconRight="arrow-right" onClick={() => go("explore")}>Explore</Btn>
@@ -116,7 +116,7 @@ export default function Compare({ app }) {
                   <span className="big-40">{Number.isFinite(top.cmpScore) ? Math.round(top.cmpScore) : "–"}</span>
                   <span className="muted-11">/100</span>
                 </div>
-                <div className="mt-16"><PropGrid values={top.factors} /></div>
+                <div className="mt-16"><PropGrid values={top.factors} labels={app.moon ? MOON_FACTOR_LABELS : null} /></div>
                 <div className="stack-10 mt-20">
                   <div className="row-base">
                     <span className="lbl">Profile preview</span>
@@ -149,7 +149,7 @@ export default function Compare({ app }) {
                         const b = bestOf(f.key);
                         return (
                           <tr key={f.key} className={f.noData ? "is-off" : ""}>
-                            <th scope="row"><span className="row-8"><Icon name={f.icon} size={14} style={{ color: f.noData ? undefined : f.color }} />{f.label}</span></th>
+                            <th scope="row"><span className="row-8"><Icon name={f.icon} size={14} style={{ color: f.noData ? undefined : f.color }} />{(app.moon && MOON_FACTOR_LABELS[f.key]?.[0]) || f.label}</span></th>
                             {scored.map((p) => {
                               const v = p.factors?.[f.key];
                               const ok = Number.isFinite(v);

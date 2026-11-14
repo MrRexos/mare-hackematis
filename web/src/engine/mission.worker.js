@@ -4,10 +4,15 @@
 // terreno. Después elige el mejor momento de aterrizaje dentro de la ventana.
 //
 // Mensajes:
-//   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta}
+//   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta, temp?, tempMeta?, sub?}
+//   sub (opcional, malla global): { n, base, idx, horizon } con n × n horizontes por celda en las filas
+//   de alta latitud (idx[fila] = posición de la fila en sub.horizon, −1 si la fila usa un solo punto).
+//   temp (opcional, malla global): curva de temperatura de cada celda por hora local (LRO Diviner).
+//   Con ella se devuelve la temperatura media, mínima y máxima de la superficie durante la misión
+//   y, si params.tempBand existe, el confort térmico (tfit, 0-1): media de la nota de cada hora.
 //   {type: "run", id, params}  ->  {type: "progress", id, done}  ...  {type: "result", id, ...}
 
-import { DEG, localFrame, pixelXY, xyToUnit } from "./geometry.js";
+import { DEG, cellUnit, localFrame } from "./geometry.js";
 
 const SUN_RADIUS_KM = 695700;
 const EARTH_RADIUS_DEG = 0.95; // radio angular medio de la Tierra vista desde la Luna
@@ -28,8 +33,9 @@ self.onmessage = (e) => {
 };
 
 async function run(id, p) {
-  const { grid, rows, elevation, horizon, horizonMeta, ephem, ephemMeta } = S;
-  const n = grid.n;
+  const { grid, rows, elevation, horizon, horizonMeta, ephem, ephemMeta, temp, tempMeta, sub } = S;
+  const subN = sub ? sub.n : 1;
+  const n = grid.cols || grid.n; // columnas (malla polar: n × n; malla global: rows × cols)
   const bins = horizonMeta.bins;
   const binDeg = 360 / bins;
   const qs = horizonMeta.scaleDeg;
@@ -51,12 +57,14 @@ async function run(id, p) {
   const sun = new Float64Array(T * 3);
   const sunR = new Float64Array(T); // radio angular del Sol (grados)
   const earth = new Float64Array(T * 3);
+  const sunLon = new Float64Array(T); // longitud subsolar (grados): da la hora local de cada celda
   for (let t = 0; t < T; t++) {
     const k = Math.min(ephemMeta.count - 1, p.startIdx + t * stride) * 6;
     const sx = ephem[k], sy = ephem[k + 1], sz = ephem[k + 2];
     const sd = Math.hypot(sx, sy, sz);
     sun[t * 3] = sx / sd; sun[t * 3 + 1] = sy / sd; sun[t * 3 + 2] = sz / sd;
     sunR[t] = Math.asin(SUN_RADIUS_KM / sd) * DEG;
+    sunLon[t] = Math.atan2(sy, sx) * DEG;
     earth[t * 3] = ephem[k + 3]; earth[t * 3 + 1] = ephem[k + 4]; earth[t * 3 + 2] = ephem[k + 5];
   }
 
@@ -69,9 +77,14 @@ async function run(id, p) {
     night: new Float32Array(count).fill(NaN),
     best: new Int32Array(count).fill(-1),
   };
+  const withTemp = !!(temp && tempMeta && grid.type === "latlon");
+  if (withTemp) for (const key of ["tavg", "tmin", "tmax", "tfit"]) out[key] = new Float32Array(count).fill(NaN);
+  const band = withTemp ? p.tempBand : null; // { coldK, mildK, hotOkK, hotMaxK }
+  const tBins = withTemp ? tempMeta.bins : 0;
+  const tScale = withTemp ? tempMeta.scaleK : 0;
 
   const sunF = new Float32Array(T);
-  const earthV = new Uint8Array(T);
+  const earthV = new Float32Array(T); // 0/1, o la media de los subpuntos de la celda
   const cumS = new Float64Array(T + 1);
   const cumE = new Float64Array(T + 1);
   const cumB = new Float64Array(T + 1);
@@ -86,70 +99,79 @@ async function run(id, p) {
       const h = elevation[local];
       if (!Number.isFinite(h)) continue;
 
-      // Perfil de horizonte del píxel (grados), con el primer bin repetido al final.
-      const hb = local * bins;
-      let minHorizon = Infinity, maxHorizon = -Infinity;
-      for (let k = 0; k < bins; k++) {
-        const height = hor[k] = horizon[hb + k] * qs + qo;
-        minHorizon = Math.min(minHorizon, height);
-        maxHorizon = Math.max(maxHorizon, height);
-      }
-      hor[bins] = hor[0];
-
-      const [x, y] = pixelXY(grid, i, j);
-      const u = xyToUnit(R, x, y);
-      const [up, east, north] = localFrame(u);
-      const rObs = (R + h + h0) / 1000; // km
-      const ox = u[0] * rObs, oy = u[1] * rObs, oz = u[2] * rObs;
-
-      for (let t = 0; t < T; t++) {
-        // Sol: misma dirección para toda la región.
-        const sx = sun[t * 3], sy = sun[t * 3 + 1], sz = sun[t * 3 + 2];
-        const sUp = sx * up[0] + sy * up[1] + sz * up[2];
-        let f = 0;
-        if (sUp > MIN_ELEVATION_SIN) {
-          const sEl = Math.asin(sUp) * DEG;
-          const r = sunR[t];
-          if (sEl - r > maxHorizon) f = 1;
-          else if (sEl + r >= minHorizon) {
-            const sAz = Math.atan2(sx * east[0] + sy * east[1], sx * north[0] + sy * north[1] + sz * north[2]) * DEG;
-            const a = (sAz < 0 ? sAz + 360 : sAz) / binDeg;
-            const k0 = a | 0;
-            const w = a - k0;
-            const hz = hor[k0] * (1 - w) + hor[k0 + 1] * w;
-            const q = (sEl - hz) / r;
-            if (sunMode === "any") f = q > -1 ? 1 : 0;
-            else if (sunMode === "centre") f = q >= 0 ? 1 : 0;
-            else if (sunMode === "whole") f = q >= 1 ? 1 : 0;
-            else f = q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
-          }
+      // Observadores de la celda: uno (su centro) o, en las filas de alta latitud de la malla
+      // global, subN × subN puntos repartidos dentro de ella. La luz y la Tierra de la celda
+      // son la media de sus observadores.
+      const si = sub ? sub.idx[i - r0] : -1;
+      const nObs = si >= 0 ? subN * subN : 1;
+      const hsrc = nObs > 1 ? sub.horizon : horizon;
+      const subOff = nObs > 1 ? ((si - sub.base) * n + j) * nObs * bins : 0;
+      if (nObs > 1) { sunF.fill(0); earthV.fill(0); }
+      for (let o = 0; o < nObs; o++) {
+        // Perfil de horizonte del píxel (grados), con el primer bin repetido al final.
+        const hb = nObs > 1 ? subOff + o * bins : local * bins;
+        let minHorizon = Infinity, maxHorizon = -Infinity;
+        for (let k = 0; k < bins; k++) {
+          const height = hor[k] = hsrc[hb + k] * qs + qo;
+          minHorizon = Math.min(minHorizon, height);
+          maxHorizon = Math.max(maxHorizon, height);
         }
-        sunF[t] = f;
+        hor[bins] = hor[0];
 
-        // Tierra: vector desde el observador (incluye paralaje).
-        const ex = earth[t * 3] - ox, ey = earth[t * 3 + 1] - oy, ez = earth[t * 3 + 2] - oz;
-        const ed = Math.sqrt(ex * ex + ey * ey + ez * ez);
-        const eUp = (ex * up[0] + ey * up[1] + ez * up[2]) / ed;
-        let v = 0;
-        if (eUp > MIN_ELEVATION_SIN) {
-          const eEl = Math.asin(eUp) * DEG + earthTol;
-          if (eEl > maxHorizon) v = 1;
-          else if (eEl >= minHorizon) {
-            const eAz = Math.atan2(ex * east[0] + ey * east[1], ex * north[0] + ey * north[1] + ez * north[2]) * DEG;
-            const a = (eAz < 0 ? eAz + 360 : eAz) / binDeg;
-            const k0 = a | 0;
-            const w = a - k0;
-            v = eEl > hor[k0] * (1 - w) + hor[k0 + 1] * w ? 1 : 0;
+        const u = nObs > 1 ? cellUnit(grid, i, j, (((o / subN) | 0) + 0.5) / subN, ((o % subN) + 0.5) / subN) : cellUnit(grid, i, j);
+        const [up, east, north] = localFrame(u);
+        const rObs = (R + h + h0) / 1000; // km
+        const ox = u[0] * rObs, oy = u[1] * rObs, oz = u[2] * rObs;
+
+        for (let t = 0; t < T; t++) {
+          // Sol: misma dirección para toda la región.
+          const sx = sun[t * 3], sy = sun[t * 3 + 1], sz = sun[t * 3 + 2];
+          const sUp = sx * up[0] + sy * up[1] + sz * up[2];
+          let f = 0;
+          if (sUp > MIN_ELEVATION_SIN) {
+            const sEl = Math.asin(sUp) * DEG;
+            const r = sunR[t];
+            if (sEl - r > maxHorizon) f = 1;
+            else if (sEl + r >= minHorizon) {
+              const sAz = Math.atan2(sx * east[0] + sy * east[1], sx * north[0] + sy * north[1] + sz * north[2]) * DEG;
+              const a = (sAz < 0 ? sAz + 360 : sAz) / binDeg;
+              const k0 = a | 0;
+              const w = a - k0;
+              const hz = hor[k0] * (1 - w) + hor[k0 + 1] * w;
+              const q = (sEl - hz) / r;
+              if (sunMode === "any") f = q > -1 ? 1 : 0;
+              else if (sunMode === "centre") f = q >= 0 ? 1 : 0;
+              else if (sunMode === "whole") f = q >= 1 ? 1 : 0;
+              else f = q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
+            }
           }
+          if (nObs > 1) sunF[t] += f / nObs; else sunF[t] = f;
+
+          // Tierra: vector desde el observador (incluye paralaje).
+          const ex = earth[t * 3] - ox, ey = earth[t * 3 + 1] - oy, ez = earth[t * 3 + 2] - oz;
+          const ed = Math.sqrt(ex * ex + ey * ey + ez * ez);
+          const eUp = (ex * up[0] + ey * up[1] + ez * up[2]) / ed;
+          let v = 0;
+          if (eUp > MIN_ELEVATION_SIN) {
+            const eEl = Math.asin(eUp) * DEG + earthTol;
+            if (eEl > maxHorizon) v = 1;
+            else if (eEl >= minHorizon) {
+              const eAz = Math.atan2(ex * east[0] + ey * east[1], ex * north[0] + ey * north[1] + ez * north[2]) * DEG;
+              const a = (eAz < 0 ? eAz + 360 : eAz) / binDeg;
+              const k0 = a | 0;
+              const w = a - k0;
+              v = eEl > hor[k0] * (1 - w) + hor[k0 + 1] * w ? 1 : 0;
+            }
+          }
+          if (nObs > 1) earthV[t] += v / nObs; else earthV[t] = v;
         }
-        earthV[t] = v;
       }
 
       // Sumas acumuladas para evaluar cualquier ventana [c, c + duración) en O(1).
       for (let t = 0; t < T; t++) {
         cumS[t + 1] = cumS[t] + sunF[t];
         cumE[t + 1] = cumE[t] + earthV[t];
-        cumB[t + 1] = cumB[t] + (sunF[t] >= 0.5 && earthV[t] ? 1 : 0);
+        cumB[t + 1] = cumB[t] + (sunF[t] >= 0.5 && earthV[t] >= 0.5 ? 1 : 0);
       }
       let bestC = 0, bestV = -1;
       for (let c = 0; c < landS; c += step) {
@@ -169,6 +191,37 @@ async function run(id, p) {
         if (sunF[t] < 0.05) { run += 1; if (run > longest) longest = run; } else run = 0;
       }
       out.night[local] = longest * stride;
+
+      // Temperatura de la superficie durante la misión (Diviner): para cada hora, la hora
+      // local de la celda (12 h = Sol en su meridiano) indica el punto de su curva día-noche.
+      if (withTemp) {
+        const lon = grid.lon0 + (j + 0.5) * grid.stepDeg;
+        const tb = local * tBins;
+        let sum = 0, lo = Infinity, hi = -Infinity, cnt = 0, fit = 0;
+        for (let t = bestC; t < bestC + D; t++) {
+          let lt = (12 + (lon - sunLon[t]) / 15) % 24;
+          if (lt < 0) lt += 24;
+          const f = (lt / 24) * tBins - 0.5;
+          const k0 = Math.floor(f);
+          const w = f - k0;
+          const a = temp[tb + ((k0 + tBins) % tBins)], b = temp[tb + ((k0 + 1) % tBins)];
+          if (a === 255 || b === 255) continue;
+          const v = (a * (1 - w) + b * w) * tScale;
+          sum += v; cnt += 1;
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+          if (band) {
+            // Nota de la hora: 0 si hace demasiado frío o demasiado calor, 1 en la franja templada.
+            const g = v <= band.mildK ? (v - band.coldK) / (band.mildK - band.coldK)
+              : v <= band.hotOkK ? 1 : (band.hotMaxK - v) / (band.hotMaxK - band.hotOkK);
+            fit += g < 0 ? 0 : g > 1 ? 1 : g;
+          }
+        }
+        if (cnt) {
+          out.tavg[local] = sum / cnt; out.tmin[local] = lo; out.tmax[local] = hi;
+          if (band) out.tfit[local] = fit / cnt;
+        }
+      }
     }
     if ((i - r0 + 1) % 4 === 0 && i + 1 < r1) {
       self.postMessage({ type: "progress", id, done: i - r0 + 1 });
@@ -176,5 +229,5 @@ async function run(id, p) {
       if (activeRun !== id) return;
     }
   }
-  self.postMessage({ type: "result", id, rows, ...out }, [out.sun.buffer, out.earth.buffer, out.both.buffer, out.night.buffer, out.best.buffer]);
+  self.postMessage({ type: "result", id, rows, ...out }, Object.values(out).map((a) => a.buffer));
 }

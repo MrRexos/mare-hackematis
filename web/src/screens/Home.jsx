@@ -5,6 +5,9 @@ import MissionTiming, { lengthLong, timingLabel } from "../ui/MissionTiming.jsx"
 import MissionOptions from "../ui/MissionOptions.jsx";
 import MissionWeights from "../ui/MissionWeights.jsx";
 
+/** La Luna entera se activa cuando existen sus datos globales (web/public/data/global). */
+const destinations = (moonReady) => DESTINATIONS.map((d) => (d.value === "moon" && moonReady ? { value: "moon", label: "Whole Moon" } : d));
+
 const DESTINATIONS = [
   { value: "south", label: "South Pole" },
   { value: "north", label: "North Pole", disabled: true, note: "Not available yet" },
@@ -87,12 +90,12 @@ export default function Home({ app }) {
             <div className="home__choices">
               <MissionChoice id="where" label="Where" value={DESTINATIONS.find((option) => option.value === destination)?.label || "Choose a destination"}
                 toggleRef={whereRef} complete={destinationReady} expanded={expanded === "where"} onToggle={() => toggle("where")}>
-                <MissionOptions label="Lunar destination" value={destination} onChange={chooseDestination} options={DESTINATIONS} />
+                <MissionOptions label="Lunar destination" value={destination} onChange={chooseDestination} options={destinations(app.globalReady)} />
               </MissionChoice>
 
               <MissionChoice id="when" label="When" value={destinationReady ? when || "Set dates and duration" : "Choose a destination first"}
                 complete={timingReady} locked={!destinationReady} expanded={expanded === "when"} onToggle={() => toggle("when")}>
-                <MissionTiming {...app} />
+                <MissionTiming {...app} fixedOnly={destination === "moon"} />
               </MissionChoice>
 
               <MissionChoice id="how" label="How" value={timingReady ? profile : "Set dates and duration first"}

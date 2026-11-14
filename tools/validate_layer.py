@@ -48,6 +48,20 @@ ORIENTATION = {
 }
 
 
+#: Pruebas que solo tienen sentido con periodos largos (≥ 1 año).
+LONG_PERIOD_ONLY = {"sun.visible_fraction.mean"}
+
+
+def _period_days(meta: dict, period: str) -> float:
+    p = meta.get("periods", {}).get(period)
+    if not p:
+        return float("inf")  # static
+    from datetime import datetime
+    a = datetime.fromisoformat(p["start"].replace("Z", "+00:00"))
+    b = datetime.fromisoformat(p["end"].replace("Z", "+00:00"))
+    return (b - a).total_seconds() / 86400.0
+
+
 def grid_shape(g: str) -> tuple[int, int]:
     d = GRIDS[g]
     if d["type"] == "eqc":
@@ -158,6 +172,8 @@ def validate(layer_dir: Path) -> list[str]:
         arrays[(f["grid"], f["period"])] = a
 
         for lat, lon, op, thr, why in ORIENTATION.get(lid, []):
+            if lid in LONG_PERIOD_ONLY and _period_days(meta, f["period"]) < 365:
+                continue  # contrato §9: la prueba del Sol solo vale para periodos ≥ 1 año
             px = pixel_of(f["grid"], lat, lon)
             if px is None or a.ndim != 2:
                 continue

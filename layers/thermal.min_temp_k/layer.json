@@ -1,0 +1,44 @@
+{
+  "id": "thermal.min_temp_k",
+  "version": "0.2.0",
+  "title": "Minimum surface temperature",
+  "description": "Coldest point of the day-night cycle: bolometric surface temperature measured by LRO Diviner, per 0.5° cell.",
+  "units": "K",
+  "validRange": [
+    0,
+    450
+  ],
+  "kind": "static",
+  "owner": "T7 · Temperatura",
+  "fidelity": "approximate",
+  "method": "Diviner Global Cumulative Product: bolometric brightness temperature binned at 0.5° and 0.25 h of local time (nadir, 2009-2015). Averaged to 48 local-time bins, gaps filled by periodic interpolation in local time, then the extreme of each cell's diurnal curve. Each G1K cell takes the 0.5° cell that contains its centre: finer grids add no detail.",
+  "params": {
+    "sourceResolutionDeg": 0.5,
+    "localTimeBins": 48,
+    "resampling": "nearest",
+    "gapsFilledPct": 10.76,
+    "cellsFromLatitudeMeanPct": 0.0,
+    "measuredQuarterHourBinsPct": 68.22
+  },
+  "sources": [
+    {
+      "name": "LRO Diviner Global Cumulative Products (GCP)",
+      "url": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_gcp/",
+      "citation": "Williams et al. (2017), Icarus 283, 300-325; LRO-L-DLRE-5-GCP-V1.0, NASA PDS Geosciences Node"
+    }
+  ],
+  "files": [
+    {
+      "grid": "G1K",
+      "period": "static",
+      "path": "G1K/static.u16",
+      "dtype": "uint16",
+      "scale": 0.01,
+      "offset": 0,
+      "nodata": 65535,
+      "sha256": "c46eef2d2270f4cc4d30bcd323b7c1875bc1f99b4c95d61fcfeb926c2a4e1eb2",
+      "min": 27.585100173950195,
+      "max": 131.9824981689453
+    }
+  ]
+}

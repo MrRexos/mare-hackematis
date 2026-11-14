@@ -8,6 +8,16 @@ __pycache__/
 .cache/
 *.log
 
+# Binarios de capas (contrato §3.3): fuera de git por defecto
+layers/*/G1K/
+layers/*/W4/
+layers/*/PS1K/
+# Excepció T1 Jan: pendent + seguretat del pendent (Git LFS)
+!layers/terrain.slope/G1K/
+!layers/terrain.slope/G1K/static.f32
+!layers/suitability.slope/G1K/
+!layers/suitability.slope/G1K/static.u8
+
 # Web
 web/node_modules/
 web/dist/
@@ -17,3 +27,26 @@ web/output/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Matrius de treball Pas 1 / pendent (Jan) — binarios grandes fuera de git
+data/pas1/
+data/pas1_global/
+data/pendent_g1k/
+*.npy
+
+# Altres G1K globals (sí layer.json); T1 pendent/seguretat ja exceptuats amunt
+layers/**/G1K/
+!layers/terrain.slope/G1K/
+!layers/terrain.slope/G1K/static.f32
+!layers/suitability.slope/G1K/
+!layers/suitability.slope/G1K/static.u8
+# Capes globals desades amb Git LFS: llum, nit més llarga, Terra visible i aigua equivalent
+!layers/sun.visible_fraction.mean/G1K/
+!layers/sun.visible_fraction.mean/G1K/*.u8
+!layers/sun.longest_night_h.max/G1K/
+!layers/sun.longest_night_h.max/G1K/*.u16
+!layers/earth.visible_fraction.mean/G1K/
+!layers/earth.visible_fraction.mean/G1K/*.u8
+!layers/ice.water_equivalent_wt_pct/G1K/
+!layers/ice.water_equivalent_wt_pct/G1K/*.u16
+layers/*/viewer_*.html
