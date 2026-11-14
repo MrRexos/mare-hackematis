@@ -16,8 +16,9 @@
 // Puntuación (la misma regla que el polo sur, score.js):
 //   score = 100 · Σ wᵢ·fᵢ / Σ wᵢ, solo con los factores que tienen datos globales.
 //   sun, earth: fracción de la misión; slope: 1 − pendiente / pendiente máxima;
-//   temp: temperatura media de la superficie durante la misión, con los mismos umbrales que
-//   el polo sur (TEMP_COLD_K → 0, TEMP_MILD_K → 1; más templado = menos calefacción).
+//   temp: confort térmico, hora a hora. Cada hora de la misión puntúa según la temperatura de
+//   la superficie (ver TEMP_BAND) y el factor es la media de esas notas: así una noche a 95 K
+//   y un mediodía a 390 K penalizan los dos, aunque la media de ambos parezca templada.
 // Filtros: pendiente > máxima, noche más larga que la autonomía (si se activa).
 
 import { MissionEngine } from "./missionEngine.js";
@@ -26,6 +27,14 @@ import { TEMP_COLD_K, TEMP_MILD_K } from "./score.js";
 const BASE = `${import.meta.env.BASE_URL}data/`;
 
 export const GLOBAL_FACTORS = ["sun", "earth", "slope", "temp"];
+
+/**
+ * Nota de una hora según la temperatura de la superficie (K):
+ *   ≤ coldK → 0 · sube hasta 1 en mildK · 1 hasta hotOkK · baja hasta 0 en hotMaxK.
+ * El lado frío es el mismo del polo sur (score.js). El lado caliente penaliza el mediodía
+ * lunar: 350 K (77 °C) aún puntúa 1; 400 K (127 °C), por encima del máximo ecuatorial, 0.
+ */
+export const TEMP_BAND = { coldK: TEMP_COLD_K, mildK: TEMP_MILD_K, hotOkK: 350, hotMaxK: 400 };
 
 /** Manifest de los datos globales, o null si todavía no se han generado. */
 export async function loadGlobalManifest() {
@@ -83,7 +92,7 @@ export function globalFactorsAt(p, L, limits) {
     sun: L.sun ? L.sun[p] : null,
     earth: L.earth ? L.earth[p] : null,
     slope: L.slope ? (Number.isFinite(slope) ? Math.max(0, 1 - slope / limits.maxSlopeDeg) : NaN) : null,
-    temp: L.temp ? (Number.isFinite(L.temp[p]) ? Math.max(0, Math.min(1, (L.temp[p] - TEMP_COLD_K) / (TEMP_MILD_K - TEMP_COLD_K))) : NaN) : null,
+    temp: L.tfit ? L.tfit[p] : null,
     // Sin malla global todavía: se muestran como «–» en la ficha de la celda.
     rough: null, ice: null,
   };
@@ -99,8 +108,8 @@ export function globalExclusionAt(p, L, limits) {
 
 /** Puntuación 0-100 de toda la malla W4 (NaN = descartado o sin datos). */
 export function globalScore(L, weights, limits) {
-  const keys = GLOBAL_FACTORS.filter((k) => L[k] && (weights[k] || 0) > 0);
-  const n = (L.sun || L.earth || L.slope || L.temp)?.length || 0;
+  const keys = GLOBAL_FACTORS.filter((k) => L[k === "temp" ? "tfit" : k] && (weights[k] || 0) > 0);
+  const n = (L.sun || L.earth || L.slope || L.tfit)?.length || 0;
   const out = new Float32Array(n).fill(NaN);
   if (!keys.length) return { score: out, keys };
   const wsum = keys.reduce((s, k) => s + weights[k], 0);

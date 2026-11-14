@@ -133,8 +133,12 @@ Para regenerarlos (solo si cambia el relieve o la pendiente), desde `pipeline/`:
 de 0,5° en función de la hora local. Para cada hora de la misión el navegador calcula la hora
 local de la celda (12 h = Sol en su meridiano) y lee su temperatura; de ahí salen la media,
 la mínima y la máxima de la misión. Varía con las fechas y no cuesta cálculo (una consulta
-por hora). El factor de puntuación usa la media con los mismos umbrales que el polo sur
-(50 K → 0, 250 K → 1). Para regenerarla hacen falta los datos de Diviner (2,8 GB):
+por hora). El factor de puntuación es el **confort térmico**, hora a hora: cada hora de
+la misión puntúa 0 por debajo de 50 K, sube hasta 1 en 250 K, se mantiene en 1 hasta 350 K y
+baja hasta 0 en 400 K; el factor es la media de esas notas. Así penalizan tanto la noche
+(~95 K) como el mediodía ecuatorial (~390 K), aunque la media de ambos parezca templada.
+Los umbrales están en `TEMP_BAND` (`web/src/engine/globalScore.js`); el lado frío es el del
+polo sur. Para regenerarla hacen falta los datos de Diviner (2,8 GB):
 
 ```bash
 ../.venv/Scripts/python -m moonsite.fetch thermal

@@ -6,7 +6,8 @@
 // Mensajes:
 //   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta, temp?, tempMeta?}
 //   temp (opcional, malla global): curva de temperatura de cada celda por hora local (LRO Diviner).
-//   Con ella se devuelve la temperatura media, mínima y máxima de la superficie durante la misión.
+//   Con ella se devuelve la temperatura media, mínima y máxima de la superficie durante la misión
+//   y, si params.tempBand existe, el confort térmico (tfit, 0-1): media de la nota de cada hora.
 //   {type: "run", id, params}  ->  {type: "progress", id, done}  ...  {type: "result", id, ...}
 
 import { DEG, cellUnit, localFrame } from "./geometry.js";
@@ -74,7 +75,8 @@ async function run(id, p) {
     best: new Int32Array(count).fill(-1),
   };
   const withTemp = !!(temp && tempMeta && grid.type === "latlon");
-  if (withTemp) for (const key of ["tavg", "tmin", "tmax"]) out[key] = new Float32Array(count).fill(NaN);
+  if (withTemp) for (const key of ["tavg", "tmin", "tmax", "tfit"]) out[key] = new Float32Array(count).fill(NaN);
+  const band = withTemp ? p.tempBand : null; // { coldK, mildK, hotOkK, hotMaxK }
   const tBins = withTemp ? tempMeta.bins : 0;
   const tScale = withTemp ? tempMeta.scaleK : 0;
 
@@ -182,7 +184,7 @@ async function run(id, p) {
       if (withTemp) {
         const lon = grid.lon0 + (j + 0.5) * grid.stepDeg;
         const tb = local * tBins;
-        let sum = 0, lo = Infinity, hi = -Infinity, cnt = 0;
+        let sum = 0, lo = Infinity, hi = -Infinity, cnt = 0, fit = 0;
         for (let t = bestC; t < bestC + D; t++) {
           let lt = (12 + (lon - sunLon[t]) / 15) % 24;
           if (lt < 0) lt += 24;
@@ -195,8 +197,17 @@ async function run(id, p) {
           sum += v; cnt += 1;
           if (v < lo) lo = v;
           if (v > hi) hi = v;
+          if (band) {
+            // Nota de la hora: 0 si hace demasiado frío o demasiado calor, 1 en la franja templada.
+            const g = v <= band.mildK ? (v - band.coldK) / (band.mildK - band.coldK)
+              : v <= band.hotOkK ? 1 : (band.hotMaxK - v) / (band.hotMaxK - band.hotOkK);
+            fit += g < 0 ? 0 : g > 1 ? 1 : g;
+          }
         }
-        if (cnt) { out.tavg[local] = sum / cnt; out.tmin[local] = lo; out.tmax[local] = hi; }
+        if (cnt) {
+          out.tavg[local] = sum / cnt; out.tmin[local] = lo; out.tmax[local] = hi;
+          if (band) out.tfit[local] = fit / cnt;
+        }
       }
     }
     if ((i - r0 + 1) % 4 === 0 && i + 1 < r1) {

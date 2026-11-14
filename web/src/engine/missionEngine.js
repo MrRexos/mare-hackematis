@@ -68,13 +68,13 @@ export class MissionEngine {
       sun: new Float32Array(total), earth: new Float32Array(total), both: new Float32Array(total),
       night: new Float32Array(total), best: new Int32Array(total),
     };
-    if (this.tempMeta) for (const key of ["tavg", "tmin", "tmax"]) res[key] = new Float32Array(total);
+    if (this.tempMeta) for (const key of ["tavg", "tmin", "tmax", "tfit"]) res[key] = new Float32Array(total);
     const done = new Array(this.workers.length).fill(0);
     // Unas ~2600 muestras por píxel: 1 h en ventanas cortas, 3-4 h en un año, más en varios años.
     const strideH = Math.max(1, Math.ceil((landingHours + durationH) / 2600));
     const p = {
       startIdx, landingHours, durationH, strideH, candidateStepH: params.candidateStepH || 1, weights: params.weights,
-      sunMode: params.sunMode, earthMode: params.earthMode,
+      sunMode: params.sunMode, earthMode: params.earthMode, tempBand: params.tempBand,
     };
 
     return new Promise((resolve, reject) => {

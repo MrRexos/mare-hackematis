@@ -11,7 +11,7 @@ import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { GOALS } from "./Explore.jsx";
 import { PRESETS, presetOf } from "../engine/score.js";
 import {
-  GLOBAL_FACTORS, cellLatLon, fmtLatLon, globalEngine, globalExclusionAt, globalFactorsAt, globalHotspots, globalScore, loadGlobalStatic,
+  GLOBAL_FACTORS, cellLatLon, fmtLatLon, globalEngine, globalExclusionAt, globalFactorsAt, globalHotspots, globalScore, loadGlobalStatic, TEMP_BAND,
 } from "../engine/globalScore.js";
 
 const VIEW = {
@@ -79,7 +79,7 @@ export default function GlobalExplore({ app }) {
     const timer = setTimeout(async () => {
       const t0 = performance.now();
       try {
-        const result = await engine.run(request, (progress) => { if (!cancelled) setCalc({ request, progress }); });
+        const result = await engine.run({ ...request, tempBand: TEMP_BAND }, (progress) => { if (!cancelled) setCalc({ request, progress }); });
         if (result && !cancelled) setCalc({ request, result, progress: 1, ms: performance.now() - t0 });
       } catch (e) {
         if (!cancelled) setCalc({ request, error: e.message });
@@ -96,7 +96,7 @@ export default function GlobalExplore({ app }) {
 
   const L = useMemo(() => (result ? {
     sun: result.sun, earth: result.earth, night: result.night, slope: stat?.slope || null,
-    temp: result.tavg || null, tmin: result.tmin || null, tmax: result.tmax || null,
+    temp: result.tavg || null, tmin: result.tmin || null, tmax: result.tmax || null, tfit: result.tfit || null,
   } : {}), [result, stat]);
 
   const { score, keys } = useMemo(() => globalScore(L, weights, limits), [L, weights, limits]);
@@ -216,7 +216,7 @@ export default function GlobalExplore({ app }) {
                 </div>
                 <Tabs label="Goal" value={goal} onChange={(g) => setWeights({ ...PRESETS[g] })} options={GOALS.map((g) => ({ value: g, label: g }))} className="tabs--block" />
                 <span className="muted-11">
-                  Scored with {keys.length ? keys.map((k) => VIEW[k].label).join(", ") : "nothing yet"}.
+                  Scored with {keys.length ? keys.map((k) => (k === "temp" ? "Thermal comfort" : VIEW[k].label)).join(", ") : "nothing yet"}.
                   {ignored.length ? ` ${ignored.length} other weights have no whole-Moon data and are not used here.` : ""}
                 </span>
               </div>
@@ -255,7 +255,7 @@ export default function GlobalExplore({ app }) {
                 <div className="muted-11">
                   <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{current?.ms ? ` (${(current.ms / 1000).toFixed(1)} s)` : ""}.</div>
                   <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1).</div>
-                  {gm.thermal ? <div>Surface temperature: measured by LRO Diviner (Williams et al. 2017), read at each cell's local time for every hour of the mission.</div> : null}
+                  {gm.thermal ? <div>Surface temperature: measured by LRO Diviner (Williams et al. 2017), read at each cell's local time for every hour of the mission. Its score is the share of hours in a workable range: full marks from {TEMP_BAND.mildK} to {TEMP_BAND.hotOkK} K, none below {TEMP_BAND.coldK} K or above {TEMP_BAND.hotMaxK} K.</div> : null}
                 </div>
               </div>
             </Card>
