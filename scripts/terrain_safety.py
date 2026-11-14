@@ -316,15 +316,89 @@ def compute_global_terrain_safety(
 
 
 # ---------------------------------------------------------------------------
-# Visualització HTML
+# Visualització HTML (DEM + seguretat, comparació)
 # ---------------------------------------------------------------------------
+
+def _fig_to_b64(fig) -> str:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight", facecolor=fig.get_facecolor())
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _style_ax(ax, title: str) -> None:
+    ax.set_facecolor("#0e1116")
+    ax.set_title(title, color="#f0ebe0", fontsize=12, pad=8)
+    ax.set_xlabel("Ouest ← X → Est", color="#a8a295", fontsize=9)
+    ax.set_ylabel("Nord ← Y → Sud", color="#a8a295", fontsize=9)
+    ax.tick_params(colors="#a8a295", labelsize=8)
+    for spine in ax.spines.values():
+        spine.set_color("#3a3f4a")
+
+
+def _colorbar(fig, im, ax, label: str) -> None:
+    cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+    cb.set_label(label, color="#d8d2c4", fontsize=9)
+    cb.ax.yaxis.set_tick_params(color="#d8d2c4", labelsize=8)
+    import matplotlib.pyplot as plt
+
+    plt.setp(plt.getp(cb.ax.axes, "yticklabels"), color="#d8d2c4")
+
+
+def fetch_dem_preview(
+    url: str,
+    result: TerrainSafetyMatrix,
+    max_display_width: int = 1800,
+) -> np.ndarray:
+    """
+    DEM global a resolució de visualització (mateixa cobertura que ``result``),
+    sense recalcular tot a 1 km. Usa average resampling des del LOLA remot.
+    """
+    import matplotlib  # noqa: F401 — assegura deps
+
+    h, w = result.safety.shape
+    step = max(1, int(np.ceil(w / max_display_width)))
+    dst_w = int(np.ceil(w / step))
+    dst_h = int(np.ceil(h / step))
+    # Affine escalat (mateix origen, píxel més gros)
+    t = result.transform
+    dst_transform = Affine(t.a * step, t.b, t.c, t.d, t.e * step, t.f)
+
+    print(f"      DEM preview : {dst_w} × {dst_h} px (pas={step})")
+    with open_remote(url) as src:
+        dem = np.full((dst_h, dst_w), np.nan, dtype="float32")
+        src_nodata = src.nodata if src.nodata is not None else -32768.0
+        try:
+            dst_crs = CRS.from_user_input(result.crs) if result.crs else src.crs
+        except Exception:
+            dst_crs = src.crs
+        reproject(
+            source=rasterio.band(src, 1),
+            destination=dem,
+            src_transform=src.transform,
+            src_crs=src.crs,
+            src_nodata=src_nodata,
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            dst_nodata=np.nan,
+            resampling=Resampling.average,
+        )
+    return dem
+
 
 def render_safety_html(
     result: TerrainSafetyMatrix,
     html_path: Path,
     max_display_width: int = 1800,
+    dem: np.ndarray | None = None,
+    url: str = URL_LOLA_GLOBAL,
 ) -> Path:
-    """Genera un HTML autosuficient amb el mapa global de seguretat."""
+    """
+    HTML autosuficient amb **mapa lunar (DEM)** i **capa de seguretat**,
+    en vista costa-a-costa i amb un slider de comparació.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -333,37 +407,69 @@ def render_safety_html(
 
     safety = result.safety
     h, w = safety.shape
-    # Downsample per a la visualització
     step = max(1, int(np.ceil(w / max_display_width)))
-    view = safety[::step, ::step]
+    safety_view = safety[::step, ::step]
 
-    cmap = LinearSegmentedColormap.from_list(
+    if dem is None:
+        print("[HTML] Descarregant DEM de visualització per comparar…")
+        dem_view = fetch_dem_preview(url, result, max_display_width=max_display_width)
+    else:
+        dem_view = dem[::step, ::step] if dem.shape == safety.shape else dem
+        # Alinea mides si cal
+        if dem_view.shape != safety_view.shape:
+            rh = min(dem_view.shape[0], safety_view.shape[0])
+            rw = min(dem_view.shape[1], safety_view.shape[1])
+            dem_view = dem_view[:rh, :rw]
+            safety_view = safety_view[:rh, :rw]
+
+    dem_cmap = LinearSegmentedColormap.from_list(
+        "lunar_dem", ["#0b1020", "#2a3348", "#6b5e4e", "#c4b49a", "#f0e6d4"]
+    )
+    safe_cmap = LinearSegmentedColormap.from_list(
         "safe", ["#1a1210", "#5c2e1a", "#c47a2a", "#e8d48a", "#f5f0dc"]
     )
 
-    fig, ax = plt.subplots(figsize=(12.5, 6.4), facecolor="#0e1116")
-    ax.set_facecolor("#0e1116")
-    im = ax.imshow(view, cmap=cmap, origin="upper", vmin=0, vmax=1, aspect="auto")
-    cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
-    cb.set_label("Seguretat topogràfica [0–1]", color="#d8d2c4")
-    cb.ax.yaxis.set_tick_params(color="#d8d2c4")
-    plt.setp(plt.getp(cb.ax.axes, "yticklabels"), color="#d8d2c4")
-    ax.set_title(
-        f"Lluna sencera · seguretat de pendent · cel·la ≈ {result.resolution_m:.0f} m",
+    # --- Figura DEM ---
+    fig, ax = plt.subplots(figsize=(12.5, 6.2), facecolor="#0e1116")
+    elev_vmin = float(np.nanpercentile(dem_view, 2))
+    elev_vmax = float(np.nanpercentile(dem_view, 98))
+    im = ax.imshow(
+        dem_view, cmap=dem_cmap, origin="upper",
+        vmin=elev_vmin, vmax=elev_vmax, aspect="auto",
+    )
+    _colorbar(fig, im, ax, "Elevació (m)")
+    _style_ax(ax, "Mapa lunar (DEM LOLA) · elevació")
+    b64_dem = _fig_to_b64(fig)
+
+    # --- Figura seguretat ---
+    fig, ax = plt.subplots(figsize=(12.5, 6.2), facecolor="#0e1116")
+    im = ax.imshow(safety_view, cmap=safe_cmap, origin="upper", vmin=0, vmax=1, aspect="auto")
+    _colorbar(fig, im, ax, "Seguretat [0–1]")
+    _style_ax(
+        ax,
+        f"Capa de seguretat · cel·la ≈ {result.resolution_m:.0f} m · veto ≥ {result.veto_deg:.0f}°",
+    )
+    b64_safe = _fig_to_b64(fig)
+
+    # --- Figura costa-a-costa ---
+    fig, axes = plt.subplots(1, 2, figsize=(14.5, 5.6), facecolor="#0e1116")
+    im0 = axes[0].imshow(
+        dem_view, cmap=dem_cmap, origin="upper",
+        vmin=elev_vmin, vmax=elev_vmax, aspect="auto",
+    )
+    _colorbar(fig, im0, axes[0], "m")
+    _style_ax(axes[0], "DEM (elevació)")
+    im1 = axes[1].imshow(safety_view, cmap=safe_cmap, origin="upper", vmin=0, vmax=1, aspect="auto")
+    _colorbar(fig, im1, axes[1], "[0–1]")
+    _style_ax(axes[1], "Seguretat (pendent)")
+    fig.suptitle(
+        "Comparació · mateixa cobertura equirectangular",
         color="#f0ebe0",
         fontsize=13,
-        pad=10,
+        y=1.01,
     )
-    ax.set_xlabel("Ouest ← píxel X → Est", color="#a8a295")
-    ax.set_ylabel("Nord ← píxel Y → Sud", color="#a8a295")
-    ax.tick_params(colors="#a8a295")
-    for spine in ax.spines.values():
-        spine.set_color("#3a3f4a")
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight", facecolor=fig.get_facecolor())
-    plt.close(fig)
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    fig.tight_layout()
+    b64_cmp = _fig_to_b64(fig)
 
     viable = float((safety > 0).sum()) / safety.size * 100.0
     html = f"""<!DOCTYPE html>
@@ -371,23 +477,49 @@ def render_safety_html(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pas 1 Global — Seguretat topogràfica lunar</title>
+<title>Pas 1 Global — DEM vs seguretat lunar</title>
 <style>
   :root {{ --bg:#0b0d12; --card:#141820; --ink:#f2eee6; --muted:#9a9488; --line:#2a303c; --accent:#d4a574; }}
+  * {{ box-sizing: border-box; }}
   body {{ margin:0; font-family:"IBM Plex Sans",system-ui,sans-serif; background:
     radial-gradient(900px 500px at 0% 0%, #1c2433, transparent 55%),
     radial-gradient(800px 400px at 100% 0%, #2a1f14, transparent 50%), var(--bg);
     color:var(--ink); line-height:1.55; }}
   header, main, footer {{ max-width:1100px; margin:0 auto; padding:1.5rem; }}
   h1 {{ font-family:"IBM Plex Serif",Georgia,serif; font-size:clamp(1.6rem,3.5vw,2.3rem); margin:0.3rem 0; }}
-  .sub {{ color:var(--muted); max-width:40rem; }}
+  h2 {{ font-family:"IBM Plex Serif",Georgia,serif; font-size:1.25rem; margin:2rem 0 .5rem; }}
+  .sub {{ color:var(--muted); max-width:42rem; }}
   .stats {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.7rem; margin:1.2rem 0 1.6rem; }}
   .stat {{ background:var(--card); border:1px solid var(--line); padding:.85rem 1rem; }}
   .stat b {{ display:block; font-size:1.1rem; }}
   .stat span {{ color:var(--muted); font-size:.8rem; }}
+  .tabs {{ display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 1rem; }}
+  .tabs button {{
+    background:transparent; color:var(--muted); border:1px solid var(--line);
+    padding:.45rem .9rem; cursor:pointer; font:inherit;
+  }}
+  .tabs button.active {{ color:var(--ink); border-color:var(--accent); color:var(--accent); }}
+  .panel {{ display:none; }}
+  .panel.active {{ display:block; }}
   figure {{ margin:0; background:var(--card); border:1px solid var(--line); }}
-  img {{ display:block; width:100%; height:auto; }}
+  figure img {{ display:block; width:100%; height:auto; }}
   figcaption {{ padding:.75rem 1rem; color:var(--muted); font-size:.9rem; border-top:1px solid var(--line); }}
+  .compare {{
+    position:relative; width:100%; aspect-ratio: 125 / 62; background:#000; overflow:hidden;
+    border:1px solid var(--line); user-select:none; touch-action:none;
+  }}
+  .compare img {{ position:absolute; inset:0; width:100%; height:100%; object-fit:fill; margin:0; padding:0; }}
+  .compare .top {{
+    position:absolute; inset:0; width:50%; overflow:hidden; border-right:2px solid var(--accent);
+  }}
+  .compare .top img {{ width:200%; max-width:none; height:100%; }}
+  .compare input[type=range] {{
+    position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:ew-resize; z-index:3;
+  }}
+  .compare .hint {{
+    position:absolute; left:50%; bottom:.6rem; transform:translateX(-50%);
+    background:rgba(0,0,0,.55); color:var(--ink); font-size:.75rem; padding:.2rem .55rem; z-index:2; pointer-events:none;
+  }}
   code {{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.9em; }}
   pre {{ background:#0a0c10; border:1px solid var(--line); padding:1rem; overflow:auto; }}
 </style>
@@ -396,31 +528,77 @@ def render_safety_html(
 <body>
 <header>
   <p style="color:var(--accent);font-size:.9rem;margin:0">Pas 1 global · branca <code>cursor/lunar-dem-pas1-50d8</code></p>
-  <h1>Seguretat topogràfica — Lluna sencera</h1>
-  <p class="sub">Matriu de retorn <code>safety</code> ∈ [0, 1] a ~{result.resolution_m:.0f}&nbsp;m/cel·la (requadres d’≈1&nbsp;km²). Veto estricte a pendent ≥ {result.veto_deg:.0f}°.</p>
+  <h1>DEM lunar vs seguretat topogràfica</h1>
+  <p class="sub">Comparació de la mateixa cobertura global: mapa d’elevació LOLA i matriu <code>safety</code> ∈ [0, 1] (~{result.resolution_m:.0f}&nbsp;m/cel·la).</p>
 </header>
 <main>
   <div class="stats">
-    <div class="stat"><b>{result.width} × {result.height}</b><span>cel·les</span></div>
-    <div class="stat"><b>~{result.resolution_m:.0f} m</b><span>mida del requadre</span></div>
-    <div class="stat"><b>{viable:.1f} %</b><span>cel·les amb safety &gt; 0</span></div>
-    <div class="stat"><b>[{float(safety.min()):.2f}, {float(safety.max()):.2f}]</b><span>rang safety</span></div>
+    <div class="stat"><b>{result.width} × {result.height}</b><span>cel·les (matriu)</span></div>
+    <div class="stat"><b>~{result.resolution_m:.0f} m</b><span>requadre ≈ 1 km²</span></div>
+    <div class="stat"><b>{viable:.1f} %</b><span>safety &gt; 0</span></div>
+    <div class="stat"><b>{elev_vmin:.0f} … {elev_vmax:.0f} m</b><span>elevació (p2–p98)</span></div>
   </div>
-  <figure>
-    <img src="data:image/png;base64,{b64}" alt="Mapa global de seguretat topogràfica" />
-    <figcaption>
-      Equirectangular Moon. Clar = pla (segur); fosc = pendent ≥ {result.veto_deg:.0f}° (veto).
-      Objecte Python: <code>TerrainSafetyMatrix.safety</code> per al Pas 2.
-    </figcaption>
-  </figure>
-  <h2 style="font-family:'IBM Plex Serif',Georgia,serif;font-size:1.2rem;margin-top:2rem">Ús al Pas 2</h2>
+
+  <div class="tabs" role="tablist">
+    <button type="button" class="active" data-tab="slider">Slider compara</button>
+    <button type="button" data-tab="side">Costa a costa</button>
+    <button type="button" data-tab="dem">Només DEM</button>
+    <button type="button" data-tab="safe">Només seguretat</button>
+  </div>
+
+  <div id="slider" class="panel active">
+    <div class="compare" id="compare">
+      <img src="data:image/png;base64,{b64_safe}" alt="Seguretat" />
+      <div class="top" id="compareTop">
+        <img src="data:image/png;base64,{b64_dem}" alt="DEM" />
+      </div>
+      <input type="range" min="0" max="100" value="50" id="compareRange" aria-label="Comparar DEM i seguretat" />
+      <div class="hint">← DEM | Seguretat → &nbsp;· arrossega</div>
+    </div>
+    <p class="sub" style="margin-top:.7rem">Esquerra: mapa de la Lluna (elevació). Dreta: capa de seguretat derivada del pendent.</p>
+  </div>
+
+  <div id="side" class="panel">
+    <figure>
+      <img src="data:image/png;base64,{b64_cmp}" alt="Comparació costa a costa" />
+      <figcaption>Vista paral·lela: cràters i relleu (esquerra) vs zones planes/vetades (dreta).</figcaption>
+    </figure>
+  </div>
+
+  <div id="dem" class="panel">
+    <figure>
+      <img src="data:image/png;base64,{b64_dem}" alt="DEM lunar" />
+      <figcaption>DEM LOLA global (Equirectangular). Clar = elevat; fosc = depressions / fons de cràter.</figcaption>
+    </figure>
+  </div>
+
+  <div id="safe" class="panel">
+    <figure>
+      <img src="data:image/png;base64,{b64_safe}" alt="Seguretat topogràfica" />
+      <figcaption>Clar = pla (segur); fosc = pendent ≥ {result.veto_deg:.0f}° (veto). Objecte: <code>TerrainSafetyMatrix.safety</code>.</figcaption>
+    </figure>
+  </div>
+
+  <h2>Ús al Pas 2</h2>
   <pre>from scripts.terrain_safety import compute_global_terrain_safety
-# o carregar:
-import numpy as np
-safety = np.load("data/pas1_global/safety.npy")  # matriu [0, 1]
+result = compute_global_terrain_safety(cell_m=1000.0)
+safety = result.safety  # matriu [0, 1]
 # viabilitat_total = w_s * safety * capa_iluminacio * capa_comms</pre>
 </main>
-<footer style="color:var(--muted);font-size:.85rem">Generat des de LRO LOLA Global LDEM · cel·la {result.resolution_m:.1f} m</footer>
+<footer style="color:var(--muted);font-size:.85rem">LRO LOLA Global LDEM · cel·la {result.resolution_m:.1f} m</footer>
+<script>
+  document.querySelectorAll('.tabs button').forEach(btn => {{
+    btn.addEventListener('click', () => {{
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    }});
+  }});
+  const range = document.getElementById('compareRange');
+  const top = document.getElementById('compareTop');
+  range.addEventListener('input', () => {{ top.style.width = range.value + '%'; }});
+</script>
 </body>
 </html>
 """
@@ -429,6 +607,26 @@ safety = np.load("data/pas1_global/safety.npy")  # matriu [0, 1]
     html_path.write_text(html, encoding="utf-8")
     print(f"HTML → {html_path}")
     return html_path
+
+
+def rebuild_html_from_saved(
+    outdir: Path,
+    html_path: Path,
+    url: str = URL_LOLA_GLOBAL,
+) -> Path:
+    """Regenera l'HTML de comparació a partir de safety.npy ja calculat."""
+    meta = json.loads((outdir / "metadades.json").read_text(encoding="utf-8"))
+    safety = np.load(outdir / "safety.npy")
+    result = TerrainSafetyMatrix(
+        safety=safety,
+        transform=Affine(*meta["transform"][:6]),
+        crs=meta.get("crs", ""),
+        resolution_m=float(meta["resolution_m"]),
+        veto_deg=float(meta.get("veto_deg", LLINDAR_VETO_GRAUS)),
+        source_url=meta.get("source_url", url),
+        extras={k: meta[k] for k in ("cell_m_requested", "res_x_m", "res_y_m", "grid") if k in meta},
+    )
+    return render_safety_html(result, html_path, url=url)
 
 
 # ---------------------------------------------------------------------------
@@ -442,11 +640,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--outdir", type=Path, default=Path("data/pas1_global"))
     p.add_argument("--html", type=Path, default=Path("docs/pas1_global_seguretat.html"))
     p.add_argument("--veto", type=float, default=LLINDAR_VETO_GRAUS)
+    p.add_argument(
+        "--html-only",
+        action="store_true",
+        help="Només regenera l'HTML (DEM+seguretat) des de safety.npy ja calculat",
+    )
     return p.parse_args(argv)
+
+
+def _copy_html_artifact(html_path: Path) -> None:
+    art = Path("/opt/cursor/artifacts/pas1_global_seguretat.html")
+    if art.parent.is_dir():
+        art.write_text(html_path.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"HTML → {art}")
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+
+    if args.html_only:
+        rebuild_html_from_saved(args.outdir, args.html, url=args.url)
+        _copy_html_artifact(args.html)
+        return 0
+
     result = compute_global_terrain_safety(
         cell_m=args.cell_m, url=args.url, veto_deg=args.veto
     )
@@ -454,18 +670,13 @@ def main(argv: list[str] | None = None) -> int:
     for k, v in paths.items():
         print(f"  ✓ {v} ({k})")
 
-    # Exposa l'objecte / matriu com a retorn conceptual del pipeline
     print(f"\nObjecte retornat: TerrainSafetyMatrix")
     print(f"  result.safety.shape = {result.safety.shape}")
     print(f"  result.safety dtype = {result.safety.dtype}")
     print(f"  rang = [{result.safety.min():.4f}, {result.safety.max():.4f}]")
 
-    render_safety_html(result, args.html)
-    # Còpia a artifacts si existeix el directori
-    art = Path("/opt/cursor/artifacts/pas1_global_seguretat.html")
-    if art.parent.is_dir():
-        art.write_text(args.html.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"HTML → {art}")
+    render_safety_html(result, args.html, url=args.url)
+    _copy_html_artifact(args.html)
     return 0
 
 
