@@ -28,11 +28,12 @@ export function durationLabel(days) {
 
 /* ------------------------------------------------------------------ carril */
 
-export function Rail({ screen, go, siteName, onMission, onExport }) {
+export function Rail({ screen, go, siteName, canAnalyze, onMission, onExport }) {
   const item = (id, icon, label, target = id) => {
     const on = screen === id;
     return (
-      <button type="button" className={cx("rail__item", on && "is-on")} aria-current={on ? "page" : undefined} onClick={() => go(target)} key={id}>
+      <button type="button" className={cx("rail__item", on && "is-on")} aria-current={on ? "page" : undefined}
+        disabled={!canAnalyze && !["explore", "home"].includes(target)} onClick={() => go(target)} key={id}>
         <span className="rail__dot"><Icon name={icon} size={20} /></span>
         <span className="rail__label">{label}</span>
       </button>
@@ -40,7 +41,11 @@ export function Rail({ screen, go, siteName, onMission, onExport }) {
   };
   return (
     <nav aria-label="Main" className="rail">
-      {item("explore", "orbit", "Explore")}
+      {/* Marca: vuelve a la portada (la de la Luna) sin perder la configuración. */}
+      <button type="button" className="rail__brand" title="Mare Hackematis · home" aria-label="Mare Hackematis, home" onClick={() => go("home")}>
+        MH<small>Home</small>
+      </button>
+      {item("explore", "orbit", canAnalyze ? "Explore" : "Plan", canAnalyze ? "explore" : "home")}
       {item("site", "map-pin", "Mare")}
       {item("compare", "compare", "Compare")}
       <div className="grow rail__gap" />
@@ -48,7 +53,7 @@ export function Rail({ screen, go, siteName, onMission, onExport }) {
         <span className="rail__dot rail__dot--tool"><Icon name="sliders" size={18} /></span>
         <span className="rail__label">Mission</span>
       </button>
-      <button type="button" className="rail__item rail__item--tool" onClick={onExport}>
+      <button type="button" className="rail__item rail__item--tool" onClick={onExport} disabled={!onExport}>
         <span className="rail__dot rail__dot--tool"><Icon name="share" size={18} /></span>
         <span className="rail__label">Export</span>
       </button>
@@ -62,9 +67,9 @@ export function MissionChip({ mission, onClick }) {
   return (
     <button type="button" className="mchip" aria-label="Mission settings" onClick={onClick}>
       <Icon name="calendar" size={16} />
-      <span className="mchip__main">{fmtDay(mission.fromMs)} → {fmtDay(mission.toMs)}</span>
+      <span className="mchip__main">{mission.fromMs != null && mission.toMs != null ? `${fmtDay(mission.fromMs)} → ${fmtDay(mission.toMs)}` : "Set mission dates"}</span>
       <span className="mchip__sep" />
-      <span className="mchip__sub">{durationLabel(mission.durationDays)}</span>
+      <span className="mchip__sub">{mission.durationDays == null ? "Set duration" : durationLabel(mission.durationDays)}</span>
       <span className="mchip__sep mchip__hide" />
       <span className="mchip__sub mchip__hide">Lander {mission.observerM} m · UTC</span>
       <span className="mchip__btn"><Icon name="sliders" size={14} /></span>
@@ -110,7 +115,7 @@ function ticks(startMs, endMs) {
  * (relleno suave) y la ventana de la misión (recuadro). Expandida muestra los
  * carriles de Sol y Tierra del lugar seleccionado.
  */
-export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missionWin, lanes, emptyNote }) {
+export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missionWin, lanes, emptyNote, onNextWindow }) {
   const [playing, setPlaying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const trackRef = useRef(null);
@@ -144,7 +149,9 @@ export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missi
     if (e.key === "Home") { e.preventDefault(); setTimeMs(startMs); }
     if (e.key === "End") { e.preventDefault(); setTimeMs(endMs); }
   };
+  // "Next window": si la app gestiona una ventana seleccionada, la avanza (y el reloj la sigue).
   const nextWin = () => {
+    if (onNextWindow) { onNextWindow(); return; }
     const w = windows.find((x) => x[0] > timeMs + HOUR_MS) || windows[0];
     if (w) setTimeMs(w[0]);
   };
@@ -236,10 +243,13 @@ export function TimeBar({ startMs, endMs, timeMs, setTimeMs, windows = [], missi
           </div>
         </div>
         <div className="timebar__btns">
-          <button type="button" className="btn btn--secondary btn--md" onClick={nextWin} disabled={!windows.length}>
-            <Icon name="skip-forward" size={16} />
-            <span>Next window</span>
-          </button>
+          {/* Solo se usa la mejor ventana: el botón aparece únicamente si la app lo pide. */}
+          {onNextWindow ? (
+            <button type="button" className="btn btn--secondary btn--md" onClick={nextWin} disabled={!windows.length}>
+              <Icon name="skip-forward" size={16} />
+              <span>Next window</span>
+            </button>
+          ) : null}
           <span className="rate">1 d/s</span>
           <button type="button" className="ibtn ibtn--raised" style={{ width: 40, height: 40 }} aria-label="Expand or collapse time controls" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
             <Icon name={expanded ? "chevron-down" : "chevron-up"} size={20} />

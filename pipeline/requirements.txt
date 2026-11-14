@@ -4,4 +4,3 @@ spiceypy>=6.0
 requests>=2.31
 pillow>=10.0
 pytest>=8.0
-numba>=0.60

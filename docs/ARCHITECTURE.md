@@ -42,7 +42,9 @@ GitHub Pages.
 | Relieve y horizontes | LOLA `LDEM_75S_240M` | NASA PDS Geosciences Node |
 | Pendiente | LOLA `LDSM_75S_240M` | NASA PDS |
 | Sombra permanente (indicador de hielo) | LOLA `LPSR_75S_120M` (Mazarico et al. 2011) | NASA PDS |
-| Iluminación media (validación y capa inicial) | LOLA `AVGVISIB_75S_120M` | NASA PDS |
+| Iluminación media del Sol y de la Tierra (validación y capa inicial) | LOLA `AVGVISIB_75S_120M` y `_EARTH` | NASA PDS |
+| Rugosidad | LOLA `LDRM_75S_240M` | NASA PDS |
+| Temperatura media (2 cm) y máxima, profundidad de estabilidad del hielo | LRO Diviner PRP v2.0 (Paige et al. 2010), MD5 verificado | NASA PDS |
 | Sol y Tierra | SPICE: `de440s.bsp`, `moon_pa_de440_200625.bpc`, `moon_de440_250416.tf` | NASA/JPL NAIF |
 | Comprobación | Horizons API | NASA/JPL |
 | Regiones Artemis III | Anuncio de la NASA (2024-10-28), centros aproximados | NASA |

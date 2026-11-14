@@ -2,13 +2,15 @@
 
 import { Suspense, lazy, useState } from "react";
 import MapView from "../components/MapView.jsx";
+import MapControls, { MapPointReadout } from "../components/MapControls.jsx";
+import { LAYERS } from "../data/mapLayers.js";
 import { Icon, Btn, Card, Tabs, Fidelity, FactorGrid, FactorSpark, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
-import { PRESETS, presetOf } from "../engine/score.js";
+import { presetOf } from "../engine/score.js";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
 
-export const GOALS = ["Balanced", "Power first", "Earth contact first"];
+const MAP_LAYERS = Object.keys(LAYERS);
 
 /** Recorte del relieve LOLA alrededor de un lugar (miniatura del ranking). */
 export function Thumb({ place, size = 44, km = 24, n = 400, radius = 10 }) {
@@ -46,30 +48,6 @@ function CompareToggle({ inCmp, onClick, size = "md", label = "Compare" }) {
   );
 }
 
-export function Legend({ layer, legendEnds }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="legend" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      {open ? (
-        <div role="tooltip" className="overlay legend__pop">
-          <span className="lbl">Legend</span>
-          <div className="legend__row"><Shape kind="circle" /><span>Artemis III region</span></div>
-          <div className="legend__row"><Shape kind="square" /><span>Hotspot</span></div>
-          <div className="legend__row"><Icon name="crosshair" size={12} /><span>Your spot</span></div>
-          {layer ? (
-            <div className="legend__ramp">
-              <span className="legend__name">{layer.label}</span>
-              <div className={`ramp ramp--${layer.ramp}`} />
-              <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-      <IconBtn icon="info" label="Legend" variant="overlay" onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} />
-    </div>
-  );
-}
-
 export function CompareTray({ items, onRemove, onOpen }) {
   return (
     <div role="region" aria-label="Compare tray" className="overlay tray">
@@ -89,11 +67,12 @@ export function CompareTray({ items, onRemove, onOpen }) {
 }
 
 export default function Explore({ app }) {
+  const [hoveredPixel, setHoveredPixel] = useState(null);
   const {
     data, result, running, progress, runError, problem, loadState, engineReady,
-    places, groups, group, setGroup, selected, setSelRef, weights, setWeights,
-    layerKey, setLayerKey, LAYERS, layer, values, legendEnds,
-    dim, setDim, mission, openSettings, go, cmp, toggleCmp, inCmp, cmpPlaces,
+    groups, group, setGroup, selected, selectionKey, setSelRef, weights,
+    layerKey, setLayerKey, layer, values, legendEnds, showIceEvidence, setShowIceEvidence,
+    dim, setDim, mission, openSettings, openWeights, go, toggleCmp, inCmp, cmpPlaces,
     timeMs, setTimeMs, Rail, TimeBarEl, moonMission, sitesForMap, spotsForMap,
   } = app;
 
@@ -101,31 +80,11 @@ export default function Explore({ app }) {
   const list = groups[group] || [];
   const ranked = list.filter((p) => Number.isFinite(p.score));
   const best = ranked[0] || null;
-  const rest = (ranked.length ? ranked.slice(1) : list.slice(1));
+  const rest = best ? ranked.slice(1) : list;
   const sel = selected;
   const n = data?.manifest.grid.n || 400;
 
-  const scoring = !result && engineReady && !problem && !runError;
-
-  const mapLayerBar = (
-    <div className="overlay layerbar">
-      <Icon name="layers" size={16} />
-      <span style={{ width: 6 }} />
-      {Object.entries(LAYERS).map(([k, v]) => (
-        <button
-          key={k}
-          type="button"
-          aria-pressed={layerKey === k}
-          disabled={k === "score" && !result}
-          className={cx("layerbar__b", layerKey === k && "is-on")}
-          onClick={() => setLayerKey(k)}
-        >
-          {layerKey === k ? <Icon name="check" size={12} /> : null}
-          {v.label}
-        </button>
-      ))}
-    </div>
-  );
+  const pendingScore = layerKey === "score" && running;
 
   return (
     <div className="shell">
@@ -133,86 +92,108 @@ export default function Explore({ app }) {
       <main className="shell__main shell__main--fit">
         <header className="pagehead">
           <h1 className="h-page">Explore/</h1>
-          <Tabs label="View" value={dim} onChange={setDim} options={[{ value: "2D", label: "2D", icon: "map" }, { value: "3D", label: "3D", icon: "globe" }]} />
+          <Tabs label="View" value={dim} onChange={(value) => { setHoveredPixel(null); setDim(value); }} options={[{ value: "2D", label: "2D", icon: "map" }, { value: "3D", label: "3D", icon: "globe" }]} />
           <div className="grow" />
           <MissionChip mission={mission} onClick={openSettings} />
         </header>
 
         <div className="explore">
-          <section aria-label="Moon map" className="mapsec">
-            {!data ? (
-              <div className="mapsec__center">
-                {loadState.error ? (
-                  <div className="state">
-                    <Icon name="alert" size={16} style={{ color: "var(--danger)" }} />
-                    <span className="state__title">Map unavailable</span>
-                    <span className="state__text">{loadState.error}. Run the pipeline to create web/public/data.</span>
-                    <Btn size="sm" icon="refresh" onClick={() => location.reload()}>Retry</Btn>
-                  </div>
-                ) : (
-                  <div className="state">
-                    <Icon name="loader" size={16} className="spin" />
-                    <span className="state__title">Loading NASA terrain and ephemeris</span>
-                    <div className="progress"><span style={{ width: `${(loadState.done / loadState.total) * 100}%` }} /></div>
-                    <span className="state__text">{loadState.done} of {loadState.total} files</span>
-                  </div>
-                )}
-              </div>
-            ) : dim === "3D" ? (
-              <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} timeMs={timeMs} onTimeChange={setTimeMs} />
-              </Suspense>
-            ) : (
-              <MapView
-                data={data}
-                layer={layer}
-                values={values}
-                sites={sitesForMap}
-                spots={spotsForMap}
-                selected={sel}
-                onSelect={setSelRef}
-                onPick={(p) => setSelRef({ type: "pick", p })}
-              >
-                {mapLayerBar}
-                {sel ? (
-                  <div className="overlay selcard">
-                    <div className="row-8">
-                      <Shape kind={sel.shape} selected />
-                      <span className="num-15 grow ellipsis">{sel.name}</span>
-                      <span className="num-15">{Number.isFinite(sel.score) ? Math.round(sel.score) : "–"}</span>
+          <div className="explore-map">
+            <section aria-label="Moon map" className="mapsec" data-theme="dark">
+              {!data ? (
+                <div className="mapsec__center">
+                  {loadState.error ? (
+                    <div className="state">
+                      <Icon name="alert" size={16} style={{ color: "var(--danger)" }} />
+                      <span className="state__title">Map unavailable</span>
+                      <span className="state__text">{loadState.error}. Run the pipeline to create web/public/data.</span>
+                      <Btn size="sm" icon="refresh" onClick={() => location.reload()}>Retry</Btn>
                     </div>
-                    <div className="coords">{sel.coords}</div>
-                    {sel.excluded ? <div className="note-12"><Icon name="info" size={12} />{sel.excluded}</div> : null}
-                    <FactorGrid values={sel.factors} />
-                    <div className="row-6">
-                      <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => go("site")}>Open site</Btn>
-                      <CompareToggle size="sm" inCmp={inCmp(sel)} onClick={() => toggleCmp(sel)} />
-                      <div className="grow" />
-                      <IconBtn icon="x" label="Clear selection" variant="ghost" size={32} onClick={() => setSelRef(null)} />
+                  ) : (
+                    <div className="state">
+                      <Icon name="loader" size={16} className="spin" />
+                      <span className="state__title">Loading NASA terrain and ephemeris</span>
+                      <div className="progress"><span style={{ width: `${(loadState.done / loadState.total) * 100}%` }} /></div>
+                      <span className="state__text">{loadState.done} of {loadState.total} files</span>
                     </div>
-                  </div>
-                ) : null}
-                <Legend layer={layer} legendEnds={legendEnds} />
-                <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
-                {!engineReady ? (
-                  <div className="overlay mapnote">
-                    <Icon name="alert" size={14} />
-                    Horizons not built yet: the map shows the terrain, but mission scoring needs horizon.u8 and ephem.f32.
-                  </div>
-                ) : null}
-              </MapView>
-            )}
-          </section>
+                  )}
+                </div>
+              ) : dim === "3D" ? (
+                <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
+                  <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} selectionKey={selectionKey} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
+                  {sel ? (
+                    // Sitio pulsado en 3D: las mismas acciones que el popup del mapa 2D.
+                    <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${sel.name}`}>
+                      <div className="row-8">
+                        <Shape kind={sel.shape} />
+                        <b className="grow">{sel.name}</b>
+                        <span className="num-15">{Number.isFinite(sel.score) ? Math.round(sel.score) : "–"}</span>
+                      </div>
+                      <span className="coords">{sel.coords}</span>
+                      <div className="row-6">
+                        <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => { app.setTab("overview"); go("site"); }}>Open site</Btn>
+                        <CompareToggle size="sm" inCmp={inCmp(sel)} onClick={() => toggleCmp(sel)} />
+                        <div className="grow" />
+                        <IconBtn icon="x" label="Clear selection" variant="ghost" size={32} onClick={() => setSelRef(null)} />
+                      </div>
+                    </div>
+                  ) : null}
+                </Suspense>
+              ) : (
+                <MapView
+                  data={data}
+                  layer={layer}
+                  values={values}
+                  hoverPixel={hoveredPixel}
+                  onHover={setHoveredPixel}
+                  sites={sitesForMap}
+                  spots={spotsForMap}
+                  selected={sel}
+                  selectionKey={selectionKey}
+                  onSelect={setSelRef}
+                  onPick={(p) => setSelRef({ type: "pick", p })}
+                  showIceEvidence={showIceEvidence}
+                >
+                  <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
+                  {!engineReady ? (
+                    <div className="overlay mapnote">
+                      <Icon name="alert" size={14} />
+                      Horizons not built yet: the map shows the terrain, but mission scoring needs horizon.u8 and ephem.f32.
+                    </div>
+                  ) : null}
+                </MapView>
+              )}
+              {dim === "2D" && (
+                <MapControls activeLayer={layerKey} onLayer={setLayerKey} layerKeys={MAP_LAYERS}
+                  legendEnds={legendEnds} showIceEvidence={showIceEvidence} onIceEvidence={setShowIceEvidence}>
+                  {data && (
+                    <MapPointReadout data={data} layer={layer} values={values} pending={pendingScore} hoveredPixel={hoveredPixel} selected={sel}
+                      datesFor={app.datesFor} fixedDates={app.fixedDates}
+                      onEnter={() => setHoveredPixel(null)}>
+                      {sel && hoveredPixel == null && (
+                        <div className="row-6">
+                          <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => { app.setTab("overview"); go("site"); }}>Open site</Btn>
+                          <CompareToggle size="sm" inCmp={inCmp(sel)} onClick={() => toggleCmp(sel)} />
+                          <div className="grow" />
+                          <IconBtn icon="x" label="Clear selection" variant="ghost" size={32} onClick={() => setSelRef(null)} />
+                        </div>
+                      )}
+                    </MapPointReadout>
+                  )}
+                </MapControls>
+              )}
+            </section>
+          </div>
 
           <aside aria-label="Ranking" className="rank">
             <Card pad="md" className="rank__goal">
               <div className="stack-10">
                 <div className="row-base">
-                  <span className="lbl">Goal</span>
+                  <span className="lbl">Scoring profile</span>
                   <div className="grow" />
-                  <button type="button" className="linkbtn linkbtn--12" onClick={() => go("priorities")}>Weights<Icon name="chevron-right" size={12} /></button>
+                  <button type="button" className="linkbtn linkbtn--12" onClick={openWeights}>Edit weights<Icon name="chevron-right" size={12} /></button>
                 </div>
-                <Tabs label="Goal" value={goal} onChange={(g) => setWeights({ ...PRESETS[g] })} options={GOALS.map((g) => ({ value: g, label: g }))} className="tabs--block" />
+                <span className="num-15">{goal || "Custom weights"}</span>
               </div>
             </Card>
 
@@ -222,7 +203,7 @@ export default function Explore({ app }) {
                   <span className="lbl">Best</span>
                   <span className="muted-11">{goal || "Custom weights"}</span>
                   <div className="grow" />
-                  <Fidelity level={scoring || running ? "processing" : "computed"} />
+                  {running || best ? <Fidelity level={running ? "processing" : "computed"} /> : null}
                 </div>
                 {problem || runError ? (
                   <div className="state state--left">
@@ -231,12 +212,15 @@ export default function Explore({ app }) {
                     <span className="state__text">{problem || runError}</span>
                     <Btn size="sm" icon="sliders" onClick={openSettings}>Mission settings</Btn>
                   </div>
-                ) : scoring || !best ? (
-                  <div className="state state--left">
-                    <span className="row-8"><Icon name="loader" size={16} className="spin" /><span className="state__title">Scoring</span><span className="muted-12">{Math.round(progress * 100)}%</span></span>
-                    <div className="progress"><span style={{ width: `${progress * 100}%` }} /></div>
-                    <span className="state__text">Sun and Earth over the terrain, every 1 km pixel.</span>
+                ) : loadState.error ? (
+                  <p className="muted-12">Map data could not be loaded.</p>
+                ) : !data || running ? (
+                  <div className="state state--left" aria-label="Mission calculation">
+                    <span className="row-8"><Icon name="loader" size={16} className="spin" /><span className="state__title">{running ? "Scoring" : "Loading map data"}</span>{running && <span className="muted-12">{Math.floor(progress * 100)}%</span>}</span>
+                    {running && <div className="progress" role="progressbar" aria-label="Mission calculation" aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></div>}
                   </div>
+                ) : !best ? (
+                  <p className="muted-12">{result ? "No site passes the current limits." : "Mission results unavailable."}</p>
                 ) : (
                   <>
                     <button type="button" className="best" onClick={() => setSelRef(best.ref)}>
@@ -275,18 +259,24 @@ export default function Explore({ app }) {
                 </div>
                 <div className="row-6 px-4 wrap">
                   {Object.entries(groups).map(([id, g]) => (
-                    <button key={id} type="button" className={cx("chip", group === id && "is-on")} aria-pressed={group === id} onClick={() => setGroup(id)}>
+                    <button key={id} type="button" className={cx("chip", group === id && "is-on")} aria-pressed={group === id} onClick={() => {
+                      // Al cambiar de ranking, la selección (ficha del mapa) pasa al primero de la nueva
+                      // lista si el sitio seleccionado no pertenece a ella.
+                      setGroup(id);
+                      const first = g.find((p) => Number.isFinite(p.score));
+                      if (first && !g.some((p) => p.key === sel?.key)) setSelRef(first.ref);
+                    }}>
                       {g.label}<span className="chip__n">{g.length}</span>
                     </button>
                   ))}
                 </div>
                 <div className="rows">
-                  {rest.length === 0 && !scoring ? (
+                  {list.length === 0 && !running && data ? (
                     <p className="muted-12 px-4">{group === "spots" ? "No hotspot passes your limits. Raise the maximum slope in Mission settings." : "Nothing to rank yet."}</p>
                   ) : null}
                   {rest.map((p, k) => (
                     <div key={p.key} className={cx("rrow", sel?.key === p.key && "is-sel")}>
-                      <span className="rrow__rank">{String((ranked.length ? 2 : 2) + k).padStart(2, "0")}</span>
+                      <span className="rrow__rank">{String(k + (best ? 2 : 1)).padStart(2, "0")}</span>
                       <button type="button" className="rrow__main" onClick={() => setSelRef(p.ref)}>
                         <Thumb place={p} n={n} />
                         <span className="rrow__text">
@@ -305,7 +295,8 @@ export default function Explore({ app }) {
             </Card>
           </aside>
         </div>
-        {TimeBarEl}
+        {/* La barra de tiempo solo donde el tiempo cambia algo: el mapa 2D muestra resúmenes de la misión. */}
+        {dim === "3D" ? TimeBarEl : null}
       </main>
     </div>
   );

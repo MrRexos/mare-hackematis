@@ -52,26 +52,6 @@ cd pipeline
 - sitios;
 - validación (necesita red para JPL Horizons).
 
-## Capa global de la Tierra (trabajo T4)
-
-`earth.visible_fraction.mean` en la malla G1K (10 916 × 5 458): fracción del tiempo en que
-el centro de la Tierra está por encima del horizonte LOLA, con paralaje. Datos: LOLA
-LDEM_64 (NASA PDS) y SPICE DE440 (NASA/JPL NAIF). También genera `suitability.earth`
-(0–100 = % del tiempo con la Tierra visible; 0 por debajo de `EARTH_MIN_PCT`).
-
-```bash
-cd pipeline
-../.venv/Scripts/python -m moonsite.fetch global              # SPICE + LDEM_64 (531 MB)
-../.venv/Scripts/python -m moonsite.earth_global 2026-11-14   # el día que llega al programa (sin fecha: hoy UTC)
-../.venv/Scripts/python -m moonsite.earth_global --mes 2026-11 2026-12
-../.venv/Scripts/python -m moonsite.earth_global --estandar   # 60 meses + media 2026-2030
-python ../tools/validate_layer.py ../layers/earth.visible_fraction.mean
-```
-
-No necesita los horizontes de T2: traza el horizonte de LOLA solo en los acimuts por los
-que pasa la Tierra y solo en las celdas donde la libración deja la respuesta en duda.
-Referencia: un mes en G1K, unos 20 min con 2 núcleos (escala con los núcleos).
-
 ## Design system
 
 Los ficheros de `web/public/design-system/` vienen del design system **compartido** del

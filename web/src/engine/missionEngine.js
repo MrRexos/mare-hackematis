@@ -10,22 +10,17 @@ export class MissionEngine {
     this.ephemMeta = manifest.ephem;
     this.horizonMeta = manifest.horizon;
     this.runId = 0;
+    this.active = null;
     const n = this.grid.n;
     const k = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
     const rowsPer = Math.ceil(n / k);
     this.workers = [];
-    this.ready = [];
     for (let w = 0; w < k; w++) {
       const r0 = w * rowsPer;
       const r1 = Math.min(n, r0 + rowsPer);
       if (r0 >= r1) break;
       const worker = new Worker(new URL("./mission.worker.js", import.meta.url), { type: "module" });
       const bins = this.horizonMeta.bins;
-      this.ready.push(new Promise((res) => {
-        worker.addEventListener("message", function onReady(e) {
-          if (e.data.type === "ready") { worker.removeEventListener("message", onReady); res(); }
-        });
-      }));
       worker.postMessage({
         type: "init",
         grid: this.grid,
@@ -51,7 +46,7 @@ export class MissionEngine {
    * onProgress(fraction). Devuelve una promesa con los resultados de toda la malla.
    */
   async run(params, onProgress = () => {}) {
-    await Promise.all(this.ready);
+    this.cancel();
     const id = ++this.runId;
     const m = this.ephemMeta;
     const stepMs = m.stepSeconds * 1000;
@@ -75,38 +70,52 @@ export class MissionEngine {
       sunMode: params.sunMode, earthMode: params.earthMode,
     };
 
-    await Promise.all(this.workers.map(({ worker, rows }, w) => new Promise((resolve, reject) => {
-      const onMsg = (e) => {
-        const d = e.data;
-        if (d.id !== id) return;
-        if (d.type === "progress") {
-          done[w] = d.done;
-          onProgress(done.reduce((a, b) => a + b, 0) / n);
-        } else if (d.type === "result") {
-          worker.removeEventListener("message", onMsg);
-          const off = d.rows[0] * n;
-          for (const key of Object.keys(res)) res[key].set(d[key], off);
-          done[w] = rows[1] - rows[0];
-          onProgress(done.reduce((a, b) => a + b, 0) / n);
-          resolve();
+    return new Promise((resolve, reject) => {
+      const listeners = [];
+      const finish = (result, error) => {
+        this.active = null;
+        for (const { worker, onMessage, onError } of listeners) {
+          worker.removeEventListener("message", onMessage);
+          worker.removeEventListener("error", onError);
+          if (!result) worker.postMessage({ type: "cancel", id });
         }
+        if (error) reject(error);
+        else resolve(result);
       };
-      worker.addEventListener("message", onMsg);
-      worker.onerror = (err) => reject(err);
-      worker.postMessage({ type: "run", id, params: p });
-    })));
+      this.active = { cancel: () => finish(null) };
+      let remaining = this.workers.length;
+      this.workers.forEach(({ worker, rows }, index) => {
+        const onMessage = ({ data }) => {
+          if (data.id !== id) return;
+          if (data.type === "progress") {
+            done[index] = data.done;
+          } else if (data.type === "result") {
+            const off = rows[0] * n;
+            for (const key of Object.keys(res)) res[key].set(data[key], off);
+            done[index] = rows[1] - rows[0];
+            remaining -= 1;
+            if (remaining === 0) {
+              finish({ ...res, startIdx, landingHours, durationH, strideH, startMs: m.startUnixMs + startIdx * stepMs, stepMs, params });
+              return;
+            }
+          }
+          onProgress(done.reduce((sum, count) => sum + count, 0) / n);
+        };
+        const onError = (e) => finish(null, new Error(e.message || "Mission calculation failed."));
+        listeners.push({ worker, onMessage, onError });
+        worker.addEventListener("message", onMessage);
+        worker.addEventListener("error", onError);
+        worker.postMessage({ type: "run", id, params: p });
+      });
+    });
+  }
 
-    if (id !== this.runId) return null; // otro cálculo más nuevo lo ha sustituido
-    return {
-      ...res,
-      startIdx, landingHours, durationH, strideH,
-      startMs: m.startUnixMs + startIdx * stepMs,
-      stepMs,
-      params,
-    };
+  cancel() {
+    this.active?.cancel();
   }
 
   dispose() {
+    this.cancel();
     for (const { worker } of this.workers) worker.terminate();
   }
 }

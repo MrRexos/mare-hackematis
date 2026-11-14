@@ -121,12 +121,35 @@ export function landingWindows(tl, durationH, weights, landEndMs) {
   };
 }
 
-/** Horas al día con Sol y Tierra a la vez (para "Good days"). */
-export function goodHoursPerDay(tl) {
+/**
+ * Detalle de cada ventana (tramo de horas de aterrizaje que dan ≥ 95 % del mejor
+ * valor): su mejor hora de aterrizaje dentro del tramo y el % de Sol y Tierra
+ * de la misión que empieza a esa hora.
+ */
+export function windowDetails(tl, lw) {
+  if (!tl || !lw || lw.best < 0) return [];
+  const share = (a, b, arr) => { let s = 0; for (let t = a; t < b; t++) s += arr[t]; return s / Math.max(1, b - a); };
+  return lw.windows.map(([a, b]) => {
+    let start = a;
+    for (let c = a; c < b; c++) if (lw.value[c] > lw.value[start]) start = c;
+    return { a, b, start, sun: share(start, start + lw.D, tl.sun), earth: share(start, start + lw.D, tl.earth), isBest: lw.best >= a && lw.best < b };
+  });
+}
+
+/** Horas al día con Sol ("sun"), con la Tierra a la vista ("earth") o con ambos ("both"). */
+export function hoursPerDay(tl, kind = "both") {
   const days = Math.ceil(tl.n / 24);
   const out = new Uint8Array(days);
-  for (let t = 0; t < tl.n; t++) if (tl.sun[t] && tl.earth[t]) out[(t / 24) | 0] += 1;
+  for (let t = 0; t < tl.n; t++) {
+    const on = kind === "sun" ? tl.sun[t] : kind === "earth" ? tl.earth[t] : tl.sun[t] && tl.earth[t];
+    if (on) out[(t / 24) | 0] += 1;
+  }
   return out;
+}
+
+/** Horas al día con Sol y Tierra a la vez (para "Good days" y Compare). */
+export function goodHoursPerDay(tl) {
+  return hoursPerDay(tl, "both");
 }
 
 /** Siguiente cambio de estado (Sol o Tierra) a partir de la hora t. */

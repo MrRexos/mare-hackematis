@@ -9,7 +9,6 @@ completos se saltan.
 Uso:
     python -m moonsite.fetch            # todo lo necesario
     python -m moonsite.fetch extra      # + visibilidad media de la Tierra
-    python -m moonsite.fetch global     # + relieve global LDEM_64 (trabajo T4, 531 MB)
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-from .config import LOLA, LOLA_EXTRA, LOLA_GLOBAL, SPICE, Remote
+from .config import DIVINER, LOLA, LOLA_EXTRA, SPICE, Remote
 
 CHUNK = 4 << 20  # 4 MiB por petición
 WORKERS = 16
@@ -82,11 +81,9 @@ def download(f: Remote) -> None:
 
 
 def main(argv: list[str]) -> None:
-    files = {**SPICE, **LOLA}
+    files = {**SPICE, **LOLA, **DIVINER}
     if "extra" in argv:
         files |= LOLA_EXTRA
-    if "global" in argv:
-        files = {**SPICE, **LOLA_GLOBAL}
     for f in files.values():
         download(f)
 

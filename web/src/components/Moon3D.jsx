@@ -26,7 +26,7 @@ function srgbToLinear(c) {
   return (c / 255) ** 2.2;
 }
 
-export default function Moon3D({ data, mission, result, sites, spots, selected, viewSwitch, timeMs: extTime, onTimeChange }) {
+export default function Moon3D({ data, mission, result, sites, spots, selected, selectionKey = selected?.key, viewSwitch, timeMs: extTime, onTimeChange, onSelect }) {
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
@@ -36,6 +36,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
 
   const wrapRef = useRef(null);
   const three = useRef(null);
+  const cameraFocus = useRef(null);
   const [mode, setMode] = useState("sun");
   const [exag, setExag] = useState(3);
   const [aid, setAid] = useState(true);
@@ -294,6 +295,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
   };
 
   // Pin del punto de referencia y objetivo de la cámara.
+  const resolvedKey = selected?.key;
   useEffect(() => {
     const t = three.current;
     if (!t) return;
@@ -302,9 +304,12 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     const s = toScene(pre.unit[p * 3] * r, pre.unit[p * 3 + 1] * r, pre.unit[p * 3 + 2] * r, R);
     t.pin.position.set(s[0], s[1] + 6, s[2]);
     t.pin.visible = !!selected;
+    if (selectionKey && !resolvedKey) return;
+    if (cameraFocus.current?.key === selectionKey && cameraFocus.current?.exag === exag) return;
+    cameraFocus.current = { key: selectionKey, exag };
     t.controls.target.set(selected ? s[0] : 0, selected ? s[1] : 0, selected ? s[2] : 0);
     face(sky.sun);
-  }, [selected?.key, exag]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectionKey, resolvedKey, refPixel, exag]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Etiquetas HTML (Sol, Tierra, regiones, puntos calientes) proyectadas cada fotograma.
   const labelSrc = useMemo(() => {
@@ -313,9 +318,9 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
       const [clat, clon] = s.centre || [s.lat, s.lon];
       const [x, y] = latLonToXY(grid, clat, clon);
       const [fi, fj] = xyToPixel(grid, x, y);
-      out.push({ key: s.key, text: Number.isFinite(s.score) ? `${s.name} · ${Math.round(s.score)}` : s.name, p: Math.round(fi) * n + Math.round(fj), kind: "site" });
+      out.push({ key: s.key, ref: s.ref, text: Number.isFinite(s.score) ? `${s.name} · ${Math.round(s.score)}` : s.name, p: Math.round(fi) * n + Math.round(fj), kind: "site" });
     }
-    for (const s of spots.slice(0, 5)) out.push({ key: s.key, text: `${String(s.rank).padStart(2, "0")} ${s.name} · ${Math.round(s.score)}`, p: s.peak, kind: "spot" });
+    for (const s of spots.slice(0, 5)) out.push({ key: s.key, ref: s.ref, text: `${String(s.rank).padStart(2, "0")} ${s.name} · ${Math.round(s.score)}`, p: s.peak, kind: "spot" });
     return out;
   }, [sites, spots, grid, n]);
 
@@ -362,12 +367,25 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
 
   return (
     <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label="3D view of the lunar south pole with the Sun and Earth. Drag to rotate, scroll to zoom, right-drag to pan.">
-      {labels.map((l) => (
-        <span key={l.key} className={`label3d label3d--${l.kind} ${selected?.key === l.key ? "is-selected" : ""}`} style={{ transform: `translate(${l.xy[0]}px, ${l.xy[1]}px)` }}>
-          {l.kind === "sun" || l.kind === "earth" ? <L.Icon name={l.kind} size={14} className={`lh-k-${l.kind}`} /> : null}
-          {l.text}
-        </span>
-      ))}
+      {labels.map((l) => {
+        const cls = `label3d label3d--${l.kind} ${selected?.key === l.key ? "is-selected" : ""}`;
+        const style = { transform: `translate(${l.xy[0]}px, ${l.xy[1]}px)` };
+        // Regiones y puntos calientes se pueden pulsar (como los marcadores del mapa 2D).
+        if (onSelect && l.ref) {
+          return (
+            <button key={l.key} type="button" className={`${cls} label3d--btn`} style={style} aria-pressed={selected?.key === l.key}
+              aria-label={`Select ${l.text}`} onClick={() => onSelect(l.ref)}>
+              {l.text}
+            </button>
+          );
+        }
+        return (
+          <span key={l.key} className={cls} style={style}>
+            {l.kind === "sun" || l.kind === "earth" ? <L.Icon name={l.kind} size={14} className={`lh-k-${l.kind}`} /> : null}
+            {l.text}
+          </span>
+        );
+      })}
       <L.Panel tone="overlay" padding="compact" className="hud hud--layers">
         <div className="hud__row">
           {viewSwitch}

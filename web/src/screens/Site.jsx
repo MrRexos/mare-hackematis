@@ -1,13 +1,15 @@
 // 03 Site: ficha de un lugar con pestañas Overview, Sky & Time, Terrain y Lander's View.
 
-import { Suspense, lazy, useMemo } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import MapView from "../components/MapView.jsx";
+import MapControls, { MapPointReadout } from "../components/MapControls.jsx";
+import { GROUND_GROUPS, LAYERS } from "../data/mapLayers.js";
+import iceDetections from "../data/iceDetections.json";
 import { Icon, Btn, Card, CardHead, Tabs, Fidelity, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, ProfileChip, fmtShort, fmtHM, fmtIso } from "../ui/Shell.jsx";
-import { FACTORS } from "../engine/score.js";
-import { compass, goodHoursPerDay, hourIndex, nextChange, runs } from "../engine/timeline.js";
-import { formatDuration } from "../engine/geometry.js";
-import { Legend } from "./Explore.jsx";
+import { FACTORS, presetOf } from "../engine/score.js";
+import { compass, goodHoursPerDay, hoursPerDay, hourIndex, nextChange, runs } from "../engine/timeline.js";
+import { formatDuration, pixelXY } from "../engine/geometry.js";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
 const H = 3600e3;
@@ -49,8 +51,62 @@ export function PropGrid({ values }) {
   );
 }
 
-/** Tira de "días buenos": horas al día con Sol y Tierra a la vez. */
-export function GoodDays({ tl, missionWin, compact }) {
+const GOOD_DAY_KINDS = ["sun", "earth", "both"];
+const DAY_ROWS = {
+  sun: { label: "Sun", icon: "sun", aria: "Hours per day with the Sun in view" },
+  earth: { label: "Earth", icon: "earth", aria: "Hours per day with Earth in view (direct contact)" },
+  both: { label: "Both", icon: "blend", aria: "Hours per day with both Sun and Earth in view" },
+};
+
+/** Tiras de "días buenos": horas al día con Sol, con la Tierra o con ambos (una tira por tipo). */
+export function GoodDays({ tl, missionWin, compact, kinds }) {
+  if (kinds) return <GoodDaysRows tl={tl} missionWin={missionWin} kinds={kinds} />;
+  return <GoodDaysStrip tl={tl} missionWin={missionWin} compact={compact} />;
+}
+
+function GoodDaysRows({ tl, missionWin, kinds }) {
+  const rows = useMemo(() => kinds.map((k) => [k, hoursPerDay(tl, k)]), [tl, kinds]);
+  const span = tl.n * H;
+  const pct = (ms) => `${(((ms - tl.startMs) / span) * 100).toFixed(3)}%`;
+  const months = [];
+  const d0 = new Date(tl.startMs);
+  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth() + 1; ; m++) {
+    if (m > 11) { m = 0; y++; }
+    const t = Date.UTC(y, m, 1);
+    if (t >= tl.startMs + span) break;
+    months.push({ t, label: span > 500 * 86400e3 ? (m === 0 ? String(y) : "") : MONTHS[m] });
+  }
+  return (
+    <div className="gdays gdays--rows">
+      <p className="muted-12 gdays__help">
+        Each column is one day; the brighter it is, the more hours that day (0–24 h).
+        <b> Sun</b> means power for the panels, <b>Earth</b> means direct radio contact, <b>Both</b> is the ideal state.
+        The outlined box is the best mission window.
+      </p>
+      <div className="gdays__row gdays__row--axis" aria-hidden="true">
+        <span />
+        <div className="gdays__months">{months.map((m) => (m.label ? <span key={m.t} style={{ left: pct(m.t) }}>{m.label}</span> : null))}</div>
+      </div>
+      {rows.map(([k, days]) => (
+        <div key={k} className="gdays__row">
+          <span className="gdays__name"><Icon name={DAY_ROWS[k].icon} size={14} style={{ color: `var(--${k})` }} />{DAY_ROWS[k].label}</span>
+          <div className="gdays__strip gdays__strip--row" role="img" aria-label={DAY_ROWS[k].aria}>
+            {Array.from(days, (h, i) => <span key={i} style={{ background: `var(--${k})`, opacity: 0.08 + 0.92 * (h / 24) }} title={`${DAY_ROWS[k].label} · ${fmtShort(tl.startMs + i * 24 * H)}: ${h} h`} />)}
+            {missionWin ? <i className="gdays__mission" style={{ left: pct(missionWin[0]), width: `max(3px, calc(${pct(missionWin[1])} - ${pct(missionWin[0])}))` }} /> : null}
+          </div>
+        </div>
+      ))}
+      <div className="gdays__legend">
+        <span>0 h</span><span className="gdays__ramp gdays__ramp--neutral" /><span>24 h per day</span>
+        <div className="grow" />
+        <span className="gdays__key"><i />Mission</span>
+      </div>
+    </div>
+  );
+}
+
+/** Tira única (Sol y Tierra a la vez), usada en vistas compactas. */
+function GoodDaysStrip({ tl, missionWin, compact }) {
   const days = useMemo(() => goodHoursPerDay(tl), [tl]);
   const span = tl.n * H;
   const pct = (ms) => `${(((ms - tl.startMs) / span) * 100).toFixed(3)}%`;
@@ -80,8 +136,10 @@ export function GoodDays({ tl, missionWin, compact }) {
   );
 }
 
-function Header({ app, place, idx, total }) {
-  const { tab, setTab, mission, weights, openSettings, go, inCmp, toggleCmp, stepSite } = app;
+function Header({ app, place, idx }) {
+  // El Mare analiza un solo sitio: para cambiarlo se vuelve a Explore (sin flechas ‹ ›).
+  const { tab, setTab, mission, weights, openSettings, openWeights, go, inCmp, toggleCmp, rankInfo, result } = app;
+  const scored = Number.isFinite(place.score);
   return (
     <header className="pagehead pagehead--site">
       <div className="pagehead__title">
@@ -89,9 +147,17 @@ function Header({ app, place, idx, total }) {
         <h1 className="h-page">{place.name}</h1>
         <div className="coords">{place.coords}</div>
       </div>
+      {/* La nota del sitio, siempre a la vista (mismo estilo que la tarjeta "Best" de Explore). */}
+      <div className="best__score site-score" aria-label={scored ? `Score ${Math.round(place.score)} out of 100` : "Not scored"}>
+        <span>{scored ? Math.round(place.score) : "–"}</span>
+        <span className="muted-11">
+          {scored ? `/100 · ${presetOf(weights) || "Custom"}` : place.excluded ? "Left out by your limits" : result ? "Not scored" : "Scoring…"}
+        </span>
+        {scored && rankInfo ? <span className="pill-sm">#{rankInfo.rank} of {rankInfo.total}</span> : null}
+      </div>
       <div className="grow" />
       <div className="pagehead__chips">
-        <ProfileChip weights={weights} onClick={() => go("priorities")} />
+        <ProfileChip weights={weights} onClick={openWeights} />
         <MissionChip mission={mission} onClick={openSettings} />
       </div>
       <div className="pagehead__row">
@@ -107,11 +173,6 @@ function Header({ app, place, idx, total }) {
           ]}
         />
         <div className="grow" />
-        <div className="pager">
-          <IconBtn icon="chevron-left" label="Previous site" variant="raised" size={40} onClick={() => stepSite(-1)} disabled={total < 2} />
-          <span className="num-13">{String(idx + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</span>
-          <IconBtn icon="chevron-right" label="Next site" variant="raised" size={40} onClick={() => stepSite(1)} disabled={total < 2} />
-        </div>
         <Btn icon={inCmp(place) ? "check" : "plus"} aria-pressed={inCmp(place)} onClick={() => toggleCmp(place)}>Compare</Btn>
       </div>
     </header>
@@ -121,20 +182,14 @@ function Header({ app, place, idx, total }) {
 /* --------------------------------------------------------------- Overview */
 
 function Overview({ app, place }) {
-  const { tl, lw, result, mission, timeMs, setTimeMs, data, useDates, rankInfo, validation } = app;
-  const layers = data.layers;
+  const { tl, lw, result, mission, data, rankInfo, validation, curWin } = app;
   const p = place.p;
   const D = lw?.D ?? mission.durationDays * 24;
-  const startMs = tl && lw && lw.best >= 0 ? tl.startMs + lw.best * H : null;
+  // La tarjeta muestra la MEJOR ventana del sitio (la misma que da su nota).
+  const startMs = tl && curWin ? tl.startMs + curWin.start * H : null;
   const endMs = startMs != null ? startMs + D * H : null;
-  const landRun = tl && lw ? lw.windows.find(([a, b]) => lw.best >= a && lw.best < b) : null;
-  const nextWin = () => {
-    if (!tl || !lw) return;
-    const w = lw.windows.find(([a]) => tl.startMs + a * H > timeMs + H) || lw.windows[0];
-    if (w) setTimeMs(tl.startMs + w[0] * H);
-  };
+  const landRun = curWin ? [curWin.a, curWin.b] : null;
 
-  const now = tl ? hourIndex(tl, timeMs) : 0;
   const dark = useMemo(() => {
     if (!tl) return null;
     const nights = runs(tl.sun, 0), outs = runs(tl.earth, 0);
@@ -146,28 +201,29 @@ function Overview({ app, place }) {
     };
   }, [tl]);
 
-  const slope = layers.slope?.[p];
-  const elev = layers.elevation?.[p];
   const horMax = tl ? Math.max(...tl.ctx.hor) : NaN;
 
   // Pros y contras: los factores con datos, de mayor a menor.
   const scored = FACTORS.filter((f) => Number.isFinite(place.factors?.[f.key])).sort((a, b) => place.factors[b.key] - place.factors[a.key]);
   const pros = scored.slice(0, 3).filter((f) => place.factors[f.key] >= 50);
   const cons = scored.slice(-3).reverse().filter((f) => place.factors[f.key] < 60);
-  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", relief: "Smooth ground", ice: "Close to cold traps" };
-  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", relief: "Rough ground", ice: "Far from cold traps" };
+  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Milder temperatures", ice: "Close to stable ice" };
+  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Very cold", ice: "Far from stable ice" };
 
+  // Escala de la mini-barra: cubre todo el tramo "Land between" y la misión, con margen;
+  // las posiciones se recortan a 0–100 % para que nada se salga de la tarjeta.
   const track = startMs != null ? (() => {
-    const a = startMs - 9 * 86400e3, b = endMs + 9 * 86400e3;
-    const pc = (ms) => `${(((ms - a) / (b - a)) * 100).toFixed(2)}%`;
-    return { a, b, pc };
+    const landA = tl.startMs + landRun[0] * H, landB = tl.startMs + landRun[1] * H;
+    const a = Math.min(landA, startMs) - 3 * 86400e3, b = Math.max(landB, endMs) + 3 * 86400e3;
+    const pc = (ms) => `${(Math.max(0, Math.min(1, (ms - a) / (b - a))) * 100).toFixed(2)}%`;
+    return { a, b, pc, landA, landB };
   })() : null;
 
   return (
     <div className="grid-rows">
       <div className="flexrow">
         <Card className="f2">
-          <CardHead title="Landing window"><Fidelity level={result ? "computed" : "processing"} /></CardHead>
+          <CardHead title="Best landing window"><Fidelity level={result ? "computed" : "processing"} /></CardHead>
           {startMs == null ? (
             <p className="muted-12">{result ? "No complete mission fits in this period." : "Scoring the mission…"}</p>
           ) : (
@@ -177,46 +233,48 @@ function Overview({ app, place }) {
                 <span className="lw__arrow">→</span>
                 <div className="lw__date"><span className="lbl">End</span><b>{fmtShort(endMs)}</b></div>
                 <div className="grow" />
-                <span className={cx("vtag", "vtag--sun", lw.sun < 0.5 && "is-low")}><Icon name="sun" size={14} />Sun {Math.round(lw.sun * 100)}%</span>
-                <span className={cx("vtag", "vtag--earth", lw.earth < 0.5 && "is-low")}><Icon name="earth" size={14} />Earth {Math.round(lw.earth * 100)}%</span>
+                <span className={cx("vtag", "vtag--sun", curWin.sun < 0.5 && "is-low")}><Icon name="sun" size={14} />Sun {Math.round(curWin.sun * 100)}%</span>
+                <span className={cx("vtag", "vtag--earth", curWin.earth < 0.5 && "is-low")}><Icon name="earth" size={14} />Earth {Math.round(curWin.earth * 100)}%</span>
               </div>
               <div className="grid4">
                 <Stat label="Start · UTC" value={fmtIso(startMs)} />
                 <Stat label="End · UTC" value={fmtIso(endMs)} />
-                <Stat label="Land between" value={landRun ? `${fmtShort(tl.startMs + landRun[0] * H)} – ${fmtShort(tl.startMs + (landRun[1] - 1) * H).replace(/^\w+ /, "")}` : "–"} />
+                <Stat label="Land between" value={landRun ? (() => {
+                  const a = fmtShort(tl.startMs + landRun[0] * H), b = fmtShort(tl.startMs + (landRun[1] - 1) * H);
+                  return a.split(" ")[0] === b.split(" ")[0] ? `${a} – ${b.split(" ")[1]}` : `${a} – ${b}`;
+                })() : "–"} />
                 <Stat label="Precision" value="± 1" unit="h" />
               </div>
               <div className="lwtrack">
                 <div className="lwtrack__labels">
-                  {[track.a, startMs, endMs, track.b].map((t) => <span key={t} style={{ left: track.pc(t) }}>{fmtShort(t)}</span>)}
+                  {[startMs, endMs].map((t) => <span key={t} style={{ left: track.pc(t) }}>{fmtShort(t)}</span>)}
                 </div>
-                <div className="lwtrack__bar">
-                  {landRun ? <span className="lwtrack__land" style={{ left: track.pc(tl.startMs + landRun[0] * H), width: `calc(${track.pc(tl.startMs + landRun[1] * H)} - ${track.pc(tl.startMs + landRun[0] * H)})` }} /> : null}
-                  <span className="lwtrack__mission" style={{ left: track.pc(startMs), width: `calc(${track.pc(endMs)} - ${track.pc(startMs)})` }} />
+                <div className="lwtrack__bar" title="Shaded: landing any time in this span gives at least 95% of the best mission · Outlined: the best mission">
+                  <span className="lwtrack__land" style={{ left: track.pc(track.landA), width: `calc(${track.pc(track.landB)} - ${track.pc(track.landA)})` }} />
+                  <span className="lwtrack__mission" style={{ left: track.pc(startMs), width: `max(4px, calc(${track.pc(endMs)} - ${track.pc(startMs)}))` }} />
                 </div>
               </div>
               <div className="row-16 wrap">
                 <div className="row-8"><span className="lbl">Length</span><span className="num-15">{formatDuration(D)}</span></div>
-                <div className="grow" />
-                <Btn icon="skip-forward" onClick={nextWin}>Next window</Btn>
-                <Btn variant="primary" icon="check" onClick={() => useDates(startMs, endMs)}>Use these dates</Btn>
               </div>
             </div>
           )}
         </Card>
         <Card className="f1">
-          <CardHead title="Now"><span className="muted-12">{fmtShort(timeMs)} · {fmtHM(timeMs)}</span></CardHead>
-          {tl ? (
+          <CardHead title="Sky at landing">
+            {startMs != null && <span className="muted-12">{fmtShort(startMs)} · {fmtHM(startMs)} UTC</span>}
+          </CardHead>
+          {tl && curWin ? (
             <div className="nowlist">
               {[["sun", "Sun", tl.sun, tl.sunAz, tl.sunEl], ["earth", "Earth", tl.earth, tl.earthAz, tl.earthEl]].map(([k, name, vis, az, el]) => (
                 <div key={k} className="nowrow">
                   <span className="nowrow__icon" style={{ color: `var(--${k})` }}><Icon name={k} size={18} /></span>
-                  <span className="nowrow__text"><b>{name}</b><span className="muted-12">az {az[now].toFixed(1)}° · el {el[now].toFixed(1)}°</span></span>
-                  <UpTag up={!!vis[now]} />
+                  <span className="nowrow__text"><b>{name}</b><span className="muted-12">az {az[curWin.start].toFixed(1)}° · el {el[curWin.start].toFixed(1)}°</span></span>
+                  <UpTag up={!!vis[curWin.start]} />
                 </div>
               ))}
             </div>
-          ) : <p className="muted-12">Needs the horizons and ephemeris files.</p>}
+          ) : <p className="muted-12">{tl ? "No landing time in this period." : "Needs the horizons and ephemeris files."}</p>}
         </Card>
       </div>
 
@@ -245,14 +303,13 @@ function Overview({ app, place }) {
 
       <div className="flexrow">
         <Card className="f2">
-          <CardHead title="Good days"><span className="muted-12">Hours per day with Sun and Earth</span></CardHead>
-          {tl ? <GoodDays tl={tl} missionWin={startMs != null ? [startMs, endMs] : null} /> : <p className="muted-12">–</p>}
+          <CardHead title="Good days"><span className="muted-12">Hours per day with Sun, with Earth and with both</span></CardHead>
+          {tl ? <GoodDays tl={tl} missionWin={startMs != null ? [startMs, endMs] : null} kinds={GOOD_DAY_KINDS} /> : <p className="muted-12">–</p>}
         </Card>
         <Card className="f1">
-          <CardHead title="Terrain"><span className="pill-sm">LOLA 240 m</span></CardHead>
+          <CardHead title="Ground data"><span className="muted-12">1 km cell</span></CardHead>
+          <GroundReadout data={data} pixel={p} />
           <div className="grid2 mt-12">
-            <Stat label="Slope" value={Number.isFinite(slope) ? slope.toFixed(1) : "–"} unit="°" />
-            <Stat label="Elevation" value={Number.isFinite(elev) ? `${elev >= 0 ? "+" : ""}${(elev / 1000).toFixed(1)}` : "–"} unit="km" />
             <Stat label="Horizon max" value={Number.isFinite(horMax) ? horMax.toFixed(1) : "–"} unit="°" />
             <Stat label="Observer" value={mission.observerM} unit="m" />
           </div>
@@ -305,13 +362,14 @@ function SkyTime({ app }) {
     let nightEnd = nightStart >= 0 ? nextChange(tl.sun, nightStart) : -1;
     const earthUp = !!tl.earth[now];
     const earthChange = nextChange(tl.earth, now);
-    const win = lw ? lw.windows.find(([a]) => a > now) : null;
+    // La mejor ventana del sitio (la misma que la tarjeta del Overview).
+    const win = lw && lw.best >= 0 ? lw.best : -1;
     // Eventos de las próximas semanas.
     const ev = [];
     for (let t = now + 1; t < tl.n && ev.length < 6; t++) {
       if (tl.sun[t] !== tl.sun[t - 1]) ev.push({ t, icon: tl.sun[t] ? "sunrise" : "sunset", name: tl.sun[t] ? "Sunrise" : "Sunset", color: "var(--sun)" });
       if (tl.earth[t] !== tl.earth[t - 1]) ev.push({ t, icon: "earth", name: tl.earth[t] ? "Earth rises" : "Earth sets", color: "var(--earth)" });
-      if (lw && lw.windows.some(([a]) => a === t)) ev.push({ t, icon: "calendar", name: "Window opens", color: "var(--both)" });
+      if (t === win) ev.push({ t, icon: "calendar", name: "Best landing", color: "var(--both)" });
     }
     return { at, sunUp, sunChange, nightStart, nightEnd, earthUp, earthChange, win, ev };
   }, [tl, lw, now]);
@@ -322,7 +380,8 @@ function SkyTime({ app }) {
   const a = now, b = Math.min(tl.n, now + 14 * 24);
   const pc = (t) => `${(((t - a) / (b - a)) * 100).toFixed(2)}%`;
   const lane = (arr, v = 1) => runs(arr, v, a, b);
-  const winRuns = lw ? lw.windows.map(([x, y]) => [Math.max(a, x), Math.min(b, y)]).filter(([x, y]) => y > x) : [];
+  // Carril "Mission": la misión de la mejor ventana, recortada a estas 2 semanas.
+  const winRuns = lw && lw.best >= 0 ? [[Math.max(a, lw.best), Math.min(b, lw.best + lw.D)]].filter(([x, y]) => y > x) : [];
   const dayTicks = [];
   for (let t = a; t <= b; t += 48) dayTicks.push(t);
 
@@ -345,16 +404,18 @@ function SkyTime({ app }) {
           <span className="muted-12">{info.earthChange > 0 ? fmtHM(info.at(info.earthChange)) : "–"}</span>
         </Card>
         <Card className="f1 f1--220">
-          <span className="lbl"><Icon name="calendar" size={12} />Next window</span>
-          <div className="big-28">{info.win ? fmtShort(info.at(info.win[0])) : "None"}</div>
-          <span className="muted-12">{info.win ? `${mission.durationDays} d mission` : "No better start later in the period"}</span>
+          <span className="lbl"><Icon name="calendar" size={12} />Best landing</span>
+          <div className="big-28">{info.win >= 0 ? fmtShort(info.at(info.win)) : "None"}</div>
+          <span className="muted-12">
+            {info.win < 0 ? "No complete mission fits" : info.win > now ? `in ${formatDuration(info.win - now)} · ${mission.durationDays} d mission` : info.win + (lw?.D || 0) > now ? "Mission under way at this time" : "Already passed in this period"}
+          </span>
         </Card>
       </div>
 
       <Card>
         <CardHead title="Next 2 weeks" size="sm" />
         <div className="lanes2w">
-          {[["Sun", lane(tl.sun), "var(--sun)"], ["Night", lane(tl.sun, 0), "var(--line-strong)"], ["Earth", lane(tl.earth), "var(--earth)"], ["Window", winRuns, "var(--both)"]].map(([name, rr, col]) => (
+          {[["Sun", lane(tl.sun), "var(--sun)"], ["Night", lane(tl.sun, 0), "var(--line-strong)"], ["Earth", lane(tl.earth), "var(--earth)"], ["Mission", winRuns, "var(--both)"]].map(([name, rr, col]) => (
             <div key={name} className="lane">
               <div className="lane__name"><span>{name}</span></div>
               <div className="lane__track">
@@ -410,66 +471,76 @@ function SkyTime({ app }) {
 
 /* --------------------------------------------------------------- Terrain */
 
-const TERRAIN_LAYERS = [
-  { value: "sun", label: "Sunlight" },
-  { value: "earth", label: "Earth view" },
-  { value: "ice", label: "Water ice" },
-  { value: "slope", label: "Slope" },
-  { value: "temp", label: "Temperature", disabled: true, title: "No temperature data yet" },
-  { value: "relief", label: "Relief" },
-];
+const TERRAIN_LAYERS = ["sun", "earth", "elevation", "slope", "rough", "temp", "shadow"];
+
+function GroundReadout({ data, pixel }) {
+  const { grid } = data.manifest;
+  const [x, y] = pixelXY(grid, Math.floor(pixel / grid.n), pixel % grid.n);
+  let nearestSquared = Infinity;
+  for (const [iceX, iceY] of iceDetections.points) {
+    nearestSquared = Math.min(nearestSquared, (x - iceX) ** 2 + (y - iceY) ** 2);
+  }
+  return (
+    <div className="ground-groups mt-12">
+      {GROUND_GROUPS.map((group) => (
+        <section className="ground-group" key={group.label}>
+          <h3 className="lbl">{group.label}</h3>
+          <dl className="ground-values">
+            {group.fields.map(({ key, label, format }) => {
+              const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : data.layers[key]?.[pixel];
+              return (
+                <div key={key}>
+                  <dt>{label}</dt>
+                  <dd>{Number.isFinite(value) ? format(value) : "No data"}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 function Terrain({ app, place }) {
-  const { data, terrainLayer, setTerrainLayer, LAYERS, valuesFor, sitesForMap, spotsForMap, setSelRef, legendFor, result } = app;
+  const [hoveredPixel, setHoveredPixel] = useState(null);
+  const { data, terrainLayer, setTerrainLayer, valuesFor, sitesForMap, spotsForMap, legendFor, showIceEvidence, setShowIceEvidence, go } = app;
   const key = terrainLayer;
-  const mapKey = key === "ice" ? "shadow" : key;
-  const layer = LAYERS[mapKey];
-  const values = valuesFor(mapKey);
-  const ends = legendFor(mapKey, values);
-  const p = place.p;
-  const l = data.layers;
-  const rows = [
-    ["sun", "Sunlight", result ? `${Math.round(result.sun[p] * 100)}%` : `${Math.round((l.avgSun?.[p] || 0) * 100)}%`, result ? "of the mission" : "18.6-year average"],
-    ["earth", "Earth view", result ? `${Math.round(result.earth[p] * 100)}%` : "–", "of the mission"],
-    ["ice", "Water ice", Number.isFinite(l.psrDistKm?.[p]) ? `${l.psrDistKm[p].toFixed(1)} km` : "–", "to permanent shadow"],
-    ["slope", "Slope", Number.isFinite(l.slope?.[p]) ? `${l.slope[p].toFixed(1)}°` : "–", "median, 240 m baseline"],
-    ["temp", "Temperature", "–", "no data yet"],
-    ["relief", "Relief", Number.isFinite(l.relief?.[p]) ? `${Math.round(l.relief[p])} m` : "–", "height range, 3 × 3 km"],
-  ];
-  const cur = rows.find((r) => r[0] === key);
+  const layer = LAYERS[key];
+  const values = valuesFor(key);
+  const ends = legendFor(key, values);
+  // El Mare analiza el punto elegido: el mapa se centra en él, solo muestra su
+  // marcador y un clic no cambia de punto (eso se hace en Explore).
+  const focusSites = place.type === "site" ? sitesForMap.filter((s) => s.key === place.key) : [];
+  const focusSpots = place.type === "spot" ? spotsForMap.filter((s) => s.key === place.key) : [];
   return (
     <div className="explore">
-      <section aria-label="Terrain map" className="mapsec">
-        <MapView data={data} layer={layer} values={values} sites={sitesForMap} spots={spotsForMap} selected={place} onSelect={setSelRef} onPick={(px) => setSelRef({ type: "pick", p: px })}>
-          <div className="overlay layerbar layerbar--tabs" role="tablist" aria-label="Layer">
-            {TERRAIN_LAYERS.map((o) => (
-              <button key={o.value} type="button" role="tab" aria-selected={key === o.value} disabled={o.disabled || (o.value === "earth" && !result)} title={o.title} className={cx("layerbar__b", key === o.value && "is-on")} onClick={() => setTerrainLayer(o.value)}>{o.label}</button>
-            ))}
+      <section aria-label={`Terrain around ${place.name}`} className="mapsec" data-theme="dark">
+        <MapView data={data} layer={layer} values={values} sites={focusSites} spots={focusSpots} selected={place}
+          showIceEvidence={showIceEvidence} hoverPixel={hoveredPixel} onHover={setHoveredPixel}>
+          <div className="overlay mapnote">
+            <Icon name="map-pin" size={14} />
+            <span>Terrain around {place.short}. Hover to read any cell.</span>
+            <button type="button" className="linkbtn linkbtn--12" onClick={() => go("explore")}>Change site in Explore<Icon name="chevron-right" size={12} /></button>
           </div>
-          <Legend layer={layer} legendEnds={ends} />
         </MapView>
+        <MapControls activeLayer={key} onLayer={setTerrainLayer} layerKeys={TERRAIN_LAYERS} legendEnds={ends}
+          showIceEvidence={showIceEvidence} onIceEvidence={setShowIceEvidence}>
+          <MapPointReadout data={data} layer={layer} values={values} hoveredPixel={hoveredPixel} selected={place}
+            datesFor={app.datesFor} fixedDates={app.fixedDates}
+            onEnter={() => setHoveredPixel(null)} />
+        </MapControls>
       </section>
       <aside className="rank">
         <Card pad="md2">
-          <CardHead title={cur[1]} size="sm"><Fidelity level="computed" /></CardHead>
-          <div className="big-40 mt-12">{cur[2]}</div>
-          <span className="muted-12">{cur[3]} at {place.short}</span>
-        </Card>
-        <Card pad="md2">
-          <CardHead title="Layers" size="sm" />
-          <div className="layerlist">
-            {rows.map(([k, name, v, sub]) => (
-              <button key={k} type="button" className={cx("layerlist__row", key === k && "is-on")} disabled={k === "temp"} onClick={() => setTerrainLayer(k)}>
-                <span className="grow">{name}<span className="muted-11"> · {sub}</span></span>
-                <span className="num-13">{v}</span>
-              </button>
-            ))}
-          </div>
+          <CardHead title="Ground data" size="sm"><span className="muted-12">1 km cell</span></CardHead>
+          <GroundReadout data={data} pixel={place.p} />
         </Card>
         <Card pad="md2">
           <CardHead title="Precision" size="sm" />
           <div className="datalist mt-12">
             <div><span className="lbl">Terrain</span><span>LOLA 240 m, 1 km grid</span></div>
+            <div><span className="lbl">Temperature, ice</span><span>LRO Diviner model, ~0.5 km, may sit a few 100 m off LOLA</span></div>
             <div><span className="lbl">Horizons</span><span>5° bins, 300 m – 300 km</span></div>
             <div><span className="lbl">Near field</span><span>Rocks and craters under 1 km are not resolved</span></div>
           </div>
@@ -505,18 +576,19 @@ export default function Site({ app }) {
     <div className="shell">
       {Rail}
       <main className="shell__main">
-        <Header app={app} place={place} idx={idx} total={siteList.length || 1} />
+        <Header app={app} place={place} idx={idx} />
         {tab === "overview" ? <Overview app={app} place={place} /> : null}
         {tab === "sky" ? <SkyTime app={app} /> : null}
         {tab === "terrain" ? <Terrain app={app} place={place} /> : null}
         {tab === "lander" ? (
           <section aria-label="Lander's view" className="mapsec mapsec--tall">
             <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-              <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={place} timeMs={timeMs} onTimeChange={setTimeMs} />
+              <Moon3D data={data} mission={moonMission} result={result} selected={place} timeMs={timeMs} onTimeChange={setTimeMs}
+                sites={sitesForMap.filter((s) => s.key === place.key)} spots={spotsForMap.filter((s) => s.key === place.key)} />
             </Suspense>
           </section>
         ) : null}
-        {TimeBarEl}
+        {(tab === "sky" || tab === "lander") && TimeBarEl}
       </main>
     </div>
   );
