@@ -81,29 +81,29 @@ equipo, no de una copia. Si el equipo lo cambia, se descarga de nuevo y se ejecu
 python tools/sync_design_system.py <carpeta_descargada> --version <id>
 ```
 
-## Pas 1 / T1 — Terreny (branca `Jan`)
+## Pas 1 / T1 — Pendent i seguretat del pendent (branca `Jan`)
 
 Alineat amb el **contracte v0.2** (`docs/DATA_CONTRACT.md`):
 
 | Capa | Contingut | Malla |
 |------|-----------|--------|
-| `terrain.slope` | Pendent físic (**graus**) | **G1K** 10916×5458 |
-| `suitability.slope` | Seguretat derivada **0–100** | mateixa G1K |
+| `terrain.slope` | **Pendent** físic (**graus**) | **G1K** 10916×5458 |
+| `suitability.slope` | **Seguretat del pendent** **0–100** | mateixa G1K |
 
 Fórmula: `suitability = 100 * max(0, 1 - slope_deg / 15)`.
 
 ```bash
 pip install -r requirements.txt   # rasterio scipy numpy …
-python3 scripts/terrain_safety.py --outdir data/pas1_global
+python3 scripts/pendent_seguretat.py --outdir data/pendent_g1k
 python tools/validate_layer.py layers/terrain.slope
 python tools/validate_layer.py layers/suitability.slope
 ```
 
 ```python
-from scripts.terrain_safety import compute_terrain_layers, TerrainLayers
-result = compute_terrain_layers()
-slope = result.slope_deg      # float32, graus
-safety = result.suitability   # float32 / alias result.safety, 0–100
+from scripts.pendent_seguretat import compute_pendent_layers, PendentLayers
+result = compute_pendent_layers()
+pendent = result.slope_deg           # float32, graus (pendent)
+seguretat = result.suitability       # float32 / alias result.safety, 0–100
 ```
 
 Els binaris G1K són grans (~238 MB + ~60 MB): es generen localment / release;

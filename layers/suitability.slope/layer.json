@@ -1,8 +1,8 @@
 {
   "id": "suitability.slope",
   "version": "0.2.0",
-  "title": "Slope suitability (0\u2013100)",
-  "description": "Derived 0\u2013100 score from terrain.slope. Optional companion layer (contract \u00a76).",
+  "title": "Seguretat del pendent (0–100)",
+  "description": "Matriu de seguretat derivada del pendent (terrain.slope). Capa opcional del contracte §6.",
   "units": "score",
   "validRange": [
     0,
@@ -11,7 +11,7 @@
   "kind": "static",
   "owner": "Jan / Equipo Global (T1)",
   "fidelity": "computed",
-  "method": "Derived from terrain.slope on G1K. function: 100 * max(0, 1 - slope_deg / 15)",
+  "method": "Derived from terrain.slope on G1K. function: 100 * max(0, 1 - slope_deg / 15). Generat amb scripts/pendent_seguretat.py.",
   "params": {
     "derivedFrom": "terrain.slope",
     "function": "100 * max(0, 1 - slope_deg / 15)",
@@ -19,9 +19,9 @@
   },
   "sources": [
     {
-      "name": "Derived from terrain.slope",
+      "name": "Derived from terrain.slope (pendent)",
       "url": "https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif",
-      "citation": "Contract v0.2 \u00a76 optional suitability layer"
+      "citation": "Contract v0.2 §6 optional suitability layer"
     }
   ],
   "files": [

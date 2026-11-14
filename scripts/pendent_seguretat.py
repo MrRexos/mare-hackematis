@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Pas 1 / T1 — Terreno (contracte de dades v0.2)
-==============================================
+Pas 1 / T1 — Pendent i seguretat del pendent (contracte v0.2)
+=============================================================
 Genera, sobre la malla oficial **G1K** (10 916 × 5 458):
 
-1. ``terrain.slope``     — pendent físic en **graus** (Float32)
-2. ``suitability.slope`` — seguretat derivada **0–100** (UInt8)
+1. ``terrain.slope``     — **pendent** físic en **graus** (Float32)
+2. ``suitability.slope`` — **seguretat del pendent** **0–100** (UInt8)
 
 Fórmula de seguretat (contracte §6)::
 
@@ -13,14 +13,14 @@ Fórmula de seguretat (contracte §6)::
 
 Objecte util::
 
-    from scripts.terrain_safety import compute_terrain_layers, TerrainLayers
-    result = compute_terrain_layers()
+    from scripts.pendent_seguretat import compute_pendent_layers, PendentLayers
+    result = compute_pendent_layers()
     slope = result.slope_deg      # float32, graus
     safety = result.suitability  # float32 0–100 (també result.safety)
 
 CLI::
 
-    python3 scripts/terrain_safety.py --export-layers
+    python3 scripts/pendent_seguretat.py --export-layers
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ CRS_MOON_EQC = CRS.from_proj4(
 # ---------------------------------------------------------------------------
 
 @dataclass
-class TerrainLayers:
+class PendentLayers:
     """
     Resultat del Pas 1 / T1.
 
@@ -123,7 +123,8 @@ class TerrainLayers:
 
 
 # Alias històric
-TerrainSafetyMatrix = TerrainLayers
+TerrainLayers = PendentLayers  # alias compat
+TerrainSafetyMatrix = PendentLayers
 
 
 # ---------------------------------------------------------------------------
@@ -239,10 +240,10 @@ def compute_slope_and_suitability(
     return slope, suitability
 
 
-def compute_terrain_layers(
+def compute_pendent_layers(
     url: str = URL_LOLA_GLOBAL,
     veto_deg: float = LLINDAR_VETO_GRAUS,
-) -> TerrainLayers:
+) -> PendentLayers:
     """Pipeline T1: G1K → slope (°) + suitability (0–100)."""
     print("=" * 60)
     print("  T1 / Pas 1 — terrain.slope + suitability.slope")
@@ -257,7 +258,7 @@ def compute_terrain_layers(
     )
     del dem_net
 
-    result = TerrainLayers(
+    result = PendentLayers(
         slope_deg=slope,
         suitability=suitability,
         transform=transform,
@@ -276,9 +277,10 @@ def compute_terrain_layers(
     return result
 
 
-# Alias
-compute_nearside_terrain_safety = compute_terrain_layers
-compute_global_terrain_safety = compute_terrain_layers
+# Alias (noms antics + API)
+compute_terrain_layers = compute_pendent_layers
+compute_nearside_terrain_safety = compute_pendent_layers
+compute_global_terrain_safety = compute_pendent_layers
 
 
 # ---------------------------------------------------------------------------
@@ -312,9 +314,9 @@ def _write_u8_score(path: Path, score_0_100: np.ndarray) -> tuple[float, float, 
 
 
 def export_contract_layers(
-    result: TerrainLayers,
+    result: PendentLayers,
     layers_root: Path = Path("layers"),
-    also_npy_dir: Path | None = Path("data/pas1_global"),
+    also_npy_dir: Path | None = Path("data/pendent_g1k"),
 ) -> dict[str, Path]:
     """
     Escriu:
@@ -351,7 +353,7 @@ def export_contract_layers(
         slope_meta = {
             "id": "terrain.slope",
             "version": "0.2.0",
-            "title": "Slope",
+            "title": "Pendent (slope)",
             "description": (
                 "Terrain slope in degrees relative to the local horizontal, "
                 "derived from LOLA LDEM resampled to G1K (~1 km baseline)."
@@ -387,7 +389,7 @@ def export_contract_layers(
     suit_meta = {
         "id": "suitability.slope",
         "version": "0.2.0",
-        "title": "Slope suitability (0–100)",
+        "title": "Seguretat del pendent (0–100)",
         "description": (
             "Derived 0–100 score from terrain.slope. "
             "Optional companion layer (contract §6); official scoring still uses degrees."
@@ -438,8 +440,8 @@ def export_contract_layers(
     if also_npy_dir is not None:
         also_npy_dir = Path(also_npy_dir)
         also_npy_dir.mkdir(parents=True, exist_ok=True)
-        np.save(also_npy_dir / "slope_deg.npy", result.slope_deg)
-        np.save(also_npy_dir / "safety.npy", result.suitability)
+        np.save(also_npy_dir / "pendent_deg.npy", result.slope_deg)
+        np.save(also_npy_dir / "seguretat_pendent.npy", result.suitability)
         meta = {
             "grid": GRID_ID,
             "shape": [result.height, result.width],
@@ -481,10 +483,10 @@ def update_catalog(layers_root: Path = Path("layers")) -> None:
 # ---------------------------------------------------------------------------
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="T1: G1K terrain.slope + suitability.slope")
+    p = argparse.ArgumentParser(description="T1/Pendent: G1K terrain.slope + suitability.slope")
     p.add_argument("--url", default=URL_LOLA_GLOBAL)
     p.add_argument("--veto", type=float, default=LLINDAR_VETO_GRAUS)
-    p.add_argument("--outdir", type=Path, default=Path("data/pas1_global"), help="npy de treball")
+    p.add_argument("--outdir", type=Path, default=Path("data/pendent_g1k"), help="npy de treball (pendent + seguretat)")
     p.add_argument("--layers-root", type=Path, default=Path("layers"))
     p.add_argument(
         "--export-layers",
@@ -498,9 +500,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    result = compute_terrain_layers(url=args.url, veto_deg=args.veto)
+    result = compute_pendent_layers(url=args.url, veto_deg=args.veto)
     print(
-        f"\nObjecte TerrainLayers  shape={result.shape}\n"
+        f"\nObjecte PendentLayers  shape={result.shape}\n"
         f"  slope_deg     [{np.nanmin(result.slope_deg):.2f}, {np.nanmax(result.slope_deg):.2f}] °\n"
         f"  suitability   [{result.suitability.min():.0f}, {result.suitability.max():.0f}]"
     )
@@ -511,8 +513,8 @@ def main(argv: list[str] | None = None) -> int:
         update_catalog(args.layers_root)
     else:
         args.outdir.mkdir(parents=True, exist_ok=True)
-        np.save(args.outdir / "slope_deg.npy", result.slope_deg)
-        np.save(args.outdir / "safety.npy", result.suitability)
+        np.save(args.outdir / "pendent_deg.npy", result.slope_deg)
+        np.save(args.outdir / "seguretat_pendent.npy", result.suitability)
     return 0
 
 

@@ -150,8 +150,8 @@
   </div>
 
   <h2>Ús al Pas 2</h2>
-  <pre>from scripts.terrain_safety import compute_global_terrain_safety
-result = compute_global_terrain_safety(cell_m=1000.0)
+  <pre>from scripts.pendent_seguretat import compute_pendent_layers
+result = compute_pendent_layers()  # G1K pendent + seguretat
 safety = result.safety  # matriu [0, 1]
 # viabilitat_total = w_s * safety * capa_iluminacio * capa_comms</pre>
 </main>

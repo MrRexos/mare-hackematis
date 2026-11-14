@@ -21,9 +21,10 @@ web/dist/
 .DS_Store
 Thumbs.db
 
-# Matrius de treball Pas 1 (Jan) — binarios grandes fuera de git
+# Matrius de treball Pas 1 / pendent (Jan) — binarios grandes fuera de git
 data/pas1/
 data/pas1_global/
+data/pendent_g1k/
 *.npy
 
 # Capas G1K globales (demasiado grandes para git; sí layer.json)
