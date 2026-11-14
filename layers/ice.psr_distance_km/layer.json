@@ -1,0 +1,33 @@
+{
+  "id": "ice.psr_distance_km",
+  "version": "0.1.0",
+  "title": "Distance to permanent shadow",
+  "units": "km",
+  "validRange": [
+    0,
+    1000
+  ],
+  "kind": "static",
+  "owner": "Equipo Polar + Web",
+  "fidelity": "computed",
+  "method": "Euclidean distance from the pixel centre to the nearest 120 m LOLA LPSR shadow cell.",
+  "params": {},
+  "sources": [
+    {
+      "name": "LOLA LPSR_75S_120M",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/img/",
+      "citation": "Mazarico et al. (2011), Icarus 211"
+    }
+  ],
+  "files": [
+    {
+      "grid": "PS1K",
+      "period": "static",
+      "path": "PS1K/static.f32",
+      "dtype": "float32",
+      "sha256": "27913f61d9c4903ba3faceb9d9c97ca1a208aecdc79f35be4f981f2199c161f9",
+      "min": 0.0,
+      "max": 12.191669464111328
+    }
+  ]
+}

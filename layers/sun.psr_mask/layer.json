@@ -1,0 +1,33 @@
+{
+  "id": "sun.psr_mask",
+  "version": "0.1.0",
+  "title": "Permanent shadow share",
+  "units": "fraction",
+  "validRange": [
+    0,
+    1
+  ],
+  "kind": "static",
+  "owner": "Equipo Polar + Web",
+  "fidelity": "computed",
+  "method": "Share of 120 m LOLA LPSR cells in permanent shadow inside each 1 km pixel (8×8 samples).",
+  "params": {},
+  "sources": [
+    {
+      "name": "LOLA LPSR_75S_120M",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/img/",
+      "citation": "Mazarico et al. (2011), Icarus 211"
+    }
+  ],
+  "files": [
+    {
+      "grid": "PS1K",
+      "period": "static",
+      "path": "PS1K/static.f32",
+      "dtype": "float32",
+      "sha256": "d4a0ba8cd8f3835cdc66b2828f1d879deb8d7b5facd082968f3c7b841c6f6745",
+      "min": 0.0,
+      "max": 1.0
+    }
+  ]
+}

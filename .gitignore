@@ -1,9 +1,22 @@
-# Sortides del pipeline (DEM / capes)
-data/
-*.npy
+# Python
+.venv/
 __pycache__/
 *.pyc
-.venv/
-venv/
 .pytest_cache/
+
+# Descargas grandes de la NASA (LOLA, SPICE): nunca al repositorio
+.cache/
+*.log
+
+# Web
+web/node_modules/
+web/dist/
+
+# Sistema
 .DS_Store
+Thumbs.db
+
+# Matrius de treball Pas 1 (Jan) — binarios grandes fuera de git
+data/pas1/
+data/pas1_global/
+*.npy

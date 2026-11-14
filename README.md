@@ -1,46 +1,80 @@
 # NASA Space Apps 2026 — Lunar Landing Site Navigator
 
-Avaluació de zones d'aterratge lunar (CLPS / Artemis) amb mapa de calor de viabilitat, combinant seguretat topogràfica (pendent), il·luminació solar i comunicacions amb la Terra.
+Selector de misiones al polo sur lunar: introduces la **ventana de aterrizaje** y la
+**duración** de la misión, y la web calcula un **mapa de calor de viabilidad** con
+datos oficiales de la NASA. El mapa combina exposición solar, visibilidad de la Tierra,
+relieve y cercanía al hielo, y marca los **puntos calientes** donde mejor aterrizar.
 
-## Pas 1 — Seguretat topogràfica
+Reto: [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/).
 
-### Mode global (recomanat per al Pas 2)
+- **Datos:** NASA LOLA (PDS) y NASA/JPL SPICE, validados contra JPL Horizons.
+- **Malla:** 1 km × 1 km, 83,5–90°S.
+- **Sin servidor:** web estática; el cálculo se hace en el navegador.
+- **Diseño:** design system compartido "Lunar Horizon".
 
-Processa **tota la Lluna** en requadres d’≈ **1 km²** i retorna un objecte amb la matriu `safety` ∈ [0, 1].
+- **Arquitectura completa:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Contrato de datos** para ampliar a la Luna entera y repartir el trabajo entre equipos:
+  [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md).
+- **Validar una capa antes de entregarla:**
+
+  ```bash
+  python tools/validate_layer.py layers/<id>
+  ```
+
+## Arrancar la web (solo ver)
+
+Los datos ya generados están en `web/public/data/`. Necesitas Node 18 o superior.
 
 ```bash
-pip install -r requirements.txt
-python3 scripts/terrain_safety.py --cell-m 1000 --outdir data/pas1_global
+cd web
+npm install
+npm run dev
 ```
 
-Ús programàtic:
+Abre http://localhost:5173.
+
+## Regenerar los datos (pipeline)
+
+Necesitas Python 3.11 o superior. La descarga ocupa unos 330 MB en `.cache/`, fuera de git.
+
+```bash
+python -m venv .venv
+.venv/Scripts/pip install -r pipeline/requirements.txt
+cd pipeline
+../.venv/Scripts/python -m moonsite.fetch
+../.venv/Scripts/python -m moonsite.build all
+```
+
+`build all` ejecuta, en orden:
+- capas fijas;
+- efemérides;
+- horizontes (unos minutos);
+- sitios;
+- validación (necesita red para JPL Horizons).
+
+## Design system
+
+Los ficheros de `web/public/design-system/` vienen del design system **compartido** del
+equipo, no de una copia. Si el equipo lo cambia, se descarga de nuevo y se ejecuta:
+
+```bash
+python tools/sync_design_system.py <carpeta_descargada> --version <id>
+```
+
+## Pas 1 — Seguretat de pendent (branca `Jan`)
+
+Cara **visible** de la Lluna (sense cara oculta), malla `G32N` (5760×5760, 32 px/°,
+lon −90°…+90°, lat −90°…+90°). Retorna una matriu de **seguretat 0–100** (veto ≥ 15° → 0).
+
+```bash
+pip install -r requirements.txt   # o pipeline/requirements.txt + rasterio/scipy
+python3 scripts/terrain_safety.py --outdir data/pas1_global
+```
 
 ```python
-from scripts.terrain_safety import compute_global_terrain_safety
-# o:
-# import sys; sys.path.insert(0, "scripts")
-# from terrain_safety import compute_global_terrain_safety
-
-result = compute_global_terrain_safety(cell_m=1000.0)
-safety = result.safety          # np.ndarray float32, [0, 1]
-# equivalent: np.asarray(result)
+from scripts.terrain_safety import compute_nearside_terrain_safety, TerrainSafetyMatrix
+result = compute_nearside_terrain_safety()
+safety = result.safety  # float32, shape (5760, 5760), valors 0–100
 ```
 
-Sortides:
-
-| Fitxer | Contingut |
-|--------|-----------|
-| `data/pas1_global/safety.npy` | Matriu de seguretat [0, 1] |
-| `data/pas1_global/safety.tif` | GeoTIFF georeferenciat |
-| `data/pas1_global/metadades.json` | CRS, transform, resolució |
-| `docs/pas1_global_seguretat.html` | Visualització HTML |
-
-Graella típica (@ 1 km): **10916 × 5458** cel·les (Equirectangular Moon).
-
-### Mode retall polar (AOI local)
-
-```bash
-python3 scripts/pas1_dem_pendent.py --outdir data/pas1 --window 2000 --lon 0.0 --lat -89.5
-```
-
-Visualització anterior: `docs/pas1_visualitzacio.html`.
+Visualització: `docs/pas1_global_seguretat.html`.
