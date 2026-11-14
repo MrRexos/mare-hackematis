@@ -26,5 +26,6 @@ data/pas1/
 data/pas1_global/
 *.npy
 
-# Capas G1K globales (demasiado grandes para git; sí layer.json)
+# Capas G1K globales (demasiado grandes para git; sí layer.json) y visores locales
 layers/**/G1K/
+layers/*/viewer_*.html
