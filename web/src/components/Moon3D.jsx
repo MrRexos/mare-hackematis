@@ -26,7 +26,7 @@ function srgbToLinear(c) {
   return (c / 255) ** 2.2;
 }
 
-export default function Moon3D({ data, mission, result, sites, spots, selected, viewSwitch }) {
+export default function Moon3D({ data, mission, result, sites, spots, selected, viewSwitch, timeMs: extTime, onTimeChange }) {
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
@@ -52,9 +52,13 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     return [Math.max(start, em.startUnixMs), Math.min(end, ephemEnd)];
   }, [result, mission, em]);
   const bestMs = selected?.metrics && result ? result.startMs + selected.metrics.best * result.stepMs : null;
-  const [timeMs, setTimeMs] = useState(() => bestMs ?? span[0]);
-  useEffect(() => { if (bestMs != null) setTimeMs(bestMs); }, [bestMs]);
-  useEffect(() => { setTimeMs((t) => Math.min(span[1], Math.max(span[0], t))); }, [span]);
+  // Con timeMs/onTimeChange la vista sigue el reloj compartido de la app (TimeBar externa).
+  const external = extTime != null && !!onTimeChange;
+  const [ownTime, setOwnTime] = useState(() => bestMs ?? span[0]);
+  const timeMs = external ? extTime : ownTime;
+  const setTimeMs = external ? onTimeChange : setOwnTime;
+  useEffect(() => { if (!external && bestMs != null) setOwnTime(bestMs); }, [bestMs, external]);
+  useEffect(() => { if (!external) setOwnTime((t) => Math.min(span[1], Math.max(span[0], t))); }, [span, external]);
 
   // Punto de referencia para las lecturas: lo seleccionado o el polo.
   const refPixel = selected ? selected.p : (n / 2) * n + n / 2;
@@ -401,7 +405,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
         <L.Switch label="Relief shading" description="Relief shading is a visual aid, not sunlight." checked={aid} onChange={setAid} />
         <L.FidelityBadge level="approximate" detail={`Not to scale: Sun ×${SUN_ENLARGE}, Earth ×${EARTH_ENLARGE}, relief ×${exag}. Light uses 1 km terrain horizons.`}>Not to scale</L.FidelityBadge>
       </L.Panel>
-      <div className="hud hud--timebar">
+      {external ? null : <div className="hud hud--timebar">
         <L.TimeBar
           start={span[0]}
           end={span[1]}
@@ -413,7 +417,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
           playIntervalMs={90}
           tone="overlay"
         />
-      </div>
+      </div>}
     </div>
   );
 }

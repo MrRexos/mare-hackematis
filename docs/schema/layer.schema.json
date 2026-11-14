@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/joeel14/NASA-Space-Apps-2026/docs/schema/layer.schema.json",
-  "title": "Layer metadata (data contract v0.1)",
+  "title": "Layer metadata (data contract v0.2)",
   "description": "layer.json that accompanies every matrix. See docs/DATA_CONTRACT.md.",
   "type": "object",
   "required": ["id", "version", "title", "units", "validRange", "kind", "owner", "fidelity", "method", "sources", "files"],
@@ -18,6 +18,10 @@
     "units": { "type": "string", "description": "fraction, m, deg, km, h, K, ppm, index, id" },
     "validRange": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
     "kind": { "enum": ["static", "stat", "series"] },
+    "combine": {
+      "enum": ["mean", "max", "none"],
+      "description": "How the web merges several periods: mean = hour-weighted mean (exact), max = maximum (approximate), none. Required for kind stat/series."
+    },
     "owner": { "type": "string" },
     "fidelity": { "enum": ["validated", "computed", "approximate", "low"] },
     "method": { "type": "string" },
@@ -55,7 +59,7 @@
         "required": ["grid", "period", "path", "dtype", "sha256"],
         "additionalProperties": false,
         "properties": {
-          "grid": { "enum": ["G32", "G8", "G4", "PS1K", "PN1K"] },
+          "grid": { "enum": ["G1K", "W4", "PS1K"], "description": "G1K = official 10916x5458 global grid; W4 = 1440x720 web derivative; PS1K = internal polar module" },
           "period": { "type": "string", "description": "'static' or a key of periods" },
           "path": { "type": "string" },
           "dtype": { "enum": ["float32", "int16", "uint16", "uint8"] },

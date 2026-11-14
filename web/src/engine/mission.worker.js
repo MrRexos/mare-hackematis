@@ -10,6 +10,7 @@
 import { DEG, localFrame, pixelXY, xyToUnit } from "./geometry.js";
 
 const SUN_RADIUS_KM = 695700;
+const EARTH_RADIUS_DEG = 0.95; // radio angular medio de la Tierra vista desde la Luna
 let S = null; // estado del init
 
 self.onmessage = (e) => {
@@ -35,12 +36,19 @@ function run(id, p) {
   // p.startIdx: primera hora posible de aterrizaje (índice en ephem)
   // p.landingHours: nº de horas candidatas de aterrizaje (ventana)
   // p.durationH: duración de la misión en superficie
-  const T = p.landingHours + p.durationH;
+  // Con periodos largos se muestrea cada `stride` horas (p.strideH) para que el
+  // cálculo siga siendo de segundos. Todo lo que sale va en horas.
+  const stride = Math.max(1, p.strideH | 0);
+  const landS = Math.max(1, Math.ceil(p.landingHours / stride));
+  const D = Math.max(1, Math.round(p.durationH / stride));
+  const T = landS + D;
+  const sunMode = p.sunMode || "any";   // any | centre | whole | fraction
+  const earthTol = p.earthMode === "any" ? EARTH_RADIUS_DEG : 0;
   const sun = new Float64Array(T * 3);
   const sunR = new Float64Array(T); // radio angular del Sol (grados)
   const earth = new Float64Array(T * 3);
   for (let t = 0; t < T; t++) {
-    const k = (p.startIdx + t) * 6;
+    const k = Math.min(ephemMeta.count - 1, p.startIdx + t * stride) * 6;
     const sx = ephem[k], sy = ephem[k + 1], sz = ephem[k + 2];
     const sd = Math.hypot(sx, sy, sz);
     sun[t * 3] = sx / sd; sun[t * 3 + 1] = sy / sd; sun[t * 3 + 2] = sz / sd;
@@ -99,7 +107,10 @@ function run(id, p) {
           const hz = hor[k0] * (1 - w) + hor[k0 + 1] * w;
           const r = sunR[t];
           const q = (sEl - hz) / r;
-          f = q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
+          if (sunMode === "any") f = q > -1 ? 1 : 0;
+          else if (sunMode === "centre") f = q >= 0 ? 1 : 0;
+          else if (sunMode === "whole") f = q >= 1 ? 1 : 0;
+          else f = q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
         }
         sunF[t] = f;
 
@@ -113,7 +124,7 @@ function run(id, p) {
           const a = (eAz + 360) % 360 / binDeg;
           const k0 = a | 0;
           const w = a - k0;
-          v = eEl > hor[k0] * (1 - w) + hor[k0 + 1] * w ? 1 : 0;
+          v = eEl + earthTol > hor[k0] * (1 - w) + hor[k0 + 1] * w ? 1 : 0;
         }
         earthV[t] = v;
       }
@@ -124,9 +135,8 @@ function run(id, p) {
         cumE[t + 1] = cumE[t] + earthV[t];
         cumB[t + 1] = cumB[t] + (sunF[t] >= 0.5 && earthV[t] ? 1 : 0);
       }
-      const D = p.durationH;
       let bestC = 0, bestV = -1;
-      for (let c = 0; c < p.landingHours; c += step) {
+      for (let c = 0; c < landS; c += step) {
         const s = (cumS[c + D] - cumS[c]) / D;
         const ea = (cumE[c + D] - cumE[c]) / D;
         const val = wS * s + wE * ea + 1e-6 * s;
@@ -135,14 +145,14 @@ function run(id, p) {
       out.sun[local] = (cumS[bestC + D] - cumS[bestC]) / D;
       out.earth[local] = (cumE[bestC + D] - cumE[bestC]) / D;
       out.both[local] = (cumB[bestC + D] - cumB[bestC]) / D;
-      out.best[local] = bestC;
+      out.best[local] = bestC * stride;
 
       // Noche continua más larga dentro de la mejor ventana (Sol < 5 % del disco).
       let run = 0, longest = 0;
       for (let t = bestC; t < bestC + D; t++) {
         if (sunF[t] < 0.05) { run += 1; if (run > longest) longest = run; } else run = 0;
       }
-      out.night[local] = longest;
+      out.night[local] = longest * stride;
     }
     if ((i - r0) % 8 === 7) self.postMessage({ type: "progress", id, done: i - r0 + 1 });
   }
