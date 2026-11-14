@@ -181,7 +181,8 @@ export default function App() {
   const current = calculation?.request === request ? calculation : null;
   const result = problem ? null : current?.result ?? null;
   const runError = problem ? null : current?.error ?? null;
-  const running = engineReady && !problem && !result && !runError;
+  // En la Luna entera calcula su propio motor (GlobalExplore): aquí no hay nada en marcha.
+  const running = engineReady && !problem && !result && !runError && region !== "moon";
   const progress = current?.progress ?? 0;
 
   useEffect(() => {

@@ -105,6 +105,10 @@ export function SettingsDrawer({ app, onClose }) {
               {limits.maxNightH != null ? (
                 <L.Slider label="Battery autonomy" value={limits.maxNightH} min={6} max={240} step={6} onChange={(v) => setLimits({ ...limits, maxNightH: v })} format={(v) => `${v} h`} />
               ) : null}
+              <Toggle checked={limits.minEarthPct != null} onChange={(v) => setLimits({ ...limits, minEarthPct: v ? 50 : null })} label="Require Earth contact" description="Leave out spots where the Earth is in view for too little of the mission (no direct radio link)." />
+              {limits.minEarthPct != null ? (
+                <L.Slider label="Minimum Earth contact" value={limits.minEarthPct} min={5} max={100} step={5} onChange={(v) => setLimits({ ...limits, minEarthPct: v })} format={(v) => `${v}%`} description="Share of the mission with the Earth above the horizon." />
+              ) : null}
             </div>
           </Section>
         </div>

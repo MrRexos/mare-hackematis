@@ -62,7 +62,8 @@ function apportion(w, keys, total = 100) {
 
 export const PRESETS = Object.fromEntries(Object.entries(RAW_PRESETS).map(([k, v]) => [k, apportion(v, SCORED_KEYS)]));
 export const DEFAULT_WEIGHTS = PRESETS.Balanced;
-export const DEFAULT_LIMITS = { maxSlopeDeg: 10, iceReachKm: 10, excludePsr: true, maxNightH: null };
+// minEarthPct: % mínimo de la misión con la Tierra visible (enlace directo); null = sin límite.
+export const DEFAULT_LIMITS = { maxSlopeDeg: 10, iceReachKm: 10, excludePsr: true, maxNightH: null, minEarthPct: null };
 
 /** Mueve un peso y reparte el resto entre los demás factores (suma 100). */
 export function rebalance(w, key, value) {
@@ -102,6 +103,7 @@ export function exclusionAt(p, mission, layers, limits) {
   if (limits.excludePsr && layers.psrShare?.[p] > 0.5) return "Mostly in permanent shadow";
   if (mission && limits.maxNightH != null && mission.night[p] > limits.maxNightH) return "Night longer than battery autonomy";
   if (mission && !Number.isFinite(mission.sun[p])) return "No horizon data";
+  if (mission && limits.minEarthPct != null && mission.earth[p] * 100 < limits.minEarthPct) return `Earth in view ${Math.round(mission.earth[p] * 100)}% of the mission, below ${limits.minEarthPct}%`;
   return null;
 }
 

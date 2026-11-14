@@ -20,7 +20,8 @@
 //   temp: confort térmico, hora a hora. Cada hora de la misión puntúa según la temperatura de
 //   la superficie (ver TEMP_BAND) y el factor es la media de esas notas: así una noche a 95 K
 //   y un mediodía a 390 K penalizan los dos, aunque la media de ambos parezca templada.
-// Filtros: pendiente > máxima, noche más larga que la autonomía (si se activa).
+// Filtros: pendiente > máxima, noche más larga que la autonomía y contacto mínimo con la
+// Tierra (los dos últimos, si se activan en Mission settings).
 
 import { MissionEngine } from "./missionEngine.js";
 import { TEMP_COLD_K, TEMP_MILD_K } from "./score.js";
@@ -106,6 +107,7 @@ export function globalExclusionAt(p, L, limits) {
   if (L.slope && !Number.isFinite(slope)) return "No terrain data";
   if (L.slope && slope > limits.maxSlopeDeg) return `Mean slope ${slope.toFixed(1)}° is above ${limits.maxSlopeDeg}°`;
   if (L.night && limits.maxNightH != null && L.night[p] > limits.maxNightH) return "Night longer than battery autonomy";
+  if (L.earth && limits.minEarthPct != null && !(L.earth[p] * 100 >= limits.minEarthPct)) return `Earth in view ${Math.round(L.earth[p] * 100)}% of the mission, below ${limits.minEarthPct}%`;
   return null;
 }
 
