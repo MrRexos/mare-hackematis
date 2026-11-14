@@ -72,6 +72,35 @@ No necesita los horizontes de T2: traza el horizonte de LOLA solo en los acimuts
 que pasa la Tierra y solo en las celdas donde la libración deja la respuesta en duda.
 Referencia: un mes en G1K, unos 20 min con 2 núcleos (escala con los núcleos).
 
+## Capa global de luz (trabajo T3)
+
+`sun.visible_fraction.mean` (fracción del disco solar visible sobre el horizonte LOLA),
+`sun.longest_night_h.max` (noche continua más larga, Sol visible < 0,05) y
+`suitability.sun` (0–100) en la malla G1K, la misma de todas las capas. Datos: LOLA
+LDEM_64 (NASA PDS) y SPICE DE440 (NASA/JPL NAIF).
+
+```bash
+cd pipeline
+../.venv/Scripts/python -m moonsite.fetch global                 # si aún no está
+../.venv/Scripts/python -m moonsite.sun_global 2026-11-14         # el día que llega al programa
+../.venv/Scripts/python -m moonsite.sun_global --mes 2026-11
+../.venv/Scripts/python -m moonsite.sun_global --estandar        # 60 meses + media 2026-2030
+cd ..
+python tools/validate_layer.py layers/sun.visible_fraction.mean
+```
+
+Referencia: un día en G1K con muestras cada 10 min, unos 12 min con 2 núcleos.
+
+## Ver una capa sobre el mapa de la Luna
+
+```bash
+python tools/view_layer.py layers/sun.visible_fraction.mean [--periodo 2026-11-14]
+```
+
+Genera `layers/<id>/viewer_<periodo>.html` (se abre con doble clic): vista global y de los
+dos polos, relieve LOLA de fondo, puntos de referencia (Shackleton, Apollo 11, Tycho…) y,
+al pasar el ratón, latitud, longitud, fila/columna G1K y valor. Sirve para cualquier capa.
+
 ## Design system
 
 Los ficheros de `web/public/design-system/` vienen del design system **compartido** del

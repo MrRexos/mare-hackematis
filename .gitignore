@@ -15,3 +15,9 @@ web/dist/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Capas G1K: en git solo layer.json (contrato §3.3); los binarios van a una release
+layers/*/G1K/*.u8
+layers/*/G1K/*.u16
+layers/*/G1K/*.f32
+layers/*/viewer_*.html
