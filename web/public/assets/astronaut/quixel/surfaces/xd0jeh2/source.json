@@ -1,0 +1,7 @@
+{
+  "id": "xd0jeh2",
+  "name": "Dry Sand",
+  "sourceArchive": "dry_sand_xd0jeh2_1k.zip",
+  "scanArea": "2x2 m",
+  "import": "Original color/normal; R=AO, G=roughness, B=0. No displacement."
+}

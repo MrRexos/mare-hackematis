@@ -1,0 +1,7 @@
+{
+  "id": "pkcbq0",
+  "name": "Soil Sand",
+  "sourceArchive": "soil_sand_pkcbq0_1k.zip",
+  "scanArea": "1x1 m",
+  "import": "Original color/normal; R=AO, G=roughness, B=0. No displacement."
+}

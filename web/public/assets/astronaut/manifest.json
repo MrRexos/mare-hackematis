@@ -1,0 +1,125 @@
+{
+  "version": 3,
+  "description": "Owner-supplied Quixel surfaces and eight Fab/Quixel rock packs. Lunar color grading; decorative placement is not measured geology.",
+  "models": [
+    {
+      "name": "Small Rocks Pack",
+      "file": "quixel/rocks/small_rocks_pack_ucdjdfmva.glb",
+      "source": "https://www.fab.com/listings/3aeaa063-c37f-4f85-b010-73e3f65e8e59",
+      "sourceFile": "small_rocks_pack_ucdjdfmva_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 5,
+      "triangles": 10978,
+      "farTriangles": 1426
+    },
+    {
+      "name": "Limestone Rocks",
+      "file": "quixel/rocks/limestone_rocks_ub3sddsda.glb",
+      "source": "https://www.fab.com/listings/29ad6190-2546-4bfd-b3b2-bf609f6a4dec",
+      "sourceFile": "limestone_rocks_ub3sddsda_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 1,
+      "triangles": 3418,
+      "farTriangles": 444
+    },
+    {
+      "name": "Thai Beach Rocks",
+      "file": "quixel/rocks/thai_beach_rocks_ueopcguga.glb",
+      "source": "https://www.fab.com/listings/bf1cf231-d846-4045-82f0-448d572345be",
+      "sourceFile": "thai_beach_rocks_ueopcguga_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 1,
+      "triangles": 2200,
+      "farTriangles": 286
+    },
+    {
+      "name": "Volcanic Dolerite Rocks",
+      "file": "quixel/rocks/volcanic_dolerite_rocks_qjmvt.glb",
+      "source": "https://www.fab.com/listings/cf620093-32aa-490d-93b1-0854081ad17f",
+      "sourceFile": "volcanic_dolerite_rocks_qjmvt_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 1,
+      "triangles": 2200,
+      "farTriangles": 286
+    },
+    {
+      "name": "Icelandic Porous Rocks",
+      "file": "quixel/rocks/icelandic_porous_rocks_skxqf.glb",
+      "source": "https://www.fab.com/listings/559ccca3-e4ac-4fbc-8612-4c8ad977cad7",
+      "sourceFile": "icelandic_porous_rocks_skxqf_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 1,
+      "triangles": 3298,
+      "farTriangles": 428
+    },
+    {
+      "name": "Sharp Rocks Set",
+      "file": "quixel/rocks/sharp_rocks_set_rbov2.glb",
+      "source": "https://www.fab.com/listings/4ecef2c6-4ef7-414a-91d2-6ae87b91b6c2",
+      "sourceFile": "sharp_rocks_set_rbov2_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 4,
+      "triangles": 8797,
+      "farTriangles": 1139
+    },
+    {
+      "name": "Small Limestone Rocks Pack",
+      "file": "quixel/rocks/small_limestone_rocks_pack_ufllcisva.glb",
+      "source": "https://www.fab.com/listings/14920092-8eba-4f00-acd5-5ac62881b327",
+      "sourceFile": "small_limestone_rocks_pack_ufllcisva_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 6,
+      "triangles": 13200,
+      "farTriangles": 1716
+    },
+    {
+      "name": "Granite Rocks",
+      "file": "quixel/rocks/granite_rocks_pfyss.glb",
+      "source": "https://www.fab.com/listings/da9190e9-43a5-4823-95b9-e11a44878206",
+      "sourceFile": "granite_rocks_pfyss_mid.glb",
+      "license": "Fab Standard License · downloaded through the owner's account",
+      "variants": 1,
+      "triangles": 1406,
+      "farTriangles": 190
+    }
+  ],
+  "surface": null,
+  "decoders": {
+    "ktx2": null,
+    "draco": null
+  },
+  "surfaces": [
+    {
+      "id": "vd0lbfd",
+      "name": "Dry Sand",
+      "tileMeters": 1,
+      "color": "quixel/surfaces/vd0lbfd/color.jpg",
+      "normal": "quixel/surfaces/vd0lbfd/normal.jpg",
+      "orm": "quixel/surfaces/vd0lbfd/orm.png"
+    },
+    {
+      "id": "pkcbq0",
+      "name": "Soil Sand",
+      "tileMeters": 1,
+      "color": "quixel/surfaces/pkcbq0/color.jpg",
+      "normal": "quixel/surfaces/pkcbq0/normal.jpg",
+      "orm": "quixel/surfaces/pkcbq0/orm.png"
+    },
+    {
+      "id": "xd0jeh2",
+      "name": "Dry Sand",
+      "tileMeters": 2,
+      "color": "quixel/surfaces/xd0jeh2/color.jpg",
+      "normal": "quixel/surfaces/xd0jeh2/normal.jpg",
+      "orm": "quixel/surfaces/xd0jeh2/orm.png"
+    },
+    {
+      "id": "sgfodj1a",
+      "name": "Sand",
+      "tileMeters": 2,
+      "color": "quixel/surfaces/sgfodj1a/color.jpg",
+      "normal": "quixel/surfaces/sgfodj1a/normal.jpg",
+      "orm": "quixel/surfaces/sgfodj1a/orm.png"
+    }
+  ]
+}

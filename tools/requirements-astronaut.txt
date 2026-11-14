@@ -1,0 +1,7 @@
+numpy>=1.26
+rasterio>=1.4
+spiceypy>=6.0
+requests>=2.31
+certifi>=2026.10
+pytest>=8.0
+Pillow>=10.0

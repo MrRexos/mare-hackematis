@@ -11,6 +11,8 @@ __pycache__/
 # Web
 web/node_modules/
 web/dist/
+web/.playwright-cli/
+web/output/
 
 # Sistema
 .DS_Store

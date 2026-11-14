@@ -1,6 +1,6 @@
 // 03 Site: ficha de un lugar con pestañas Overview, Sky & Time, Terrain y Lander's View.
 
-import { Suspense, lazy, useMemo } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import MapView from "../components/MapView.jsx";
 import { Icon, Btn, Card, CardHead, Tabs, Fidelity, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, ProfileChip, fmtShort, fmtHM, fmtIso } from "../ui/Shell.jsx";
@@ -10,6 +10,7 @@ import { formatDuration } from "../engine/geometry.js";
 import { Legend } from "./Explore.jsx";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
+const AstronautMode = lazy(() => import("../astronaut/AstronautMode.jsx"));
 const H = 3600e3;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -482,6 +483,7 @@ function Terrain({ app, place }) {
 /* ------------------------------------------------------------------ página */
 
 export default function Site({ app }) {
+  const [astronaut, setAstronaut] = useState(false);
   const { selected, Rail, TimeBarEl, siteList, data, moonMission, result, sitesForMap, spotsForMap, timeMs, setTimeMs, setSelRef, tab, go } = app;
   const place = selected;
   if (!place || !data) {
@@ -509,19 +511,20 @@ export default function Site({ app }) {
         {tab === "overview" ? <Overview app={app} place={place} /> : null}
         {tab === "sky" ? <SkyTime app={app} /> : null}
         {tab === "terrain" ? <Terrain app={app} place={place} /> : null}
-        {tab === "lander" ? (
+        {tab === "lander" && !astronaut ? (
           <section aria-label="Lander's view" className="mapsec mapsec--tall">
             <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
               <Moon3D
                 data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={place}
                 timeMs={timeMs} onTimeChange={setTimeMs} onPick={(p) => setSelRef({ type: "pick", p })}
-                toolbarActions={<IconBtn icon="astronaut-helmet" label="First-person terrain view (coming soon)" variant="raised" size={36} iconSize={20} disabled />}
+                toolbarActions={<IconBtn icon="astronaut-helmet" label="Astronaut Mode" variant="raised" size={36} iconSize={20} onClick={() => setAstronaut(true)} />}
               />
             </Suspense>
           </section>
         ) : null}
-        {TimeBarEl}
+        {!astronaut ? TimeBarEl : null}
       </main>
+      {astronaut ? <Suspense fallback={<div role="status" className="ovl ovl--center"><span className="state__title">Loading Astronaut Mode…</span></div>}><AstronautMode app={app} onClose={() => setAstronaut(false)} /></Suspense> : null}
     </div>
   );
 }

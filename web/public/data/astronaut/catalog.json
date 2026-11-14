@@ -1,0 +1,892 @@
+{
+  "version": 1,
+  "generated": "2026-11-14T15:46:17.703304+00:00",
+  "sources": [
+    {
+      "id": "DM1_final_adj_5mpp_surf",
+      "name": "DM1_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/DM1/DM1_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        154000.0,
+        71500.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        154000.0,
+        51500.0,
+        174000.0,
+        71500.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "DM2_final_adj_5mpp_surf",
+      "name": "DM2_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/DM2/DM2_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        147000.0,
+        105000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        147000.0,
+        85000.0,
+        167000.0,
+        105000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Haworth_final_adj_5mpp_surf",
+      "name": "Haworth_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Haworth/Haworth_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 5960,
+      "height": 5960,
+      "origin": [
+        -52900.0,
+        105400.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -52900.0,
+        75600.0,
+        -23100.0,
+        105400.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM1_final_adj_5mpp_surf",
+      "name": "LM1_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM1/LM1_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        2000.0,
+        18000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        2000.0,
+        -2000.0,
+        22000.0,
+        18000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM2_final_adj_5mpp_surf",
+      "name": "LM2_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM2/LM2_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        2000.0,
+        67000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        2000.0,
+        47000.0,
+        22000.0,
+        67000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM3_final_adj_5mpp_surf",
+      "name": "LM3_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM3/LM3_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        4000.0,
+        57000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        4000.0,
+        37000.0,
+        24000.0,
+        57000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM4_final_adj_5mpp_surf",
+      "name": "LM4_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM4/LM4_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        9000.0,
+        35000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        9000.0,
+        15000.0,
+        29000.0,
+        35000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM5_final_adj_5mpp_surf",
+      "name": "LM5_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM5/LM5_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        30000.0,
+        21000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        30000.0,
+        1000.0,
+        50000.0,
+        21000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM6_final_adj_5mpp_surf",
+      "name": "LM6_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM6/LM6_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        49000.0,
+        30000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        49000.0,
+        10000.0,
+        69000.0,
+        30000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM7_final_adj_5mpp_surf",
+      "name": "LM7_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM7/LM7_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        54000.0,
+        10000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        54000.0,
+        -10000.0,
+        74000.0,
+        10000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LM8_final_adj_5mpp_surf",
+      "name": "LM8_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/LM8/LM8_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        60000.0,
+        50000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        60000.0,
+        30000.0,
+        80000.0,
+        50000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "NPA_final_adj_5mpp_surf",
+      "name": "NPA_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/NPA/NPA_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        -98500.0,
+        39500.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -98500.0,
+        19500.0,
+        -78500.0,
+        39500.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "NPB_final_adj_5mpp_surf",
+      "name": "NPB_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/NPB/NPB_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        175000.0,
+        11500.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        175000.0,
+        -8500.0,
+        195000.0,
+        11500.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "NPC_final_adj_5mpp_surf",
+      "name": "NPC_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/NPC/NPC_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        122500.0,
+        -89500.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        122500.0,
+        -109500.0,
+        142500.0,
+        -89500.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "NPD_final_adj_5mpp_surf",
+      "name": "NPD_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/NPD/NPD_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        13000.0,
+        166000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        13000.0,
+        146000.0,
+        33000.0,
+        166000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "SL2_final_adj_5mpp_surf",
+      "name": "SL2_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/SL2/SL2_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        -58500.0,
+        33000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -58500.0,
+        13000.0,
+        -38500.0,
+        33000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "SL3_final_adj_5mpp_surf",
+      "name": "SL3_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/SL3/SL3_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        -38700.0,
+        3900.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -38700.0,
+        -16100.0,
+        -18700.0,
+        3900.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Shoemaker_final_adj_5mpp_surf",
+      "name": "Shoemaker_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Shoemaker/Shoemaker_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        66000.0,
+        49000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        66000.0,
+        29000.0,
+        86000.0,
+        49000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Site01_final_adj_5mpp_surf",
+      "name": "Site01_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 3200,
+      "height": 3200,
+      "origin": [
+        -19000.0,
+        -4000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -19000.0,
+        -20000.0,
+        -3000.0,
+        -4000.0
+      ],
+      "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Site04_final_adj_5mpp_surf",
+      "name": "Site04_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site04/Site04_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 3200,
+      "height": 3200,
+      "origin": [
+        -9000.0,
+        1000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -9000.0,
+        -15000.0,
+        7000.0,
+        1000.0
+      ],
+      "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Site06_final_adj_5mpp_surf",
+      "name": "Site06_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site06/Site06_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4000,
+      "height": 4000,
+      "origin": [
+        74000.0,
+        120000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        74000.0,
+        100000.0,
+        94000.0,
+        120000.0
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Site07_final_adj_5mpp_surf",
+      "name": "Site07_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site07/Site07_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 3200,
+      "height": 3200,
+      "origin": [
+        22000.0,
+        -12000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        22000.0,
+        -28000.0,
+        38000.0,
+        -12000.0
+      ],
+      "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Site11_final_adj_5mpp_surf",
+      "name": "Site11_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site11/Site11_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 3200,
+      "height": 3200,
+      "origin": [
+        -45000.0,
+        23000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -45000.0,
+        7000.0,
+        -29000.0,
+        23000.0
+      ],
+      "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "Site23_final_adj_5mpp_surf",
+      "name": "Site23_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site23/Site23_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 4200,
+      "height": 4200,
+      "origin": [
+        -11000.0,
+        132000.0
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -11000.0,
+        111000.0,
+        10000.0,
+        132000.0
+      ],
+      "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    },
+    {
+      "id": "LDEM_83S_10MPP_ADJ",
+      "name": "LDEM_83S_10MPP_ADJ.TIF",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_83S_10MPP_ADJ.TIF",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/90",
+      "resolutionM": 10.0,
+      "width": 43280,
+      "height": 43280,
+      "origin": [
+        -216400.0,
+        216400.0
+      ],
+      "pixelSize": [
+        10.0,
+        -10.0
+      ],
+      "bounds": [
+        -216400.0,
+        -216400.0,
+        216400.0,
+        216400.0
+      ],
+      "crs": "PROJCS[\"Moon (2015) - Sphere / Ocentric / South Polar\",GEOGCS[\"Moon (2015) - Sphere / Ocentric\",DATUM[\"Moon (2015) - Sphere\",SPHEROID[\"Moon (2015) - Sphere\",1737400,0]],PRIMEM[\"Reference Meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution."
+    }
+  ],
+  "patches": [
+    {
+      "id": "connecting-ridge-demo",
+      "name": "Site01_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 441,
+      "height": 441,
+      "origin": [
+        -12367.5,
+        -11197.5
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -12367.5,
+        -13397.5,
+        -10167.5,
+        -11197.5
+      ],
+      "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution.",
+      "file": "connecting-ridge-demo.f32",
+      "dtype": "float32",
+      "center": [
+        -89.45,
+        222.5
+      ],
+      "validFraction": 1.0,
+      "sha256": "169f2a607bd4b0f4c784ca7c28b6f305fa512a97caae911c78c34ebc0fe0307f"
+    },
+    {
+      "id": "haworth-demo",
+      "name": "Haworth_final_adj_5mpp_surf.tif",
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Haworth/Haworth_final_adj_5mpp_surf.tif",
+      "provider": "NASA GSFC / LRO LOLA",
+      "productUrl": "https://pgda.gsfc.nasa.gov/products/78",
+      "resolutionM": 5.0,
+      "width": 441,
+      "height": 441,
+      "origin": [
+        -36562.5,
+        89492.5
+      ],
+      "pixelSize": [
+        5.0,
+        -5.0
+      ],
+      "bounds": [
+        -36562.5,
+        87292.5,
+        -34362.5,
+        89492.5
+      ],
+      "crs": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",1737400,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+      "frame": "MOON_ME_DE421",
+      "verticalDatum": "Height in meters above the 1737400 m reference sphere",
+      "noData": null,
+      "uncertainty": "Not supplied per sample; see product error maps. Pixel spacing is not measurement accuracy.",
+      "interpolation": "Source LOLA DEM includes interpolated pixels; 5 m spacing is not 5 m effective resolution.",
+      "file": "haworth-demo.f32",
+      "dtype": "float32",
+      "center": [
+        -86.86,
+        338.14
+      ],
+      "validFraction": 1.0,
+      "sha256": "1b66a1db2830cc15e7ae49f36efcf452905a7584d485f1f3d6d2fd915633cff7"
+    }
+  ],
+  "demo": {
+    "lat": -89.45,
+    "lon": 222.5,
+    "name": "Connecting ridge · NASA LOLA"
+  },
+  "regional": {
+    "id": "LOLA-LDEM-75S-240M",
+    "file": "regional.i16",
+    "dtype": "int16",
+    "scale": 0.5,
+    "width": 1686,
+    "height": 1686,
+    "origin": [
+      -202200.0,
+      202200.0
+    ],
+    "pixelSize": [
+      240.0,
+      -240.0
+    ],
+    "resolutionM": 240.0,
+    "noData": -32768,
+    "name": "LOLA LDEM_75S_240M",
+    "provider": "NASA PDS / LRO LOLA",
+    "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/ldem_75s_240m.img",
+    "productUrl": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/ldem_75s_240m.lbl",
+    "frame": "MOON_ME_DE421",
+    "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
+    "verticalDatum": "Height above the 1737400 m reference sphere",
+    "uncertainty": "Not supplied per sample; regional fallback. Interpolation does not add measured detail."
+  }
+}
