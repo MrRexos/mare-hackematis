@@ -17,7 +17,7 @@ La malla G1K es mucho más fina que el dato (huella real de ~60–150 km): el re
 bilineal solo suaviza, no añade detalle.
 
 Uso (desde pipeline/):
-    python -m moonsite.prospector fetch          # descarga los 6 .dat (≈3 MB) a .cache/
+    python -m moonsite.prospector fetch          # descarga los 6 .dat (≈3 MB) y la tabla GRS de 5° a .cache/
     python -m moonsite.prospector build          # escribe layers/<id>/layer.json y G1K/static.u16
 """
 
@@ -38,7 +38,9 @@ OWNER = "Joel (T9 · composición y radiactividad)"
 # Paso del UInt16 por capa (valor = entero × scale); 65 535 = sin dato
 U16_SCALE = {"ice.hydrogen_ppm": 0.01, "regolith.feo_wt_pct": 0.001, "regolith.tio2_wt_pct": 0.001,
              "radiation.thorium_ppm": 0.001, "radiation.potassium_ppm": 0.1, "radiation.uranium_ppm": 0.0001,
-             "radiation.natural_gamma_dose": 0.01}
+             "radiation.natural_gamma_dose": 0.01, "ice.water_equivalent_wt_pct": 0.0001,
+             "regolith.mgo_wt_pct": 0.001, "regolith.al2o3_wt_pct": 0.001, "regolith.sio2_wt_pct": 0.001,
+             "regolith.cao_wt_pct": 0.001}
 COLS, ROWS = 10916, 5458
 STEP = 360.0 / COLS
 
@@ -49,6 +51,10 @@ LP_SOURCE = {
 }
 NOTE = ("Bilinear resampling of the 0.5° simple-cylindrical product (longitude wraps at ±180°). "
         "True footprint ~60–150 km: finer grids add no detail.")
+
+#: Resolución real de cada producto (los ficheros vienen todos en una rejilla de 0,5°)
+SRC_RES = {"hydrogenhd": 0.5, "ironhd": 0.5, "thoriumhd": 0.5, "titanium2d": 2.0, "potassium2d": 2.0,
+           "uranium5d": 5.0}
 
 # id → (fichero, divisor del binario, factor físico, título, unidades, validRange, método, cita extra)
 LAYERS = {
@@ -70,10 +76,38 @@ LAYERS = {
 #: Capa derivada: tasa de dosis gamma natural (factores de conversión estándar para un
 #: semiespacio de suelo; ver UNSCEAR 2000). Indica la radiactividad del suelo, no la dosis
 #: total de un astronauta (dominada por rayos cósmicos y eventos solares).
-DOSE = ("radiation.natural_gamma_dose", "Natural gamma dose rate from soil K, U and Th", "nGy/h", [0, 500],
+DOSE = ("radiation.natural_gamma_dose", "Soil gamma dose rate from K, U and Th (estimate)", "nGy/h", [0, 500],
         "D = 13.078·K[%] + 5.675·U[ppm] + 2.494·Th[ppm] (standard soil-to-dose factors, UNSCEAR 2000) "
         "applied to the Lunar Prospector K, U and Th layers. Relative indicator of soil radioactivity; "
-        "excludes galactic cosmic rays and solar particle events, which dominate the total lunar dose.")
+        "excludes galactic cosmic rays and solar particle events, which dominate the total lunar dose "
+        "(~13 µGy/h measured by Chang'E-4 LND, Zhang et al. 2020, i.e. ~300–10 000 × this layer). "
+        "Not a NASA product: derived here.")
+
+#: Agua: exceso polar de hidrógeno sobre el fondo de latitudes bajas, como agua equivalente.
+WATER = ("ice.water_equivalent_wt_pct", "Polar water-equivalent hydrogen (excess over background)", "wt%",
+         [0, 10],
+         "WEH = max(H − H_bg, 0) × 9/10⁴ (H mass fraction in H2O = 0.112) with H_bg = median Lunar Prospector "
+         "hydrogen between 60°S and 60°N (solar-wind implanted H, not water), weighted by a ramp from 0 at "
+         "|lat| = 70° to 1 at 80°: outside the polar cold traps excess H is not attributed to water. "
+         "At 0.5° the signal is diluted: PSR-scale ice (Feldman et al. 2001: ~1.5 wt% WEH) appears as "
+         "~0.05–0.1 wt%; combine with sun.psr_mask (T6) to locate the ice.")
+WATER_CITE = "Feldman et al. (2001), JGR 106, 23231; Lawrence et al. (2006), JGR 111"
+
+#: Óxidos mayores (Prettyman et al. 2006), archivo PDS LP-L-GRS-5-ELEM-ABUNDANCE-V1.0, píxeles de
+#: igual área de 5° (la resolución real del GRS a 100 km): columna de la tabla → capa.
+GRS_TAB = "lpgrs_high1_elem_abundance_5deg.tab"  # la de 2° es más ruidosa (Al2O3 hasta 48 %)
+GRS_URL = "https://pds-geosciences.wustl.edu/lunar/lp-l-grs-5-elem-abundance-v1/lp_9001/data"
+GRS_SOURCE = {"name": "Lunar Prospector GRS Elemental Abundance (LP-L-GRS-5-ELEM-ABUNDANCE-V1.0)",
+              "url": "https://pds-geosciences.wustl.edu/missions/lunarp/grs_elem_abundance.html",
+              "citation": "Prettyman et al. (2006), JGR 111, E12007; Prettyman, NASA PDS (2012)"}
+GRS_LAYERS = {  # id → (columna, título)
+    "regolith.mgo_wt_pct": (7, "Magnesium oxide (MgO)"),
+    "regolith.al2o3_wt_pct": (8, "Aluminium oxide (Al2O3)"),
+    "regolith.sio2_wt_pct": (9, "Silicon dioxide (SiO2)"),
+    "regolith.cao_wt_pct": (10, "Calcium oxide (CaO)"),
+}
+GRS_RANGE = {"regolith.mgo_wt_pct": [0, 40], "regolith.al2o3_wt_pct": [0, 40], "regolith.sio2_wt_pct": [0, 60],
+             "regolith.cao_wt_pct": [0, 30]}
 
 
 def fetch() -> None:
@@ -85,6 +119,12 @@ def fetch() -> None:
             print(f"   ya está {p.name}")
             continue
         r = requests.get(f"{URL}/{name}.dat", timeout=120)
+        r.raise_for_status()
+        p.write_bytes(r.content)
+        print(f"   {p.name} ({len(r.content)} B)")
+    p = RAW / GRS_TAB
+    if not p.exists():
+        r = requests.get(f"{GRS_URL}/{GRS_TAB}", timeout=300)
         r.raise_for_status()
         p.write_bytes(r.content)
         print(f"   {p.name} ({len(r.content)} B)")
@@ -132,7 +172,8 @@ def sha256_file(p) -> str:
     return h.hexdigest()
 
 
-def write(lid: str, title: str, units: str, vrange, method: str, sources, m: np.ndarray) -> None:
+def write(lid: str, title: str, units: str, vrange, method: str, sources, m: np.ndarray,
+          res: float = 0.5, note: str = NOTE) -> None:
     d = OUT / lid
     (d / "G1K").mkdir(parents=True, exist_ok=True)
     scale = U16_SCALE[lid]
@@ -141,13 +182,29 @@ def write(lid: str, title: str, units: str, vrange, method: str, sources, m: np.
     q.tofile(f)
     valid = q[q != 65535]
     meta = {"id": lid, "version": "0.2.0", "title": title, "units": units, "validRange": vrange,
-            "kind": "static", "owner": OWNER, "fidelity": "approximate", "method": f"{method} {NOTE}",
-            "params": {"sourceResolutionDeg": 0.5, "resampling": "bilinear"}, "sources": sources,
+            "kind": "static", "owner": OWNER, "fidelity": "approximate", "method": f"{method} {note}",
+            "params": {"sourceResolutionDeg": res, "resampling": "bilinear"}, "sources": sources,
             "files": [{"grid": "G1K", "period": "static", "path": "G1K/static.u16", "dtype": "uint16",
                        "scale": scale, "offset": 0, "nodata": 65535, "sha256": sha256_file(f),
                        "min": round(float(valid.min()) * scale, 6), "max": round(float(valid.max()) * scale, 6)}]}
     (d / "layer.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"   {lid}: {meta['files'][0]['min']:.4g} … {meta['files'][0]['max']:.4g} {units}")
+
+
+def read_grs(path) -> dict[int, np.ndarray]:
+    """Rasteriza la tabla de píxeles de igual área a la rejilla de 0,5° (fila 0 = norte)."""
+    rows = [ln.split() for ln in open(path) if ln.strip()]
+    t = np.array([[float(v) for v in r[1:16]] for r in rows])  # col 0 = MIN_LAT … 14 = W_U
+    la = 90.0 - (np.arange(360) + 0.5) * 0.5
+    lo = -180.0 + (np.arange(720) + 0.5) * 0.5
+    idx = np.full((360, 720), -1, dtype=int)
+    for i, (a, b, c, d) in enumerate(t[:, :4]):
+        ry = (la >= a) & (la < b)
+        cx = (lo >= c) & (lo < d)
+        idx[np.ix_(ry, cx)] = i
+    if (idx < 0).any():
+        raise SystemExit(f"{path}: {int((idx < 0).sum())} celdas de 0,5° sin píxel")
+    return {col: t[idx, col - 1] for col in range(5, 16)}
 
 
 def build() -> None:
@@ -157,7 +214,26 @@ def build() -> None:
         if lid == "ice.hydrogen_ppm":
             m = np.clip(m, 0, None)
         data[lid] = m
-        write(lid, title, units, vr, method, [LP_SOURCE, {"name": "Reference", "citation": cite}], m)
+        write(lid, title, units, vr, method, [LP_SOURCE, {"name": "Reference", "citation": cite}], m,
+              res=SRC_RES[name], note=NOTE.replace("0.5° simple", f"{SRC_RES[name]:g}° product on the 0.5° simple"))
+    h = data["ice.hydrogen_ppm"]
+    la = 90.0 - (np.arange(360) + 0.5) * 0.5
+    bg = float(np.median(h[np.abs(la) < 60]))
+    ramp = np.clip((np.abs(la) - 70.0) / 10.0, 0, 1)[:, None]
+    lid, title, units, vr, method = WATER
+    write(lid, title, units, vr, method.replace("H_bg = median", f"H_bg = {bg:.1f} ppm, the median"),
+          [LP_SOURCE, {"name": "Reference", "citation": WATER_CITE}], np.clip(h - bg, 0, None) * ramp * 9e-4)
+    tab = RAW / GRS_TAB
+    if tab.exists():
+        g = read_grs(tab)
+        for lid, (col, title) in GRS_LAYERS.items():
+            write(lid, title, "wt%", GRS_RANGE[lid],
+                  f"Lunar Prospector GRS major-oxide weight fraction from gamma-ray spectral unmixing "
+                  f"(Prettyman et al. 2006), 5° equal-area pixels (column W_{title.split('(')[1][:-1].upper()}) "
+                  f"× 100, rasterised to 0.5° by pixel containment.", [GRS_SOURCE], g[col] * 100.0, res=5.0,
+                  note="True resolution ~5° (150 km) at 100 km altitude; bilinear resampling to G1K only smooths.")
+    else:
+        print(f"   (falta {tab.name}: python -m moonsite.prospector fetch)")
     lid, title, units, vr, method = DOSE
     dose = 13.078 * data["radiation.potassium_ppm"] / 1e4 + 5.675 * data["radiation.uranium_ppm"] \
         + 2.494 * data["radiation.thorium_ppm"]

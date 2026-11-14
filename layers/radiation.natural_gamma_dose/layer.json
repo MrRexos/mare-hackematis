@@ -1,7 +1,7 @@
 {
   "id": "radiation.natural_gamma_dose",
   "version": "0.2.0",
-  "title": "Natural gamma dose rate from soil K, U and Th",
+  "title": "Soil gamma dose rate from K, U and Th (estimate)",
   "units": "nGy/h",
   "validRange": [
     0,
@@ -10,7 +10,7 @@
   "kind": "static",
   "owner": "Joel (T9 · composición y radiactividad)",
   "fidelity": "approximate",
-  "method": "D = 13.078·K[%] + 5.675·U[ppm] + 2.494·Th[ppm] (standard soil-to-dose factors, UNSCEAR 2000) applied to the Lunar Prospector K, U and Th layers. Relative indicator of soil radioactivity; excludes galactic cosmic rays and solar particle events, which dominate the total lunar dose. Bilinear resampling of the 0.5° simple-cylindrical product (longitude wraps at ±180°). True footprint ~60–150 km: finer grids add no detail.",
+  "method": "D = 13.078·K[%] + 5.675·U[ppm] + 2.494·Th[ppm] (standard soil-to-dose factors, UNSCEAR 2000) applied to the Lunar Prospector K, U and Th layers. Relative indicator of soil radioactivity; excludes galactic cosmic rays and solar particle events, which dominate the total lunar dose (~13 µGy/h measured by Chang'E-4 LND, Zhang et al. 2020, i.e. ~300–10 000 × this layer). Not a NASA product: derived here. Bilinear resampling of the 0.5° simple-cylindrical product (longitude wraps at ±180°). True footprint ~60–150 km: finer grids add no detail.",
   "params": {
     "sourceResolutionDeg": 0.5,
     "resampling": "bilinear"

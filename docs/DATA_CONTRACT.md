@@ -11,7 +11,8 @@ de programarlo.
 - Validador: `python tools/validate_layer.py <carpeta_de_la_capa>`
 
 **Cambios en la v0.2.1** (solo añade; nada de la v0.2 cambia):
-- **Trabajos:** nuevo T9 · Composición y radiactividad (§7), con 6 capas nuevas.
+- **Trabajos:** nuevo T9 · Composición y radiactividad (§7), con 10 capas nuevas, y
+  `ice.water_equivalent_wt_pct` en T6.
 - **D2** pasa a "propuesta" con la convención que ya usa T6/T9 (−180° y centro de celda).
 
 **Cambios respecto a la v0.1:**
@@ -263,10 +264,16 @@ Prioridad: **P0** imprescindible · **P1** muy recomendable · **P2** si da tiem
 - **Entrega** (todas `static`, `UInt16` con `scale`, `nodata` 65 535):
   `regolith.feo_wt_pct` (% en peso), `regolith.tio2_wt_pct` (% en peso),
   `radiation.thorium_ppm`, `radiation.potassium_ppm`, `radiation.uranium_ppm` (ppm) y
-  `radiation.natural_gamma_dose` (nGy/h). También hace `ice.hydrogen_ppm` de T6.
+  `radiation.natural_gamma_dose` (nGy/h, estimación derivada), los óxidos mayores
+  `regolith.mgo_wt_pct`, `regolith.al2o3_wt_pct`, `regolith.sio2_wt_pct`,
+  `regolith.cao_wt_pct` (% en peso). También hace `ice.hydrogen_ppm` de T6 y
+  `ice.water_equivalent_wt_pct` (agua equivalente: exceso polar de hidrógeno sobre el fondo
+  de latitudes bajas, solo a partir de 70°; combinar con `sun.psr_mask`).
 - **Datos:** Lunar Prospector Gamma-Ray y Neutron Spectrometer, productos especiales de
   NASA PDS Geosciences (0,5°): `ironhd`, `titanium2d`, `thoriumhd`, `potassium2d`,
-  `uranium5d`, `hydrogenhd`. Dosis = 13,078·K(%) + 5,675·U + 2,494·Th (UNSCEAR 2000).
+  `uranium5d`, `hydrogenhd`; óxidos mayores del archivo PDS *LP GRS Elemental Abundance*
+  (Prettyman et al. 2006, píxeles de 5°). U está ligado a Th en el ajuste (U = 0,27·Th) y K
+  sigue a Th (KREEP): no son capas independientes. Dosis = 13,078·K(%) + 5,675·U + 2,494·Th (UNSCEAR 2000).
 - **Fidelidad:** `approximate`; la huella real del dato es de ~60–150 km, el paso a `G1K`
   es bilineal y solo suaviza.
 - **Uso en la puntuación** (propuesta): recursos = FeO + TiO2 + H (más es mejor);

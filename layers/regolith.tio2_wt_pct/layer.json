@@ -10,9 +10,9 @@
   "kind": "static",
   "owner": "Joel (T9 · composición y radiactividad)",
   "fidelity": "approximate",
-  "method": "Lunar Prospector GRS Ti abundance (2° bins on the 0.5° grid) converted to TiO2 with the molar-mass ratio 1.6683. Bilinear resampling of the 0.5° simple-cylindrical product (longitude wraps at ±180°). True footprint ~60–150 km: finer grids add no detail.",
+  "method": "Lunar Prospector GRS Ti abundance (2° bins on the 0.5° grid) converted to TiO2 with the molar-mass ratio 1.6683. Bilinear resampling of the 2° product on the 0.5° simple-cylindrical product (longitude wraps at ±180°). True footprint ~60–150 km: finer grids add no detail.",
   "params": {
-    "sourceResolutionDeg": 0.5,
+    "sourceResolutionDeg": 2.0,
     "resampling": "bilinear"
   },
   "sources": [

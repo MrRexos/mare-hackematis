@@ -10,7 +10,7 @@
   "kind": "static",
   "owner": "Joel (T9 · composición y radiactividad)",
   "fidelity": "approximate",
-  "method": "Lunar Prospector GRS FeO abundance (half-degree). Bilinear resampling of the 0.5° simple-cylindrical product (longitude wraps at ±180°). True footprint ~60–150 km: finer grids add no detail.",
+  "method": "Lunar Prospector GRS FeO abundance (half-degree). Bilinear resampling of the 0.5° product on the 0.5° simple-cylindrical product (longitude wraps at ±180°). True footprint ~60–150 km: finer grids add no detail.",
   "params": {
     "sourceResolutionDeg": 0.5,
     "resampling": "bilinear"
