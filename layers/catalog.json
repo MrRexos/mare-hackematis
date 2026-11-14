@@ -17,6 +17,9 @@
     "regolith.feo_wt_pct",
     "regolith.mgo_wt_pct",
     "regolith.sio2_wt_pct",
-    "regolith.tio2_wt_pct"
+    "regolith.tio2_wt_pct",
+    "sun.visible_fraction.mean",
+    "sun.longest_night_h.max",
+    "earth.visible_fraction.mean"
   ]
 }

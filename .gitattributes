@@ -5,3 +5,9 @@
 *.img binary
 layers/terrain.slope/G1K/static.f32 filter=lfs diff=lfs merge=lfs -text
 layers/suitability.slope/G1K/static.u8 filter=lfs diff=lfs merge=lfs -text
+*.u16 binary
+# Llum, nit, Terra (per data) i aigua equivalent: també a Git LFS
+layers/sun.visible_fraction.mean/G1K/*.u8 filter=lfs diff=lfs merge=lfs -text
+layers/sun.longest_night_h.max/G1K/*.u16 filter=lfs diff=lfs merge=lfs -text
+layers/earth.visible_fraction.mean/G1K/*.u8 filter=lfs diff=lfs merge=lfs -text
+layers/ice.water_equivalent_wt_pct/G1K/*.u16 filter=lfs diff=lfs merge=lfs -text

@@ -170,3 +170,26 @@ GeoTIFF (valor × 0,5 = metres) i s'atura si les elevacions surten del rang luna
 el relleu ja remostrejat a `.cache/terrain/dem_g1k_m.npy` (238 MB, fora de git); els
 següents el llegeixen d'allà i triguen uns 15 segons. Amb `--refresh-dem` es força una
 descàrrega nova.
+
+## Matrius globals incloses al repositori
+
+Aquestes capes ja porten la matriu G1K (10 916 × 5 458) desada amb **Git LFS**, de manera
+que no cal calcular res per fer-les servir. Després de clonar: `git lfs install` i
+`git lfs pull`.
+
+| Capa | Fitxer | Període |
+|------|--------|---------|
+| `terrain.slope` (pendent, graus) | `G1K/static.f32` | fix |
+| `suitability.slope` (seguretat del pendent, 0–100) | `G1K/static.u8` | fix |
+| `ice.water_equivalent_wt_pct` (aigua equivalent) | `G1K/static.u16` | fix |
+| `sun.visible_fraction.mean` (llum) | `G1K/2026-11-14.u8` | 14-11-2026 |
+| `sun.longest_night_h.max` (nit més llarga) | `G1K/2026-11-14.u16` | 14-11-2026 |
+| `earth.visible_fraction.mean` (Terra visible) | `G1K/2026-11-14.u8` | 14-11-2026 |
+
+Llum, nit i Terra depenen de la data: aquí només hi ha el 14 de novembre de 2026. Per a
+altres dies o mesos cal executar `moonsite.sun_global` i `moonsite.earth_global` (vegeu
+més amunt). Amb un sol dia, la nit més llarga no pot passar de 24 h.
+
+La versió reduïda per a la web (0,25°) de llum, nit, Terra i pendent és a
+`web/public/data/global/`, i la vista **Whole Moon** funciona sense cap pas previ. Si es
+canvia alguna matriu, cal regenerar-la amb `python -m moonsite.web_global`.

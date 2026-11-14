@@ -38,4 +38,13 @@ layers/**/G1K/
 !layers/terrain.slope/G1K/static.f32
 !layers/suitability.slope/G1K/
 !layers/suitability.slope/G1K/static.u8
+# Capes globals desades amb Git LFS: llum, nit més llarga, Terra visible i aigua equivalent
+!layers/sun.visible_fraction.mean/G1K/
+!layers/sun.visible_fraction.mean/G1K/*.u8
+!layers/sun.longest_night_h.max/G1K/
+!layers/sun.longest_night_h.max/G1K/*.u16
+!layers/earth.visible_fraction.mean/G1K/
+!layers/earth.visible_fraction.mean/G1K/*.u8
+!layers/ice.water_equivalent_wt_pct/G1K/
+!layers/ice.water_equivalent_wt_pct/G1K/*.u16
 layers/*/viewer_*.html
