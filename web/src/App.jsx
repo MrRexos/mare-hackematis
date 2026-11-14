@@ -1,30 +1,76 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { L } from "./ds.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadData } from "./data/loadData.js";
 import { MissionEngine } from "./engine/missionEngine.js";
-import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, exclusionAt, scoreGrid } from "./engine/score.js";
+import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, exclusionAt, factorsAt, reliefLayer, scoreGrid } from "./engine/score.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
-import MapView from "./components/MapView.jsx";
-import MissionPanel, { missionProblem } from "./components/MissionPanel.jsx";
-import PrioritiesPanel from "./components/PrioritiesPanel.jsx";
-import { PlaceDetail, PlaceList } from "./components/SpotsPanel.jsx";
+import { landingWindows, runs, siteTimeline } from "./engine/timeline.js";
+import { Rail, TimeBar } from "./ui/Shell.jsx";
+import SetupWhen from "./screens/SetupWhen.jsx";
+import SetupPriorities from "./screens/SetupPriorities.jsx";
+import Explore from "./screens/Explore.jsx";
+import Site from "./screens/Site.jsx";
+import Compare from "./screens/Compare.jsx";
+import { ExportDialog, SettingsDrawer } from "./screens/Overlays.jsx";
 import LearnPage from "./components/LearnPage.jsx";
 
-// La vista 3D (Three.js) solo se descarga cuando se abre.
-const Moon3D = lazy(() => import("./components/Moon3D.jsx"));
-
 const DAY_MS = 86400000;
+const H = 3600e3;
 const REGION_HALF_PX = 7; // regiones Artemis III de ~15 × 15 km -> 15 × 15 píxeles de 1 km
 
-// Capas del mapa (máx. 5 opciones en el SegmentedControl, como pide el design system).
+// Capas del mapa.
 const LAYERS = {
-  score: { label: "Score", ramp: "score", legend: ["Lower", "Higher"], kind: "both" },
-  sun: { label: "Sunlight", ramp: "sun", legend: ["0%", "100%"], kind: "sun" },
-  earth: { label: "Earth view", ramp: "earth", legend: ["0%", "100%"], kind: "earth" },
+  score: { label: "Score", ramp: "score", legend: ["Lower", "Higher"] },
+  sun: { label: "Sunlight", ramp: "sun", legend: ["0%", "100%"] },
+  earth: { label: "Earth view", ramp: "earth", legend: ["0%", "100%"] },
   slope: { label: "Slope", ramp: "slope", legend: ["0°", "30°+"] },
-  shadow: { label: "Ice proxy", ramp: "shadow", legend: ["Far", "Near"] },
+  relief: { label: "Relief", ramp: "relief", legend: ["0 m", "600 m+"] },
+  shadow: { label: "Water ice", ramp: "shadow", legend: ["Far", "Near"] },
 };
+
+const todayMs = () => {
+  const d = new Date();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+};
+
+/** Periodos posibles según el rango de efemérides. */
+function computePeriods(ephem) {
+  const t = todayMs();
+  const r0 = ephem ? Math.ceil(ephem.startUnixMs / DAY_MS) * DAY_MS : t;
+  const r1 = ephem ? Math.floor((ephem.startUnixMs + (ephem.count - 2) * ephem.stepSeconds * 1000) / DAY_MS) * DAY_MS : t + 4 * 365 * DAY_MS;
+  const from = Math.min(Math.max(t, r0), r1 - 30 * DAY_MS);
+  return {
+    range: [r0, r1],
+    next12: [from, Math.min(r1, from + 365 * DAY_MS)],
+    nofixed: [from, r1],
+  };
+}
+
+const DEFAULT_OPTS = { durationDays: 14, sunMode: "any", earthMode: "centre", observerM: 2 };
+
+function missionProblem(m, range) {
+  if (!(m.toMs > m.fromMs)) return "The end date must be after the start date.";
+  if (m.fromMs < range[0]) return `Ephemeris starts on ${new Date(range[0]).toISOString().slice(0, 10)}.`;
+  if (m.toMs > range[1]) return `Ephemeris ends on ${new Date(range[1]).toISOString().slice(0, 10)}.`;
+  if (m.toMs - m.fromMs < m.durationDays * DAY_MS) return `A ${m.durationDays}-day mission does not fit in this period.`;
+  return null;
+}
+
+/** Nombre corto de un lugar: "NR1", "PCB"… */
+function shortNames(names) {
+  const used = {};
+  return names.map((name) => {
+    const words = name.split(/\s+/);
+    const last = words[words.length - 1];
+    const digit = /^\d+$/.test(last) ? last : "";
+    let base = words.filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join("").slice(0, 3);
+    if (base.length < 2) base = name.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
+    if (digit) return base + digit;
+    if (base.length >= 3) return base;
+    used[base] = (used[base] || 0) + 1;
+    return base + used[base];
+  });
+}
 
 function useMedia(query) {
   const [m, setM] = useState(() => window.matchMedia(query).matches);
@@ -37,21 +83,21 @@ function useMedia(query) {
   return m;
 }
 
-function defaultMission() {
-  const now = new Date();
-  const start = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
-  return { windowStartMs: start, windowEndMs: start + 30 * DAY_MS, durationDays: 14 };
-}
-
 export default function App() {
-  const mobile = useMedia("(max-width: 767px)");
-  const [page, setPage] = useState("explore");
-  const [viewMode, setViewMode] = useState("map"); // "map" | "3d"
+  const [screen, setScreen] = useState("when");
+  const [tab, setTab] = useState("overview");
+  const [dim, setDim] = useState("2D");
+  const [overlay, setOverlay] = useState(null); // "settings" | "export"
   const [data, setData] = useState(null);
   const [loadState, setLoadState] = useState({ done: 0, total: 1, error: null });
   const engineRef = useRef(null);
+  useMedia("(max-width: 767px)");
 
-  const [mission, setMission] = useState(defaultMission);
+  const [periods, setPeriods] = useState(() => computePeriods(null));
+  const [mission, setMission] = useState(() => {
+    const p = computePeriods(null);
+    return { period: "next12", fromMs: p.next12[0], toMs: p.next12[1], ...DEFAULT_OPTS };
+  });
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
   const [result, setResult] = useState(null);
@@ -59,59 +105,98 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [runError, setRunError] = useState(null);
   const [layerKey, setLayerKey] = useState("sun");
+  const [terrainLayer, setTerrainLayer] = useState("sun");
   const [selRef, setSelRef] = useState(null); // {type:"spot",rank} | {type:"site",id} | {type:"pick",p}
-  const [hover, setHover] = useState(null);
+  const [group, setGroup] = useState("artemis");
+  const [cmpRefs, setCmpRefs] = useState([]);
+  const [timeMs, setTimeMs] = useState(() => todayMs());
+
+  const go = useCallback((s) => {
+    setScreen(s);
+    window.scrollTo(0, 0);
+  }, []);
 
   // --- Carga de datos y motor ---------------------------------------------
   useEffect(() => {
     loadData((done, total) => setLoadState((s) => ({ ...s, done, total })))
       .then((d) => {
-        setData(d);
+        if (d.layers.elevation) d.layers.relief = reliefLayer(d.layers.elevation, d.manifest.grid.n);
         if (d.horizon && d.ephem) engineRef.current = new MissionEngine(d);
+        const p = computePeriods(d.manifest.ephem);
+        setPeriods(p);
+        setMission((m) => (m.period === "custom" ? m : { ...m, fromMs: p[m.period][0], toMs: p[m.period][1] }));
+        setData(d);
       })
       .catch((e) => setLoadState((s) => ({ ...s, error: e.message })));
     return () => engineRef.current?.dispose();
   }, []);
 
-  const range = engineRef.current?.range || [0, 0];
-  const problem = data && engineRef.current ? missionProblem(mission, range) : null;
+  const engineReady = !!engineRef.current;
+  const problem = missionProblem(mission, periods.range);
 
-  const run = async (w = weights) => {
-    if (!engineRef.current || problem) return;
-    setRunning(true);
-    setRunError(null);
-    setProgress(0);
-    try {
-      const r = await engineRef.current.run({ ...mission, weights: { sun: w.sun, earth: w.earth }, candidateStepH: 3 }, setProgress);
-      if (r) {
-        setResult(r);
-        setLayerKey("score");
-      }
-    } catch (e) {
-      setRunError(e.message);
-    } finally {
-      setRunning(false);
-    }
+  // --- Mission setters -------------------------------------------------------
+  const setPeriod = (period) => setMission((m) => (period === "custom" ? { ...m, period } : { ...m, period, fromMs: periods[period][0], toMs: periods[period][1] }));
+  const setCustom = (fromMs, toMs) => setMission((m) => ({ ...m, period: "custom", fromMs, toMs }));
+  const setDuration = (durationDays) => setMission((m) => ({ ...m, durationDays }));
+  const setMissionOpts = (o) => setMission((m) => ({ ...m, ...o }));
+  const restoreDefaults = () => {
+    setMission({ period: "next12", fromMs: periods.next12[0], toMs: periods.next12[1], ...DEFAULT_OPTS });
+    setLimits(DEFAULT_LIMITS);
   };
+  const dirty = mission.period !== "next12" || mission.sunMode !== DEFAULT_OPTS.sunMode || mission.earthMode !== DEFAULT_OPTS.earthMode
+    || mission.durationDays !== DEFAULT_OPTS.durationDays || JSON.stringify(limits) !== JSON.stringify(DEFAULT_LIMITS);
+  const landEndMs = Math.max(mission.fromMs + H, mission.toMs - mission.durationDays * DAY_MS);
 
-  // Si cambian los pesos de Sol/Tierra tras un cálculo, el mejor momento de
-  // aterrizaje puede cambiar: se recalcula (con un pequeño retardo).
-  const lastWeights = useRef(weights);
+  // --- Cálculo automático (con un pequeño retardo) -------------------------
+  const inFlight = useRef(0);
   useEffect(() => {
-    const prev = lastWeights.current;
-    lastWeights.current = weights;
-    if (!result || (prev.sun === weights.sun && prev.earth === weights.earth)) return;
-    const t = setTimeout(() => run(weights), 400);
+    if (!data || !engineRef.current || problem) return undefined;
+    const t = setTimeout(async () => {
+      inFlight.current += 1;
+      setRunning(true);
+      setRunError(null);
+      setProgress(0);
+      try {
+        const r = await engineRef.current.run({
+          windowStartMs: mission.fromMs,
+          windowEndMs: landEndMs,
+          durationDays: mission.durationDays,
+          weights: { sun: weights.sun, earth: weights.earth },
+          sunMode: mission.sunMode,
+          earthMode: mission.earthMode,
+        }, setProgress);
+        if (r) {
+          setResult(r);
+          setLayerKey((k) => (k === "sun" ? "score" : k));
+        }
+      } catch (e) {
+        setRunError(e.message);
+      } finally {
+        inFlight.current -= 1;
+        if (inFlight.current === 0) setRunning(false);
+      }
+    }, 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weights.sun, weights.earth]);
+  }, [data, mission.fromMs, mission.toMs, mission.durationDays, mission.sunMode, mission.earthMode, weights.sun, weights.earth, problem]);
 
   // --- Puntuación, puntos calientes y regiones -----------------------------
   const score = useMemo(() => (data && result ? scoreGrid(result, data.layers, weights, limits) : null), [data, result, weights, limits]);
 
-  const metricsAt = (p) => (result ? {
-    sun: result.sun[p], earth: result.earth[p], both: result.both[p], night: result.night[p], best: result.best[p],
-  } : null);
+  const metricsAt = (p) => (result ? { sun: result.sun[p], earth: result.earth[p], both: result.both[p], night: result.night[p], best: result.best[p] } : null);
+  const factors100 = (p) => {
+    const f = factorsAt(p, result, data.layers, limits);
+    const o = {};
+    for (const k of Object.keys(f)) o[k] = Number.isFinite(f[k]) ? f[k] * 100 : null;
+    return o;
+  };
+  const placeBase = (p, extra) => {
+    const grid = data.manifest.grid;
+    const i = Math.floor(p / grid.n), j = p % grid.n;
+    const [x, y] = pixelXY(grid, i, j);
+    const [lat, lon] = xyToLatLon(grid, x, y);
+    return { p, i, j, lat, lon, coords: formatLatLon(lat, lon), factors: factors100(p), metrics: metricsAt(p), ...extra };
+  };
 
   const spots = useMemo(() => {
     if (!score || !data) return [];
@@ -119,25 +204,29 @@ export default function App() {
     const sites = data.manifest.sites?.sites || [];
     return findHotspots(score, grid).spots.map((s) => {
       const near = nearestSite(s, sites, grid, latLonToXY);
-      const nearTxt = near && near.km < 25 ? ` · ${near.km.toFixed(0)} km from ${near.site.name}` : "";
       return {
+        ...placeBase(s.peak, {}),
         ...s,
         key: `spot-${s.rank}`,
         ref: { type: "spot", rank: s.rank },
-        name: `Spot ${String(s.rank).padStart(2, "0")}`,
+        name: `Hotspot ${String(s.rank).padStart(2, "0")}`,
+        short: `HS${s.rank}`,
+        shape: "square",
+        kindLabel: "Hotspot",
         score: s.peakScore,
-        meta: `${formatLatLon(s.lat, s.lon)}${nearTxt} · ${s.areaKm2.toFixed(0)} km²`,
-        metrics: metricsAt(s.peak),
+        note: `${s.areaKm2.toFixed(0)} km² above the top-3 % score${near && near.km < 25 ? ` · ${near.km.toFixed(0)} km from ${near.site.name}` : ""}.`,
       };
     });
-  }, [score, data, result]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [score, data, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Regiones Artemis III: mejor píxel de 1 km dentro de su recuadro de ~15 × 15 km.
   const sites = useMemo(() => {
     if (!data) return [];
     const grid = data.manifest.grid;
     const n = grid.n;
-    const list = (data.manifest.sites?.sites || []).map((s) => {
+    const raw = data.manifest.sites?.sites || [];
+    const shorts = shortNames(raw.map((s) => s.name));
+    const list = raw.map((s, k) => {
       const [x, y] = latLonToXY(grid, s.lat, s.lon);
       const [fi, fj] = xyToPixel(grid, x, y);
       const i0 = Math.round(fi), j0 = Math.round(fj);
@@ -154,259 +243,185 @@ export default function App() {
         }
       }
       const mean = cnt ? sum / cnt : NaN;
-      const bi = Math.floor(best / n), bj = best % n;
-      const [bx, by] = pixelXY(grid, bi, bj);
-      const [blat, blon] = xyToLatLon(grid, bx, by);
       return {
-        ...s, key: `site-${s.id}`, ref: { type: "site", id: s.id }, score: bestScore, mean, p: best, i: bi, j: bj,
-        lat: blat, lon: blon, centre: [s.lat, s.lon],
-        meta: score
-          ? (Number.isFinite(bestScore) ? `Best 1 km inside the region · region mean ${Math.round(mean)} · ${cnt} of 225 km² pass the limits` : "No 1 km pixel in this region passes your limits")
-          : formatLatLon(s.lat, s.lon),
-        metrics: score ? metricsAt(best) : null,
+        ...placeBase(best, {}),
+        id: s.id, name: s.name, short: shorts[k], shape: "circle", kindLabel: "Artemis III region",
+        key: `site-${s.id}`, ref: { type: "site", id: s.id }, score: bestScore, mean, centre: [s.lat, s.lon],
+        excluded: score && !Number.isFinite(bestScore) ? "No 1 km pixel in this region passes your limits" : null,
+        note: score && Number.isFinite(bestScore) ? `Best 1 km pixel inside the ~15 × 15 km region. Region mean ${Math.round(mean)} · ${cnt} of 225 km² pass the limits.` : null,
       };
     });
     const ranked = [...list].sort((a, b) => (Number.isFinite(b.score) ? b.score : -1) - (Number.isFinite(a.score) ? a.score : -1));
     ranked.forEach((s, k) => { s.rank = Number.isFinite(s.score) ? k + 1 : null; });
     return ranked;
-  }, [data, score, result]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, score, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Lugar seleccionado (se recalcula si cambian los resultados).
-  const selected = useMemo(() => {
-    if (!selRef || !data) return null;
-    const grid = data.manifest.grid;
-    if (selRef.type === "spot") {
-      const s = spots.find((x) => x.rank === selRef.rank);
-      return s ? { ...s, type: "spot", p: s.peak, kindLabel: "Hotspot" } : null;
-    }
-    if (selRef.type === "site") {
-      const s = sites.find((x) => x.id === selRef.id);
-      return s ? { ...s, type: "site", kindLabel: "Artemis III region", note: score && Number.isFinite(s.score) ? `Best 1 km pixel inside the ~15 × 15 km region. Region mean ${Math.round(s.mean)}.` : null } : null;
-    }
-    const p = selRef.p;
-    const i = Math.floor(p / grid.n), j = p % grid.n;
-    const [x, y] = pixelXY(grid, i, j);
-    const [lat, lon] = xyToLatLon(grid, x, y);
+  const groups = useMemo(() => {
+    const a = [...sites]; a.label = "Artemis III";
+    const b = [...spots]; b.label = "Hotspots";
+    return { artemis: a, spots: b };
+  }, [sites, spots]);
+
+  const resolve = useCallback((ref) => {
+    if (!ref || !data) return null;
+    if (ref.type === "spot") return spots.find((x) => x.rank === ref.rank) || null;
+    if (ref.type === "site") return sites.find((x) => x.id === ref.id) || null;
     return {
-      type: "pick", key: `pick-${p}`, p, i, j, lat, lon, kindLabel: "Your spot", name: "Spot you picked",
-      score: score ? score[p] : NaN, metrics: metricsAt(p),
-      excluded: result ? exclusionAt(p, result, data.layers, limits) : null,
+      ...placeBase(ref.p, {}),
+      type: "pick", key: `pick-${ref.p}`, ref, name: "Your spot", short: "YOU", shape: "diamond", kindLabel: "Your spot",
+      score: score ? score[ref.p] : NaN,
+      excluded: result ? exclusionAt(ref.p, result, data.layers, limits) : null,
     };
-  }, [selRef, spots, sites, score, data, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [spots, sites, data, score, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Valores de la capa activa -------------------------------------------
-  const layer = LAYERS[layerKey];
-  const values = useMemo(() => {
-    if (!data) return null;
-    const ly = data.layers;
-    switch (layerKey) {
-      case "score": return score;
-      case "sun": return result ? result.sun : ly.avgSun || null;
-      case "earth": return result ? result.earth : ly.avgEarth || null;
-      case "slope": return ly.slope || null;
-      case "shadow": {
-        if (!ly.psrDistKm) return null;
-        const out = new Float32Array(ly.psrDistKm.length);
-        for (let p = 0; p < out.length; p++) {
-          out[p] = ly.psrShare?.[p] > 0.5 ? -1 : Math.max(0, 1 - ly.psrDistKm[p] / limits.iceReachKm);
-        }
-        return out;
-      }
-      default: return null;
+  const selected = useMemo(() => {
+    const s = resolve(selRef);
+    return s ? { ...s, type: s.type || selRef.type } : null;
+  }, [resolve, selRef]);
+
+  // Primera vez que hay resultados: seleccionar la mejor región (como en el diseño).
+  const autoSel = useRef(false);
+  useEffect(() => {
+    if (!autoSel.current && sites[0] && Number.isFinite(sites[0].score)) {
+      autoSel.current = true;
+      setSelRef((r) => r || sites[0].ref);
     }
-  }, [data, layerKey, result, score, limits.iceReachKm]);
+  }, [sites]);
 
-  const extent = useMemo(() => {
+  // --- Comparar ----------------------------------------------------------------
+  const refKey = (r) => (r.type === "spot" ? `spot-${r.rank}` : r.type === "site" ? `site-${r.id}` : `pick-${r.p}`);
+  const inCmp = (place) => !!place && cmpRefs.some((r) => refKey(r) === place.key);
+  const toggleCmp = (place) => setCmpRefs((list) => {
+    if (list.some((r) => refKey(r) === place.key)) return list.filter((r) => refKey(r) !== place.key);
+    return list.length >= 4 ? list : [...list, place.ref];
+  });
+  const cmpPlaces = useMemo(() => cmpRefs.map(resolve).filter(Boolean), [cmpRefs, resolve]);
+  const ranked = (groups[group] || []).filter((p) => Number.isFinite(p.score));
+  const addBest3 = () => setCmpRefs(ranked.slice(0, 3).map((p) => p.ref));
+
+  // --- Serie temporal del lugar seleccionado ---------------------------------
+  const modes = { sunMode: mission.sunMode, earthMode: mission.earthMode };
+  const tl = useMemo(() => (selected && data?.ephem && data?.horizon ? siteTimeline(data, selected.p, mission.fromMs, mission.toMs, modes) : null),
+    [selected?.p, data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lw = useMemo(() => (tl ? landingWindows(tl, mission.durationDays * 24, { sun: weights.sun, earth: weights.earth }, landEndMs) : null),
+    [tl, mission.durationDays, weights.sun, weights.earth, landEndMs]);
+  const toMs = (rr) => rr.map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]);
+  const windowsMs = tl && lw ? toMs(lw.windows) : [];
+  const missionWin = tl && lw && lw.best >= 0 ? [tl.startMs + lw.best * H, tl.startMs + (lw.best + lw.D) * H] : null;
+  const lanes = useMemo(() => (tl ? { sun: runs(tl.sun).map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]), earth: runs(tl.earth).map(([a, b]) => [tl.startMs + a * H, tl.startMs + b * H]) } : null), [tl]);
+
+  // Serie de cualquier lugar (Compare), con caché.
+  const tlCache = useRef(new Map());
+  const timelineFor = useCallback((place) => {
+    if (!place || !data?.ephem || !data?.horizon) return null;
+    const k = `${place.p}|${mission.fromMs}|${mission.toMs}|${mission.sunMode}|${mission.earthMode}`;
+    if (!tlCache.current.has(k)) {
+      if (tlCache.current.size > 24) tlCache.current.clear();
+      tlCache.current.set(k, siteTimeline(data, place.p, mission.fromMs, mission.toMs, modes));
+    }
+    return tlCache.current.get(k);
+  }, [data, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // El reloj compartido salta al inicio de la mejor ventana al cambiar de lugar.
+  const winStart = missionWin?.[0];
+  useEffect(() => { if (winStart != null) setTimeMs(winStart); }, [selected?.key, winStart]);
+  useEffect(() => { setTimeMs((t) => Math.min(mission.toMs, Math.max(mission.fromMs, t))); }, [mission.fromMs, mission.toMs]);
+
+  // --- Valores de las capas -------------------------------------------------
+  const cache = useMemo(() => new Map(), [data, result, score, limits.iceReachKm]);
+  const valuesFor = useCallback((key) => {
+    if (!data) return null;
+    if (cache.has(key)) return cache.get(key);
+    const ly = data.layers;
+    let v = null;
+    switch (key) {
+      case "score": v = score; break;
+      case "sun": v = result ? result.sun : ly.avgSun || null; break;
+      case "earth": v = result ? result.earth : null; break;
+      case "slope": v = ly.slope || null; break;
+      case "relief": v = ly.relief || null; break;
+      case "shadow": {
+        if (!ly.psrDistKm) break;
+        v = new Float32Array(ly.psrDistKm.length);
+        for (let p = 0; p < v.length; p++) v[p] = ly.psrShare?.[p] > 0.5 ? -1 : Math.max(0, 1 - ly.psrDistKm[p] / limits.iceReachKm);
+        break;
+      }
+      default: break;
+    }
+    cache.set(key, v);
+    return v;
+  }, [cache, data, score, result, limits.iceReachKm]);
+  const legendFor = (key, values) => {
     let lo = Infinity, hi = -Infinity;
     if (values) for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    return [lo, hi];
-  }, [values]);
-  const legendEnds = () => {
-    if (!values || !Number.isFinite(extent[1])) return ["–", "–"];
-    if (layerKey === "score") return [`${Math.round(extent[0])}`, `${Math.round(extent[1])}`];
-    if (layerKey === "sun" || layerKey === "earth") return ["0%", `${Math.round(extent[1] * 100)}%`];
-    return layer.legend;
+    if (!values || !Number.isFinite(hi)) return ["–", "–"];
+    if (key === "score") return [`${Math.round(lo)}`, `${Math.round(hi)}`];
+    if (key === "sun" || key === "earth") return ["0%", `${Math.round(hi * 100)}%`];
+    return LAYERS[key].legend;
   };
-  const layerSource = () => {
-    if (layerKey === "score") return "Your weights over this mission";
-    if ((layerKey === "sun" || layerKey === "earth") && !result) return "Long-term average, LOLA AVGVISIB (18.6 years)";
-    if (layerKey === "sun" || layerKey === "earth") return "Best landing time in your window";
-    if (layerKey === "slope") return "LOLA LDSM 240 m, median per 1 km";
-    return `Hatched: permanent shadow (LOLA LPSR). Brighter: within ${limits.iceReachKm} km`;
+  const values = valuesFor(layerKey);
+
+  // --- Lista de navegación de la ficha --------------------------------------
+  const siteList = selected?.type === "spot" ? spots : sites;
+  const stepSite = (d) => {
+    if (!siteList.length) return;
+    const k = siteList.findIndex((p) => p.key === selected?.key);
+    const next = siteList[(k + d + siteList.length) % siteList.length];
+    setSelRef(next.ref);
   };
+  const rankInfo = selected && (selected.type === "site" || selected.type === "spot") && Number.isFinite(selected.score)
+    ? { rank: siteList.findIndex((p) => p.key === selected.key) + 1, total: siteList.filter((p) => Number.isFinite(p.score)).length }
+    : null;
+  const v = data?.validation?.horizons?.maxArcmin;
+  const validation = v ? `JPL Horizons · ≤ ${Math.max(v.sun, v.earth).toFixed(3)}′` : "JPL Horizons";
 
-  // --- Lectura bajo el cursor ----------------------------------------------
-  const hoverInfo = useMemo(() => {
-    if (hover == null || !data) return null;
-    const grid = data.manifest.grid;
-    const i = Math.floor(hover / grid.n), j = hover % grid.n;
-    const [x, y] = pixelXY(grid, i, j);
-    const [lat, lon] = xyToLatLon(grid, x, y);
-    return {
-      coords: formatLatLon(lat, lon),
-      elevation: data.layers.elevation?.[hover],
-      slope: data.layers.slope?.[hover],
-      score: score?.[hover],
-      sun: result ? result.sun[hover] : data.layers.avgSun?.[hover],
-      earth: result?.earth[hover],
-    };
-  }, [hover, data, score, result]);
+  const useDates = (a, b) => setCustom(Math.floor(a / DAY_MS) * DAY_MS, Math.ceil((b + DAY_MS) / DAY_MS) * DAY_MS);
 
-  const fmt = (v, d = 0, k = 1) => (Number.isFinite(v) ? (v * k).toFixed(d) : "–");
-
-  const nav = (
-    <L.NavRail
-      brand="LH"
-      brandLabel="Lunar Horizon mission selector"
-      orientation={mobile ? "horizontal" : "vertical"}
-      active={page}
-      onSelect={setPage}
-      label="Sections"
-      items={[
-        { id: "explore", icon: "orbit", label: "Explore" },
-        { id: "learn", icon: "book-open", label: "Learn" },
-      ]}
-    />
+  const RailEl = <Rail screen={screen} go={go} onMission={() => setOverlay("settings")} onExport={() => setOverlay("export")} />;
+  const TimeBarEl = (
+    <TimeBar startMs={mission.fromMs} endMs={mission.toMs} timeMs={timeMs} setTimeMs={setTimeMs} windows={windowsMs} missionWin={missionWin} lanes={lanes} />
   );
 
-  const viewSwitch = (
-    <L.SegmentedControl
-      label="View"
-      size="sm"
-      value={viewMode}
-      onChange={setViewMode}
-      options={[{ value: "map", label: "Map", icon: "layers" }, { value: "3d", label: "3D", icon: "globe" }]}
-    />
-  );
+  const app = {
+    data, result, running, progress, runError, problem, loadState, engineReady,
+    places: [...sites, ...spots], groups, group, setGroup, selected, setSelRef, weights, setWeights, limits, setLimits,
+    layerKey, setLayerKey, LAYERS, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
+    terrainLayer, setTerrainLayer,
+    dim, setDim, mission, periods, setPeriod, setCustom, setDuration, setMissionOpts, restoreDefaults, dirty,
+    openSettings: () => setOverlay("settings"), go, tab, setTab,
+    cmp: cmpRefs, toggleCmp, inCmp, cmpPlaces, addBest3, canAddBest: ranked.length > 0,
+    timeMs, setTimeMs, Rail: RailEl, TimeBarEl,
+    moonMission: { windowStartMs: mission.fromMs, windowEndMs: landEndMs, durationDays: mission.durationDays },
+    sitesForMap: sites, spotsForMap: spots,
+    tl, lw, siteList, stepSite, rankInfo, validation, useDates, timelineFor, region: "South Pole",
+    exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,
+  };
 
-  const mapView = data ? (
-    <MapView
-      data={data}
-      layer={layer}
-      values={values}
-      sites={sites}
-      spots={spots}
-      selected={selected}
-      onSelect={setSelRef}
-      onHover={setHover}
-      onPick={(p) => setSelRef({ type: "pick", p })}
-    >
-      <L.Panel tone="overlay" padding="compact" className="hud hud--layers">
-        <div className="hud__row">
-          {viewSwitch}
-          <L.SegmentedControl
-            label="Map layer"
-            size="sm"
-            value={layerKey}
-            onChange={setLayerKey}
-            options={Object.entries(LAYERS).map(([k, v]) => ({ value: k, label: v.label, disabled: k === "score" && !result }))}
-          />
-        </div>
-      </L.Panel>
-      <L.Panel tone="overlay" padding="compact" className="hud hud--legend">
-        <div className="legend">
-          <div className="legend__head">
-            {layer.kind ? <L.Icon name={layer.kind === "both" ? "blend" : layer.kind} size={16} className={`lh-k-${layer.kind}`} /> : null}
-            <span className="readout-sm">{layer.label}</span>
-          </div>
-          <div className={`legend__bar legend__bar--${layer.ramp}`} aria-hidden="true" />
-          <div className="legend__ends caption lh-sec"><span>{legendEnds()[0]}</span><span>{legendEnds()[1]}</span></div>
-          <p className="caption lh-muted legend__src">{layerSource()}</p>
-        </div>
-      </L.Panel>
-      {hoverInfo ? (
-        <L.Panel tone="overlay" padding="compact" className="hud hud--hover" aria-live="off">
-          <div className="readout-sm">{hoverInfo.coords}</div>
-          <div className="hover-grid">
-            <L.Readout size="sm" label="Height" value={fmt(hoverInfo.elevation)} unit="m" />
-            <L.Readout size="sm" label="Slope" value={fmt(hoverInfo.slope, 1)} unit="°" />
-            <L.Readout size="sm" label="Sunlight" kind="sun" value={fmt(hoverInfo.sun, 0, 100)} unit="%" />
-            {result ? <L.Readout size="sm" label="Earth" kind="earth" value={fmt(hoverInfo.earth, 0, 100)} unit="%" /> : null}
-            {result ? <L.Readout size="sm" label="Score" value={fmt(hoverInfo.score)} /> : null}
-          </div>
-          <p className="caption lh-muted hover-hint">Click to open this spot</p>
-        </L.Panel>
-      ) : null}
-      {!engineRef.current ? (
-        <L.Panel tone="overlay" padding="compact" className="hud hud--center">
-          <L.StatusBanner tone="approximate" title="Horizons not built yet">
-            The map shows the terrain, but mission scoring needs horizon.u8 and ephem.f32 from the pipeline.
-          </L.StatusBanner>
-        </L.Panel>
-      ) : null}
-    </MapView>
-  ) : null;
+  let page;
+  if (screen === "when") {
+    page = <SetupWhen mission={mission} setPeriod={setPeriod} setCustom={setCustom} setDuration={setDuration} periods={periods} problem={problem} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
+  } else if (screen === "priorities") {
+    page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} sitesCount={sites.length || 8} go={go} openSettings={() => setOverlay("settings")} />;
+  } else if (screen === "site") {
+    page = <Site app={app} />;
+  } else if (screen === "compare") {
+    page = <Compare app={app} />;
+  } else if (screen === "learn") {
+    page = (
+      <div className="shell">
+        {RailEl}
+        <main className="shell__main">{data ? <div className="card card--flush"><LearnPage data={data} /></div> : null}</main>
+      </div>
+    );
+  } else {
+    page = <Explore app={app} />;
+  }
 
   return (
-    <div className={`app ${mobile ? "app--mobile" : ""}`}>
-      <div className="app__rail">{nav}</div>
-      {page === "learn" && data ? (
-        <main className="app__learn"><LearnPage data={data} /></main>
-      ) : (
-        <>
-          <main className="app__viewer">
-            {!data ? (
-              <div className="viewer viewer--empty" data-theme="dark">
-                {loadState.error ? (
-                  <L.StatusBanner tone="error" title="Map data not available" action={<L.Button size="sm" onClick={() => location.reload()}>Retry</L.Button>}>
-                    {loadState.error}. Run the pipeline to create web/public/data.
-                  </L.StatusBanner>
-                ) : (
-                  <L.StatusBanner tone="loading" title="Loading NASA terrain and ephemeris" progress={loadState.done / loadState.total}>
-                    {loadState.done} of {loadState.total} files loaded
-                  </L.StatusBanner>
-                )}
-              </div>
-            ) : viewMode === "3d" ? (
-              <Suspense fallback={<div className="viewer viewer--empty" data-theme="dark"><L.StatusBanner tone="loading" title="Loading the 3D view" /></div>}>
-                <Moon3D data={data} mission={mission} result={result} sites={sites} spots={spots} selected={selected} viewSwitch={viewSwitch} />
-              </Suspense>
-            ) : (
-              mapView
-            )}
-          </main>
-          <aside className="app__side">
-            <header className="side__head">
-              <p className="eyebrow lh-muted">South Pole · 83.5–90°S · 1 km grid</p>
-              <h1 className="display lh-slash side__title">Explore</h1>
-            </header>
-            <MissionPanel
-              mission={mission}
-              setMission={setMission}
-              range={range}
-              onRun={() => run()}
-              running={running}
-              progress={progress}
-              problem={problem || runError}
-              observerHeightM={data?.manifest.horizon?.observerHeightM ?? 2}
-            />
-            {selected && data ? (
-              <PlaceDetail place={selected} mission={result} layers={data.layers} weights={weights} limits={limits} onClose={() => setSelRef(null)} />
-            ) : null}
-            <PlaceList
-              eyebrow="02 — Best spots"
-              title="Hotspots for this mission"
-              places={spots}
-              selectedKey={selected?.key}
-              onSelect={setSelRef}
-              hasMission={!!result}
-              empty="Raise the maximum slope or turn off the night limit to see candidates."
-              badge={<L.FidelityBadge level="approximate" detail="1 km grid and 5° horizon bins: regional screening, not a certified landing site.">Approximate</L.FidelityBadge>}
-            />
-            <PlaceList
-              eyebrow="03 — Artemis III"
-              title="Candidate regions"
-              places={sites}
-              selectedKey={selected?.key}
-              onSelect={setSelRef}
-              hasMission={!!result}
-              empty="No region passes your limits."
-              badge={<L.FidelityBadge level="approximate" detail="NASA publishes ~15 × 15 km regions; centres are approximate.">Approximate</L.FidelityBadge>}
-            />
-            <PrioritiesPanel weights={weights} setWeights={setWeights} limits={limits} setLimits={setLimits} />
-          </aside>
-        </>
-      )}
-    </div>
+    <>
+      {page}
+      {overlay === "settings" ? <SettingsDrawer app={app} onClose={() => setOverlay(null)} /> : null}
+      {overlay === "export" ? <ExportDialog app={app} onClose={() => setOverlay(null)} /> : null}
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { L, cssColor } from "../ds.js";
+import { IconBtn } from "../ui/kit.jsx";
 import { latLonToXY, xyToPixel } from "../engine/geometry.js";
 
 // Visor del mapa del polo sur (siempre en tema oscuro, como pide el design system).
@@ -20,7 +21,7 @@ const NICE_KM = [1, 2, 5, 10, 20, 50, 100, 200];
 
 /** Rampa de color de cada capa: (valor) -> [r, g, b, a 0-255] o null. */
 function makeRamp(layer, colors, extent) {
-  const { both, sun, earth, ink, lineStrong } = colors;
+  const { both, sun, earth, ink, lineStrong, relief } = colors;
   switch (layer.ramp) {
     case "score": {
       const [lo, hi] = extent;
@@ -45,6 +46,8 @@ function makeRamp(layer, colors, extent) {
     }
     case "slope":
       return (v) => (Number.isFinite(v) ? [...ink, 230 * Math.min(1, v / 30)] : null);
+    case "relief":
+      return (v) => (Number.isFinite(v) ? [...relief, 235 * Math.min(1, v / 600) ** 0.8] : null);
     case "shadow":
       // valor codificado: <0 = sombra permanente (trama), 0..1 = cercanía
       return (v, i, j) => {
@@ -137,6 +140,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
     const colors = {
       both: cssColor(el, "--both"), sun: cssColor(el, "--sun"), earth: cssColor(el, "--earth"),
       ink: cssColor(el, "--ink"), lineStrong: cssColor(el, "--line-strong"),
+      relief: [179, 157, 219],
     };
     let lo = Infinity, hi = -Infinity;
     if (values) for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -316,9 +320,9 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
         <L.MapMarker label={selected.name} shape="custom" state="selected" category="Spot you picked" style={markerPos(selected.i, selected.j)} />
       ) : null}
       <div className="viewer__zoom">
-        <L.IconButton icon="plus" label="Zoom in" variant="overlay" size="sm" onClick={() => zoomAt(1.5)} />
-        <L.IconButton icon="minus" label="Zoom out" variant="overlay" size="sm" onClick={() => zoomAt(1 / 1.5)} />
-        <L.IconButton icon="locate-fixed" label="Show the whole map" variant="overlay" size="sm" onClick={resetView} />
+        <IconBtn icon="plus" label="Zoom in" variant="overlay" onClick={() => zoomAt(1.5)} />
+        <IconBtn icon="minus" label="Zoom out" variant="overlay" onClick={() => zoomAt(1 / 1.5)} />
+        <IconBtn icon="locate" label="Show the whole map" variant="overlay" onClick={resetView} />
       </div>
       <div className="viewer__scale" aria-label={`Scale: ${barKm} km`}>
         <span className="viewer__scalebar" style={{ width: barKm * pxPerKm }} />

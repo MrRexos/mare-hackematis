@@ -1,26 +1,32 @@
 {
   "id": "sun.visible_fraction.mean",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "Average visible Sun fraction",
   "description": "Time-average of the visible solar disk fraction above the local terrain horizon.",
   "units": "fraction",
   "validRange": [0, 1],
-  "kind": "stat",
-  "owner": "Equipo Global",
+  "kind": "series",
+  "combine": "mean",
+  "owner": "Nombre de quien hace T3",
   "fidelity": "computed",
-  "method": "Ray-traced horizon over LOLA LDEM_64 (72 azimuths, observer 2 m); SPICE DE440, MOON_ME, LT+S; hourly samples.",
+  "method": "T2 horizons (LOLA LDEM_64, 72 azimuths, observer 2 m) + SPICE DE440, MOON_ME, LT+S; hourly samples.",
   "params": { "observerHeightM": 2, "sunCriterion": "diskFraction", "samplingHours": 1, "azimuths": 72 },
   "sources": [
     { "name": "LOLA LDEM_64", "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/", "citation": "Smith et al. (2010), LOLA GDR, NASA PDS" },
     { "name": "NAIF SPICE DE440", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/", "citation": "Park et al. (2021)" }
   ],
   "periods": {
-    "2026-2030": { "start": "2026-01-01T00:00:00Z", "end": "2031-01-01T00:00:00Z" }
+    "2026-2030": { "start": "2026-01-01T00:00:00Z", "end": "2031-01-01T00:00:00Z" },
+    "2026-01": { "start": "2026-01-01T00:00:00Z", "end": "2026-02-01T00:00:00Z" },
+    "2026-02": { "start": "2026-02-01T00:00:00Z", "end": "2026-03-01T00:00:00Z" }
   },
   "files": [
-    { "grid": "G32", "period": "2026-2030", "path": "G32/2026-2030.f32", "dtype": "float32",
+    { "grid": "G1K", "period": "2026-2030", "path": "G1K/2026-2030.f32", "dtype": "float32",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "min": 0, "max": 0.94 },
-    { "grid": "G8", "period": "2026-2030", "path": "G8/2026-2030.u8", "dtype": "uint8",
+    { "grid": "G1K", "period": "2026-01", "path": "G1K/2026-01.u8", "dtype": "uint8",
+      "scale": 0.003937007874015748, "offset": 0, "nodata": 255,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+    { "grid": "G1K", "period": "2026-02", "path": "G1K/2026-02.u8", "dtype": "uint8",
       "scale": 0.003937007874015748, "offset": 0, "nodata": 255,
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }
   ]

@@ -1,4 +1,4 @@
-"""Valida una capa contra el contrato de datos (docs/DATA_CONTRACT.md).
+"""Valida una capa contra el contrato de datos v0.2 (docs/DATA_CONTRACT.md).
 
 Uso:
     python tools/validate_layer.py layers/<id_de_capa> [layers/<otra> ...]
@@ -29,10 +29,14 @@ R_M = 1_737_400.0
 DTYPES = {"float32": "<f4", "int16": "<i2", "uint16": "<u2", "uint8": "u1"}
 REQUIRED = ["id", "version", "title", "units", "validRange", "kind", "owner", "fidelity", "method", "sources", "files"]
 GRIDS = {
-    "G32": {"type": "eqc", "ppd": 32}, "G8": {"type": "eqc", "ppd": 8}, "G4": {"type": "eqc", "ppd": 4},
+    # Malla oficial: 10 916 × 5 458, columna 0 desde −180°, fila 0 desde +90° (contrato v0.2, §2)
+    "G1K": {"type": "eqc", "cols": 10916, "rows": 5458},
+    # Derivada para la web (la genera la integración)
+    "W4": {"type": "eqc", "cols": 1440, "rows": 720},
+    # Módulo polar interno de la web
     "PS1K": {"type": "polar", "south": True, "n": 400, "px": 1000.0},
-    "PN1K": {"type": "polar", "south": False, "n": 400, "px": 1000.0},
 }
+GLOBAL_REF = "G1K"
 
 # Pruebas de orientación: (lat, lon, comparación, umbral, explicación)
 ORIENTATION = {
@@ -47,7 +51,7 @@ ORIENTATION = {
 def grid_shape(g: str) -> tuple[int, int]:
     d = GRIDS[g]
     if d["type"] == "eqc":
-        return 180 * d["ppd"], 360 * d["ppd"]
+        return d["rows"], d["cols"]
     return d["n"], d["n"]
 
 
@@ -56,8 +60,9 @@ def pixel_of(g: str, lat: float, lon: float):
     d = GRIDS[g]
     rows, cols = grid_shape(g)
     if d["type"] == "eqc":
-        c = int(math.floor(((lon + 180.0) % 360.0) * d["ppd"])) % cols
-        r = min(rows - 1, max(0, int(math.floor((90.0 - lat) * d["ppd"]))))
+        step = 360.0 / cols  # = 180 / rows
+        c = int(math.floor(((lon + 180.0) % 360.0) / step)) % cols
+        r = min(rows - 1, max(0, int(math.floor((90.0 - lat) / step))))
         return r, c
     if d["south"]:
         rho = 2 * R_M * math.tan(math.radians(45 + lat / 2))
@@ -89,11 +94,19 @@ def load(layer_dir: Path, f: dict) -> np.ndarray:
     a = np.fromfile(layer_dir / f["path"], dtype=DTYPES[f["dtype"]])
     a = a.reshape(rows, cols, bands) if bands > 1 else a.reshape(rows, cols)
     if f["dtype"] == "float32":
-        return a.astype(np.float64)
-    v = a.astype(np.float64)
+        return a
+    v = a.astype(np.float32)  # float32 para no duplicar memoria con matrices G1K
     if "nodata" in f:
         v[a == f["nodata"]] = np.nan
-    return v * f.get("scale", 1.0) + f.get("offset", 0.0)
+    return v * np.float32(f.get("scale", 1.0)) + np.float32(f.get("offset", 0.0))
+
+
+def sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with open(p, "rb") as fh:
+        for chunk in iter(lambda: fh.read(8 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def validate(layer_dir: Path) -> list[str]:
@@ -110,8 +123,11 @@ def validate(layer_dir: Path) -> list[str]:
     lid = meta["id"]
     if not re.fullmatch(r"[a-z]+(\.[a-z0-9_]+)+", lid):
         errors.append(f"id '{lid}' no sigue <dominio>.<magnitud>[.<estadística>]")
-    if meta["kind"] in ("stat", "series") and not meta.get("periods"):
-        errors.append("kind stat/series necesita 'periods'")
+    if meta["kind"] in ("stat", "series"):
+        if not meta.get("periods"):
+            errors.append("kind stat/series necesita 'periods'")
+        if meta.get("combine") not in ("mean", "max", "none"):
+            errors.append("kind stat/series necesita 'combine' (mean, max o none)")
     lo, hi = meta["validRange"]
     arrays: dict[tuple[str, str], np.ndarray] = {}
 
@@ -130,7 +146,7 @@ def validate(layer_dir: Path) -> list[str]:
         expected = rows * cols * f.get("bands", 1) * np.dtype(DTYPES[f["dtype"]]).itemsize
         if p.stat().st_size != expected:
             errors.append(f"{tag} tamaño {p.stat().st_size} B, esperado {expected} B ({rows}×{cols})"); continue
-        sha = hashlib.sha256(p.read_bytes()).hexdigest()
+        sha = sha256_file(p)
         if sha != f["sha256"]:
             errors.append(f"{tag} SHA-256 no coincide ({sha[:12]}… ≠ {f['sha256'][:12]}…)")
         a = load(layer_dir, f)
@@ -154,7 +170,7 @@ def validate(layer_dir: Path) -> list[str]:
     for (g, per), a in arrays.items():
         if GRIDS[g]["type"] != "polar" or a.ndim != 2:
             continue
-        glob = arrays.get(("G32", per))
+        glob = arrays.get((GLOBAL_REF, per))
         if glob is None:
             continue
         diffs = []
@@ -162,11 +178,11 @@ def validate(layer_dir: Path) -> list[str]:
             for c in range(a.shape[1]):
                 lat, lon = polar_centre_latlon(g, r, c)
                 if 84 <= abs(lat) <= 86 and np.isfinite(a[r, c]):
-                    gr, gc = pixel_of("G32", lat, lon)
+                    gr, gc = pixel_of(GLOBAL_REF, lat, lon)
                     if np.isfinite(glob[gr, gc]):
                         diffs.append(abs(a[r, c] - glob[gr, gc]))
         if diffs and np.median(diffs) > 0.05 * (hi - lo):
-            errors.append(f"[{g} vs G32/{per}] solape: mediana |Δ| = {np.median(diffs):.4g} > 5 % del rango")
+            errors.append(f"[{g} vs {GLOBAL_REF}/{per}] solape: mediana |Δ| = {np.median(diffs):.4g} > 5 % del rango")
     return errors
 
 

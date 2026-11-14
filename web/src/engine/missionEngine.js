@@ -68,7 +68,12 @@ export class MissionEngine {
       night: new Float32Array(total), best: new Int32Array(total),
     };
     const done = new Array(this.workers.length).fill(0);
-    const p = { startIdx, landingHours, durationH, candidateStepH: params.candidateStepH || 3, weights: params.weights };
+    // Unas ~2600 muestras por píxel: 1 h en ventanas cortas, 3-4 h en un año, más en varios años.
+    const strideH = Math.max(1, Math.ceil((landingHours + durationH) / 2600));
+    const p = {
+      startIdx, landingHours, durationH, strideH, candidateStepH: params.candidateStepH || 1, weights: params.weights,
+      sunMode: params.sunMode, earthMode: params.earthMode,
+    };
 
     await Promise.all(this.workers.map(({ worker, rows }, w) => new Promise((resolve, reject) => {
       const onMsg = (e) => {
@@ -94,7 +99,7 @@ export class MissionEngine {
     if (id !== this.runId) return null; // otro cálculo más nuevo lo ha sustituido
     return {
       ...res,
-      startIdx, landingHours, durationH,
+      startIdx, landingHours, durationH, strideH,
       startMs: m.startUnixMs + startIdx * stepMs,
       stepMs,
       params,
