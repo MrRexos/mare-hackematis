@@ -153,5 +153,23 @@
     "cellsFromLatitudeMeanPct": 0.0,
     "measuredQuarterHourBinsPct": 68.22
   },
-  "hillshade": "global/hillshade.png"
+  "hillshade": "global/hillshade.png",
+  "globe": {
+    "normal": {
+      "file": "global/globe/normal_4k.jpg",
+      "exaggeration": 6.0,
+      "convention": "tangent space, OpenGL (green = north)"
+    },
+    "height": {
+      "file": "global/globe/height_1k.png",
+      "minM": -9200.0,
+      "maxM": 10800.0
+    },
+    "albedo": {
+      "file": "global/globe/albedo_4k.jpg",
+      "fileHi": "global/globe/albedo_8k.jpg"
+    },
+    "source": "LROC WAC global mosaic 100 m (NASA/GSFC/Arizona State University, USGS Astrogeology) · LOLA LDEM_64 (NASA PDS)",
+    "projection": "equirectangular, column 0 at −180°E, row 0 at +90°"
+  }
 }

@@ -4,13 +4,16 @@
 // luz, la Tierra y la temperatura calculadas al momento para las fechas de la misión
 // (useGlobalMission). De momento solo con fecha fija de aterrizaje.
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import GlobalMap from "../components/GlobalMap.jsx";
 import { Icon, Btn, Card, Tabs, Fidelity, FactorGrid, FactorSpark, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { CompareTray } from "./Explore.jsx";
 import { ROUGH_MAX_M, presetOf } from "../engine/score.js";
+// El globo 3D (three.js y sus texturas) solo se descarga si se abre la vista 3D.
+const MoonGlobe = lazy(() => import("../components/MoonGlobe.jsx"));
+
 import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 const PDS = "https://pds-geosciences.wustl.edu/lro/";
@@ -107,8 +110,9 @@ function CompareToggle({ inCmp, onClick, size = "md" }) {
 export default function GlobalExplore({ app }) {
   const {
     globalManifest: gm, G, mission, problem, weights, openSettings, openWeights, go, Rail,
-    regionId: region, setRegion, gSel: sel, setGSel: setSel, inCmp, toggleCmp, cmpPlaces,
+    regionId: region, setRegion, gSel: sel, setGSel: setSel, inCmp, toggleCmp, cmpPlaces, dim, setDim,
   } = app;
+  const is3D = dim === "3D" && !!gm.globe; // globo de la Luna, sin capas de datos
   const grid = gm.grid;
   const { L, score, keys, spots, error, runError, loading, progress, ready, result } = G;
   const [layerKey, setLayerKey] = useState("score");
@@ -186,6 +190,7 @@ export default function GlobalExplore({ app }) {
       <main className="shell__main shell__main--fit">
         <header className="pagehead">
           <h1 className="h-page">Explore/</h1>
+          {gm.globe ? <Tabs label="View" value={is3D ? "3D" : "2D"} onChange={(value) => { setHoverP(null); setDim(value); }} options={[{ value: "2D", label: "2D", icon: "map" }, { value: "3D", label: "3D", icon: "globe" }]} /> : null}
           <RegionTabs region={region} setRegion={setRegion} globalReady />
           <div className="grow" />
           <MissionChip mission={mission} onClick={openSettings} />
@@ -194,48 +199,77 @@ export default function GlobalExplore({ app }) {
         <div className="explore">
           <div className="explore-map">
             <section aria-label="Moon map" className="mapsec" data-theme="dark">
-              <GlobalMap grid={grid} hillshade={hillshade} layer={layer} values={values} spots={spots} selectedP={sel}
-                onSelect={setSel} onHover={(p) => setHoverP(p ?? null)}>
-                <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
-                {error ? (
-                  <div className="overlay mapnote"><Icon name="alert" size={14} />Whole-Moon data could not be loaded: {error}</div>
-                ) : !ready ? (
-                  <div className="overlay mapnote"><Icon name="loader" size={14} className="spin" />Loading whole-Moon terrain horizons…</div>
-                ) : null}
-              </GlobalMap>
+              {is3D ? (
+                <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
+                  <MoonGlobe globe={gm.globe} grid={grid} places={places} selected={selected} onSelect={setSel}>
+                    <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
+                  </MoonGlobe>
+                  {selected ? (
+                    // Celda elegida en el globo: las mismas acciones que la ficha del mapa 2D.
+                    <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${selected.name}`}>
+                      <div className="row-8">
+                        <Shape kind={selected.shape} />
+                        <b className="grow">{selected.name}</b>
+                        <span className="num-15">{Number.isFinite(selected.score) ? Math.round(selected.score) : "–"}</span>
+                      </div>
+                      <span className="coords">{selected.coords}</span>
+                      {selected.excluded ? <div className="note-12"><Icon name="info" size={12} />{selected.excluded}</div> : null}
+                      <div className="row-6">
+                        <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => openSite(selected)}>Open site</Btn>
+                        <CompareToggle size="sm" inCmp={inCmp(selected)} onClick={() => toggleCmp(selected)} />
+                        <div className="grow" />
+                        <IconBtn icon="x" label="Clear selection" variant="ghost" size={32} onClick={() => setSel(null)} />
+                      </div>
+                    </div>
+                  ) : null}
+                </Suspense>
+              ) : (
+                <>
+                <GlobalMap grid={grid} hillshade={hillshade} layer={layer} values={values} spots={spots} selectedP={sel}
+                  onSelect={setSel} onHover={(p) => setHoverP(p ?? null)}>
+                  <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
+                  {error ? (
+                    <div className="overlay mapnote"><Icon name="alert" size={14} />Whole-Moon data could not be loaded: {error}</div>
+                  ) : !ready ? (
+                    <div className="overlay mapnote"><Icon name="loader" size={14} className="spin" />Loading whole-Moon terrain horizons…</div>
+                  ) : null}
+                </GlobalMap>
 
-              <div className="map-controls">
-                <div className="map-controls__row">
-                  <div className="overlay layerbar" role="group" aria-label="Map layer">
-                    <Icon name="layers" size={16} />
-                    {layerKeys.map((key) => (
-                      <button key={key} type="button" className={cx("layerbar__b", layerKey === key && "is-on")}
-                        aria-label={LAYERS[key].label} title={LAYERS[key].label} aria-pressed={layerKey === key} onClick={() => setLayerKey(key)}>
-                        <span className="layerbar__check">{layerKey === key && <Icon name="check" size={12} />}</span>
-                        {LAYERS[key].short}
-                      </button>
-                    ))}
+                <div className="map-controls">
+                  <div className="map-controls__row">
+                    <div className="overlay layerbar" role="group" aria-label="Map layer">
+                      <Icon name="layers" size={16} />
+                      {layerKeys.map((key) => (
+                        <button key={key} type="button" className={cx("layerbar__b", layerKey === key && "is-on")}
+                          aria-label={LAYERS[key].label} title={LAYERS[key].label} aria-pressed={layerKey === key} onClick={() => setLayerKey(key)}>
+                          <span className="layerbar__check">{layerKey === key && <Icon name="check" size={12} />}</span>
+                          {LAYERS[key].short}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="overlay map-controls__extras">
+                      <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
+                    </div>
                   </div>
-                  <div className="overlay map-controls__extras">
-                    <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
-                  </div>
+                  {readout}
                 </div>
-                {readout}
-              </div>
 
-              <details className="overlay map-legend">
-                <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
-                <div className="overlay legend__pop">
-                  <div className="legend__row"><Shape kind="square" />Best cell</div>
-                  <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
-                  <div className="legend__ramp">
-                    <span className="legend__name">{layer.label}</span>
-                    <div className={cx("ramp", `ramp--${layer.ramp === "water" ? "earth" : layer.ramp}`)} style={layer.ramp === "water" ? { background: "linear-gradient(90deg, transparent, #4fd1c5)" } : undefined} />
-                    <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
+                <details className="overlay map-legend">
+                  <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
+                  <div className="overlay legend__pop">
+                    <div className="legend__row"><Shape kind="square" />Best cell</div>
+                    <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
+                    <div className="legend__ramp">
+                      <span className="legend__name">{layer.label}</span>
+                      <div className={cx("ramp", `ramp--${layer.ramp === "water" ? "earth" : layer.ramp}`)} style={layer.ramp === "water" ? { background: "linear-gradient(90deg, transparent, #4fd1c5)" } : undefined} />
+                      <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
+                    </div>
+                    {layerKey === "score" ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
                   </div>
-                  {layerKey === "score" ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
-                </div>
-              </details>
+                </details>
+
+                </>
+              )}
 
               {createPortal(<dialog className="layer-info" ref={sources} aria-labelledby="gmap-layer-info-title">
                 <div className="layer-info__head">

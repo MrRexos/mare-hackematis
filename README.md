@@ -117,6 +117,13 @@ motor del polo sur, con una malla de toda la Luna de 0,5° (720 × 360, ~15 km e
 De momento solo con **fecha fija de aterrizaje**; buscar las mejores fechas sigue siendo
 solo del polo sur. La puntuación usa los factores con datos globales: luz, Tierra y pendiente.
 
+**Vista 3D.** Como en el polo sur, Explore tiene 2D y 3D. El 3D es un globo de la Luna que se
+gira y se acerca con el ratón: fotografía real (mosaico LROC WAC de 100 m) con relieve de LOLA,
+y encima las mejores celdas y la elegida. No lleva capas de datos; para eso está el mapa 2D.
+Las texturas van en `web/public/data/global/globe/` (14 MB) y solo se descargan al abrir el 3D:
+primero la foto de 4k (2,7 MB) y, si el equipo lo admite, la de 8k. Para regenerarlas:
+`python -m moonsite.globe_textures` (baja el mosaico de 6 GB a `.cache`).
+
 **Mare y Compare** también funcionan con la Luna entera: en el mapa, una celda tiene los
 botones «Open site» y «Compare». La ficha (Mare) muestra Overview y Sky & Time con la serie
 hora a hora de esa celda; Terrain y Lander's View son del mapa polar de 1 km y solo existen
