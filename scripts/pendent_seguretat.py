@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Pas 1 / T1 — Terreno (contracte de dades v0.2)
-==============================================
+Pas 1 / T1 — Pendent i seguretat del pendent (contracte v0.2)
+=============================================================
 Genera, sobre la malla oficial **G1K** (10 916 × 5 458):
 
-1. ``terrain.slope``     — pendent físic en **graus** (Float32)
-2. ``suitability.slope`` — seguretat derivada **0–100** (UInt8)
+1. ``terrain.slope``     — **pendent** físic en **graus** (Float32)
+2. ``suitability.slope`` — **seguretat del pendent** **0–100** (UInt8)
 
 Fórmula de seguretat (contracte §6)::
 
@@ -13,14 +13,20 @@ Fórmula de seguretat (contracte §6)::
 
 Objecte util::
 
-    from scripts.terrain_safety import compute_terrain_layers, TerrainLayers
-    result = compute_terrain_layers()
-    slope = result.slope_deg      # float32, graus
-    safety = result.suitability  # float32 0–100 (també result.safety)
+    from scripts.pendent_seguretat import compute_pendent_layers, PendentLayers
+    result = compute_pendent_layers()  # sempre llegeix malles ja processades
+    pendent = result.slope_deg         # float32, graus
+    seguretat = result.suitability     # float32 0–100 (també result.safety)
+
+El pendent lunar **no es recalcula mai** des de LOLA en l’API pública
+(``compute_pendent_layers`` / ``load_pendent_layers``). Calen els binaris G1K
+(fora de git, contracte §3.3). Només ``--regenerate-from-lola`` (CLI) torna a
+generar-los (lent, ~DEM remot).
 
 CLI::
 
-    python3 scripts/terrain_safety.py --export-layers
+    python3 scripts/pendent_seguretat.py                 # només llegeix
+    python3 scripts/pendent_seguretat.py --regenerate-from-lola  # excepció
 """
 
 from __future__ import annotations
@@ -87,7 +93,7 @@ CRS_MOON_EQC = CRS.from_proj4(
 # ---------------------------------------------------------------------------
 
 @dataclass
-class TerrainLayers:
+class PendentLayers:
     """
     Resultat del Pas 1 / T1.
 
@@ -136,7 +142,8 @@ class TerrainLayers:
 
 
 # Alias històric
-TerrainSafetyMatrix = TerrainLayers
+TerrainLayers = PendentLayers  # alias compat
+TerrainSafetyMatrix = PendentLayers
 
 
 # ---------------------------------------------------------------------------
@@ -304,14 +311,113 @@ def compute_slope_and_suitability(
     return slope, suitability
 
 
-def compute_terrain_layers(
+def _g1k_paths(layers_root: Path = Path("layers")) -> tuple[Path, Path]:
+    root = Path(layers_root)
+    return (
+        root / "terrain.slope" / "G1K" / "static.f32",
+        root / "suitability.slope" / "G1K" / "static.u8",
+    )
+
+
+def _expected_nbytes(dtype: str) -> int:
+    item = {"float32": 4, "uint8": 1}[dtype]
+    return GRID_COLS * GRID_ROWS * item
+
+
+def g1k_binaries_ready(layers_root: Path = Path("layers")) -> bool:
+    """True si les malles G1K de pendent/seguretat ja són al disc amb la mida correcta."""
+    slope_p, suit_p = _g1k_paths(layers_root)
+    return (
+        slope_p.is_file()
+        and slope_p.stat().st_size == _expected_nbytes("float32")
+        and suit_p.is_file()
+        and suit_p.stat().st_size == _expected_nbytes("uint8")
+    )
+
+
+def load_pendent_layers(
+    layers_root: Path = Path("layers"),
+    npy_dir: Path | None = Path("data/pendent_g1k"),
+    veto_deg: float = LLINDAR_VETO_GRAUS,
+) -> PendentLayers:
+    """
+    Carrega pendent + seguretat **sense recalcular**.
+
+    Ordre de preferència:
+      1. ``layers/terrain.slope/G1K/static.f32`` + ``suitability.slope/G1K/static.u8``
+      2. ``data/pendent_g1k/pendent_deg.npy`` + ``seguretat_pendent.npy``
+    """
+    layers_root = Path(layers_root)
+    slope_p, suit_p = _g1k_paths(layers_root)
+    _, _, res_x, res_y, transform = g1k_grid()
+
+    if g1k_binaries_ready(layers_root):
+        print(f"Carregant malles G1K des de {layers_root} (sense recalcular)…")
+        slope = np.fromfile(slope_p, dtype="<f4").reshape(GRID_ROWS, GRID_COLS)
+        suit_u8 = np.fromfile(suit_p, dtype="uint8").reshape(GRID_ROWS, GRID_COLS)
+        suitability = suit_u8.astype("float32")
+        source = f"file:{slope_p}"
+    else:
+        if npy_dir is None:
+            raise FileNotFoundError(
+                f"Falten binaris G1K ({slope_p}, {suit_p}). "
+                "Posa els binaris G1K o regenera un cop: "
+                "python3 scripts/pendent_seguretat.py --regenerate-from-lola"
+            )
+        npy_dir = Path(npy_dir)
+        pendent_npy = npy_dir / "pendent_deg.npy"
+        seg_npy = npy_dir / "seguretat_pendent.npy"
+        # Compat amb noms antics
+        if not pendent_npy.is_file() and (npy_dir / "slope_deg.npy").is_file():
+            pendent_npy = npy_dir / "slope_deg.npy"
+        if not seg_npy.is_file() and (npy_dir / "safety.npy").is_file():
+            seg_npy = npy_dir / "safety.npy"
+        if not (pendent_npy.is_file() and seg_npy.is_file()):
+            raise FileNotFoundError(
+                f"Falten malles a {layers_root} i a {npy_dir}. "
+                "Regenera un cop: python3 scripts/pendent_seguretat.py --regenerate-from-lola"
+            )
+        print(f"Carregant .npy de treball des de {npy_dir} (sense recalcular)…")
+        slope = np.load(pendent_npy).astype("float32", copy=False)
+        suitability = np.load(seg_npy).astype("float32", copy=False)
+        if suitability.max() <= 1.0 + 1e-6:
+            # safety antiga 0–1 → 0–100
+            suitability = (suitability * SAFETY_MAX).astype("float32")
+        if slope.shape != (GRID_ROWS, GRID_COLS):
+            raise ValueError(f"Forma pendent {slope.shape} ≠ G1K {(GRID_ROWS, GRID_COLS)}")
+        source = f"file:{pendent_npy}"
+
+    return PendentLayers(
+        slope_deg=slope,
+        suitability=suitability,
+        transform=transform,
+        crs=str(CRS_MOON_EQC),
+        resolution_m=float(res_x),
+        veto_deg=veto_deg,
+        source_url=source,
+        extras={
+            "res_x_m": res_x,
+            "res_y_m": res_y,
+            "baseline_m": BASELINE_M,
+            "function": f"{SAFETY_MAX:.0f} * max(0, 1 - slope_deg / {veto_deg:g})",
+            "loaded_from_cache": True,
+        },
+    )
+
+
+def _recompute_pendent_layers_from_lola(
     url: str = URL_LOLA_GLOBAL,
     veto_deg: float = LLINDAR_VETO_GRAUS,
     refresh_dem: bool = False,
-) -> TerrainLayers:
-    """Pipeline T1: G1K → slope (°) + suitability (0–100)."""
+) -> PendentLayers:
+    """
+    Intern / CLI ``--regenerate-from-lola`` només.
+
+    No usar des de codi d’aplicació: el pendent no canvia i les malles
+    ja processades s’han de llegir amb ``compute_pendent_layers``.
+    """
     print("=" * 60)
-    print("  T1 / Pas 1 — terrain.slope + suitability.slope")
+    print("  T1 / REGENERATE — terrain.slope + suitability.slope des de LOLA")
     print(f"  Malla {GRID_ID}: {GRID_COLS}×{GRID_ROWS} (contracte v0.2)")
     print("=" * 60)
 
@@ -323,7 +429,7 @@ def compute_terrain_layers(
     )
     del dem_net
 
-    result = TerrainLayers(
+    result = PendentLayers(
         slope_deg=slope,
         suitability=suitability,
         transform=transform,
@@ -336,15 +442,53 @@ def compute_terrain_layers(
             "res_y_m": res_y,
             "baseline_m": BASELINE_M,
             "function": f"{SAFETY_MAX:.0f} * max(0, 1 - slope_deg / {veto_deg:g})",
+            "loaded_from_cache": False,
         },
     )
-    print("T1 completat.")
+    print("Regeneració T1 completada.")
     return result
 
 
-# Alias
-compute_nearside_terrain_safety = compute_terrain_layers
-compute_global_terrain_safety = compute_terrain_layers
+def compute_pendent_layers(
+    layers_root: Path = Path("layers"),
+    npy_dir: Path | None = Path("data/pendent_g1k"),
+    veto_deg: float = LLINDAR_VETO_GRAUS,
+    **_ignored: Any,
+) -> PendentLayers:
+    """
+    API pública T1: retorna pendent + seguretat **sempre** des de malles ja processades.
+
+    No descarrega LOLA ni recalcula el pendent. Si falten els binaris, aixeca
+    ``FileNotFoundError`` (posa’ls a ``layers/.../G1K/`` o regenera amb la CLI
+    ``--regenerate-from-lola`` una sola vegada).
+    """
+    # Compat: crides antigues passaven url=...; s’ignoren (mai LOLA aquí).
+    _ignored.pop("url", None)
+    try:
+        return load_pendent_layers(
+            layers_root=layers_root, npy_dir=npy_dir, veto_deg=veto_deg
+        )
+    except FileNotFoundError:
+        # Prova carpeta legacy una vegada
+        try:
+            return load_pendent_layers(
+                layers_root=layers_root,
+                npy_dir=Path("data/pas1_global"),
+                veto_deg=veto_deg,
+            )
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"{e}\n"
+                "El pendent no es recalcula des de LOLA en runtime. "
+                "Copia les malles G1K o executa un cop: "
+                "python3 scripts/pendent_seguretat.py --regenerate-from-lola"
+            ) from e
+
+
+# Alias (noms antics + API) — tots llegeixen cache, mai LOLA
+compute_terrain_layers = compute_pendent_layers
+compute_nearside_terrain_safety = compute_pendent_layers
+compute_global_terrain_safety = compute_pendent_layers
 
 
 # ---------------------------------------------------------------------------
@@ -378,9 +522,9 @@ def _write_u8_score(path: Path, score_0_100: np.ndarray) -> tuple[float, float, 
 
 
 def export_contract_layers(
-    result: TerrainLayers,
+    result: PendentLayers,
     layers_root: Path = Path("layers"),
-    also_npy_dir: Path | None = Path("data/pas1_global"),
+    also_npy_dir: Path | None = Path("data/pendent_g1k"),
 ) -> dict[str, Path]:
     """
     Escriu:
@@ -417,7 +561,7 @@ def export_contract_layers(
         slope_meta = {
             "id": "terrain.slope",
             "version": "0.2.0",
-            "title": "Slope",
+            "title": "Pendent (slope)",
             "description": (
                 "Terrain slope in degrees relative to the local horizontal, "
                 "derived from LOLA LDEM resampled to G1K (~1 km baseline)."
@@ -453,7 +597,7 @@ def export_contract_layers(
     suit_meta = {
         "id": "suitability.slope",
         "version": "0.2.0",
-        "title": "Slope suitability (0–100)",
+        "title": "Seguretat del pendent (0–100)",
         "description": (
             "Derived 0–100 score from terrain.slope. "
             "Optional companion layer (contract §6); official scoring still uses degrees."
@@ -504,8 +648,8 @@ def export_contract_layers(
     if also_npy_dir is not None:
         also_npy_dir = Path(also_npy_dir)
         also_npy_dir.mkdir(parents=True, exist_ok=True)
-        np.save(also_npy_dir / "slope_deg.npy", result.slope_deg)
-        np.save(also_npy_dir / "safety.npy", result.suitability)
+        np.save(also_npy_dir / "pendent_deg.npy", result.slope_deg)
+        np.save(also_npy_dir / "seguretat_pendent.npy", result.suitability)
         meta = {
             "grid": GRID_ID,
             "shape": [result.height, result.width],
@@ -547,43 +691,78 @@ def update_catalog(layers_root: Path = Path("layers")) -> None:
 # ---------------------------------------------------------------------------
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="T1: G1K terrain.slope + suitability.slope")
+    p = argparse.ArgumentParser(
+        description=(
+            "T1/Pendent: llegeix malles G1K ja processades (mai recalcula el pendent "
+            "en ús normal). El pendent lunar no canvia."
+        )
+    )
     p.add_argument("--url", default=URL_LOLA_GLOBAL)
     p.add_argument("--veto", type=float, default=LLINDAR_VETO_GRAUS)
-    p.add_argument("--outdir", type=Path, default=Path("data/pas1_global"), help="npy de treball")
+    p.add_argument("--outdir", type=Path, default=Path("data/pendent_g1k"), help="npy de treball (pendent + seguretat)")
     p.add_argument("--layers-root", type=Path, default=Path("layers"))
+    p.add_argument(
+        "--regenerate-from-lola",
+        "--force-recompute",  # alias antic
+        dest="regenerate_from_lola",
+        action="store_true",
+        help="EXCEPCIÓ: regenera des de LOLA (lent). No usar en runtime normal.",
+    )
     p.add_argument(
         "--export-layers",
         action="store_true",
         default=True,
-        help="Escriu layers/terrain.slope i layers/suitability.slope (defecte: sí)",
+        help="Escriu layers/ després d’una regeneració (defecte: sí)",
     )
     p.add_argument("--no-export-layers", action="store_true")
     p.add_argument(
         "--refresh-dem",
         action="store_true",
-        help="Ignora la memòria local i torna a baixar el GeoTIFF (8,5 GB)",
+        help="Amb --regenerate-from-lola: ignora el relleu desat a .cache i torna a baixar el GeoTIFF (8,5 GB)",
     )
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    result = compute_terrain_layers(url=args.url, veto_deg=args.veto, refresh_dem=args.refresh_dem)
-    print(
-        f"\nObjecte TerrainLayers  shape={result.shape}\n"
-        f"  slope_deg     [{np.nanmin(result.slope_deg):.2f}, {np.nanmax(result.slope_deg):.2f}] °\n"
-        f"  suitability   [{result.suitability.min():.0f}, {result.suitability.max():.0f}]"
-    )
 
-    do_export = args.export_layers and not args.no_export_layers
-    if do_export:
-        export_contract_layers(result, layers_root=args.layers_root, also_npy_dir=args.outdir)
-        update_catalog(args.layers_root)
+    if args.regenerate_from_lola:
+        result = _recompute_pendent_layers_from_lola(
+            url=args.url, veto_deg=args.veto, refresh_dem=args.refresh_dem
+        )
+        do_export = args.export_layers and not args.no_export_layers
+        if do_export:
+            export_contract_layers(
+                result, layers_root=args.layers_root, also_npy_dir=args.outdir
+            )
+            update_catalog(args.layers_root)
+        else:
+            args.outdir.mkdir(parents=True, exist_ok=True)
+            np.save(args.outdir / "pendent_deg.npy", result.slope_deg)
+            np.save(args.outdir / "seguretat_pendent.npy", result.suitability)
     else:
+        try:
+            result = compute_pendent_layers(
+                layers_root=args.layers_root,
+                npy_dir=args.outdir,
+                veto_deg=args.veto,
+            )
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        print("Malles llegides des de disc — sense LOLA ni recalcul de pendent.")
         args.outdir.mkdir(parents=True, exist_ok=True)
-        np.save(args.outdir / "slope_deg.npy", result.slope_deg)
-        np.save(args.outdir / "safety.npy", result.suitability)
+        if not (args.outdir / "pendent_deg.npy").is_file():
+            np.save(args.outdir / "pendent_deg.npy", result.slope_deg)
+            np.save(args.outdir / "seguretat_pendent.npy", result.suitability)
+            print(f"  ✓ còpia de treball a {args.outdir}")
+
+    print(
+        f"\nObjecte PendentLayers  shape={result.shape}\n"
+        f"  slope_deg     [{np.nanmin(result.slope_deg):.2f}, {np.nanmax(result.slope_deg):.2f}] °\n"
+        f"  suitability   [{result.suitability.min():.0f}, {result.suitability.max():.0f}]\n"
+        f"  cache         {bool(result.extras.get('loaded_from_cache'))}"
+    )
     return 0
 
 

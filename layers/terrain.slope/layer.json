@@ -1,14 +1,14 @@
 {
   "id": "terrain.slope",
   "version": "0.2.0",
-  "title": "Slope",
+  "title": "Pendent (slope)",
   "units": "deg",
   "validRange": [
     0,
     90
   ],
   "kind": "static",
-  "owner": "Equipo Polar + Web",
+  "owner": "Equipo Polar + Jan / Global (T1 pendent)",
   "fidelity": "computed",
   "method": "Median of 16 LOLA LDSM_75S_240M samples inside each 1 km pixel.",
   "params": {
@@ -41,5 +41,6 @@
       "min": 0.0,
       "max": 89.71208953857422
     }
-  ]
+  ],
+  "description": "Pendent del terreny en graus respecte a l’horitzontal local. PS1K: producte polar LOLA LDSM. G1K: calcula amb scripts/pendent_seguretat.py (LOLA Global LDEM → malla contracte ~1 km)."
 }

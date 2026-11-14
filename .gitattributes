@@ -3,3 +3,5 @@
 *.u8 binary
 *.png binary
 *.img binary
+layers/terrain.slope/G1K/static.f32 filter=lfs diff=lfs merge=lfs -text
+layers/suitability.slope/G1K/static.u8 filter=lfs diff=lfs merge=lfs -text
