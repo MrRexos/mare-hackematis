@@ -576,3 +576,11 @@ button:disabled { cursor: default; }
   .h-page { font-size: 26px; line-height: 32px; }
   .learn { padding: 20px; }
 }
+
+/* Whole Moon (GlobalExplore) */
+.gtip { position: absolute; z-index: var(--z-hud); pointer-events: none; padding: 8px 10px; border-radius: 10px; font-size: 12px; line-height: 1.5; max-width: 280px; }
+.glegend { position: absolute; right: 20px; bottom: 20px; z-index: var(--z-hud); display: grid; grid-template-columns: auto; gap: 4px; padding: 10px 12px; border-radius: 14px; font-size: 11px; min-width: 200px; }
+.glegend__ramp { display: block; height: 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,.5); }
+.glegend__ends { display: flex; justify-content: space-between; }
+.glegend__na { display: flex; align-items: center; gap: 6px; }
+.glegend__na i { display: inline-block; width: 22px; height: 10px; border: 1px solid rgba(255,255,255,.5); background: repeating-linear-gradient(45deg, #2d2d2d 0 3px, #787878 3px 5px); }

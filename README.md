@@ -101,6 +101,28 @@ Genera `layers/<id>/viewer_<periodo>.html` (se abre con doble clic): vista globa
 dos polos, relieve LOLA de fondo, puntos de referencia (Shackleton, Apollo 11, Tycho…) y,
 al pasar el ratón, latitud, longitud, fila/columna G1K y valor. Sirve para cualquier capa.
 
+## Vista "Whole Moon" (Luna entera)
+
+En la pantalla de prioridades, **Whole Moon** usa las matrices globales G1K de las ramas
+Jan (pendiente, T1), Nil (Tierra visible, T4) y pol (luz y noche más larga, T3);
+**South Pole** sigue usando el motor horario del polo sur, sin cambios. En el mapa se puede
+ver la puntuación combinada (mismos pesos y límites que el polo sur, solo con los factores
+que tienen capa global) o cada matriz por separado, con las 10 mejores celdas.
+
+Pasos para tener datos (desde la raíz del repositorio):
+
+```bash
+python scripts/terrain_safety.py --export-layers                          # T1 pendiente (Jan)
+cd pipeline
+../.venv/Scripts/python -m moonsite.fetch global                         # LDEM_64 + SPICE
+../.venv/Scripts/python -m moonsite.sun_global 2026-11-14                # T3 luz, un día (o --mes / --estandar)
+../.venv/Scripts/python -m moonsite.earth_global 2026-11-14              # T4 Tierra, el mismo día
+../.venv/Scripts/python -m moonsite.web_global                           # G1K → web/public/data/global (W4)
+```
+
+La web combina los periodos calculados que caen dentro de las fechas de la misión (media
+ponderada por horas) y avisa si solo hay datos para una parte de esas fechas.
+
 ## Design system
 
 Los ficheros de `web/public/design-system/` vienen del design system **compartido** del

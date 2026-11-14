@@ -9,6 +9,8 @@ import { Rail, TimeBar } from "./ui/Shell.jsx";
 import SetupWhen from "./screens/SetupWhen.jsx";
 import SetupPriorities from "./screens/SetupPriorities.jsx";
 import Explore from "./screens/Explore.jsx";
+import GlobalExplore from "./screens/GlobalExplore.jsx";
+import { loadGlobalManifest } from "./engine/globalScore.js";
 import Site from "./screens/Site.jsx";
 import Compare from "./screens/Compare.jsx";
 import { ExportDialog, SettingsDrawer } from "./screens/Overlays.jsx";
@@ -110,6 +112,10 @@ export default function App() {
   const [group, setGroup] = useState("artemis");
   const [cmpRefs, setCmpRefs] = useState([]);
   const [timeMs, setTimeMs] = useState(() => todayMs());
+  // Región: "south" = polo sur (motor horario de siempre); "moon" = Luna entera (capas G1K → W4).
+  const [region, setRegion] = useState("south");
+  const [globalManifest, setGlobalManifest] = useState(null);
+  useEffect(() => { loadGlobalManifest().then(setGlobalManifest); }, []);
 
   const go = useCallback((s) => {
     setScreen(s);
@@ -393,7 +399,8 @@ export default function App() {
     timeMs, setTimeMs, Rail: RailEl, TimeBarEl,
     moonMission: { windowStartMs: mission.fromMs, windowEndMs: landEndMs, durationDays: mission.durationDays },
     sitesForMap: sites, spotsForMap: spots,
-    tl, lw, siteList, stepSite, rankInfo, validation, useDates, timelineFor, region: "South Pole",
+    tl, lw, siteList, stepSite, rankInfo, validation, useDates, timelineFor,
+    region, setRegion, globalManifest, globalReady: !!globalManifest,
     exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,
   };
 
@@ -401,7 +408,7 @@ export default function App() {
   if (screen === "when") {
     page = <SetupWhen mission={mission} setPeriod={setPeriod} setCustom={setCustom} setDuration={setDuration} periods={periods} problem={problem} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
   } else if (screen === "priorities") {
-    page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} sitesCount={sites.length || 8} go={go} openSettings={() => setOverlay("settings")} />;
+    page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} sitesCount={sites.length || 8} go={go} openSettings={() => setOverlay("settings")} region={region} setRegion={setRegion} globalManifest={globalManifest} />;
   } else if (screen === "site") {
     page = <Site app={app} />;
   } else if (screen === "compare") {
@@ -413,6 +420,8 @@ export default function App() {
         <main className="shell__main">{data ? <div className="card card--flush"><LearnPage data={data} /></div> : null}</main>
       </div>
     );
+  } else if (region === "moon" && globalManifest) {
+    page = <GlobalExplore app={app} />;
   } else {
     page = <Explore app={app} />;
   }

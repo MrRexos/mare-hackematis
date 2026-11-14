@@ -134,3 +134,17 @@ def test_dia_que_arriba(monkeypatch, tmp_path):
     (pid, (a, b)), = vistos["periodos"].items()
     assert pid == "2026-11-14" and (b - a).days == 1 and a.hour == 0 and vistos["paso"] == 600
     assert m.shape == (5458, 10916) and m.dtype == np.uint8
+
+
+def test_w4_misma_coordenada_que_g1k():
+    """La reducción G1K → W4 de la web conserva la posición: cada celda W4 recibe la media
+    de las celdas G1K cuyo centro cae dentro de ella."""
+    from moonsite import web_global as Wg
+    lat, lon = T.centros_g1k()
+    LAT = np.broadcast_to(lat[:, None], (lat.size, lon.size)).astype(np.float32)
+    LON = np.broadcast_to(lon[None, :], (lat.size, lon.size)).astype(np.float32)
+    la4, lo4 = Wg.a_w4(LAT), Wg.a_w4(LON)
+    clat = 90 - (np.arange(Wg.W4_ROWS) + 0.5) * 0.25
+    clon = -180 + (np.arange(Wg.W4_COLS) + 0.5) * 0.25
+    assert np.abs(la4[:, 0] - clat).max() < 0.02
+    assert np.abs(lo4[0, :] - clon).max() < 0.02
