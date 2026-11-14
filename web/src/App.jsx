@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadData } from "./data/loadData.js";
 import { MissionEngine } from "./engine/missionEngine.js";
-import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, ROUGH_MAX_M, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
+import { DEFAULT_LIMITS, DEFAULT_WEIGHTS, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
+import { LAYERS } from "./data/mapLayers.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
 import { landingWindows, runs, siteTimeline } from "./engine/timeline.js";
@@ -17,17 +18,6 @@ import LearnPage from "./components/LearnPage.jsx";
 const DAY_MS = 86400000;
 const H = 3600e3;
 const REGION_HALF_PX = 7; // regiones Artemis III de ~15 × 15 km -> 15 × 15 píxeles de 1 km
-
-// Capas del mapa (todas con datos oficiales verificados; ver Learn).
-const LAYERS = {
-  score: { label: "Score", ramp: "score", legend: ["Lower", "Higher"] },
-  sun: { label: "Sunlight", ramp: "sun", legend: ["0%", "100%"] },
-  earth: { label: "Earth view", ramp: "earth", legend: ["0%", "100%"] },
-  slope: { label: "Slope", ramp: "slope", legend: ["0°", "30°+"] },
-  rough: { label: "Roughness", ramp: "rough", legend: ["0 m", `${ROUGH_MAX_M} m+`] },
-  temp: { label: "Temperature", ramp: "temp", legend: ["Cold", "Mild"] },
-  shadow: { label: "Water ice", ramp: "shadow", legend: ["Far", "Near"] },
-};
 
 const todayMs = () => {
   const d = new Date();
@@ -101,12 +91,10 @@ export default function App() {
   });
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
-  const [result, setResult] = useState(null);
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [runError, setRunError] = useState(null);
-  const [layerKey, setLayerKey] = useState("sun");
+  const [calculation, setCalculation] = useState(null);
+  const [layerKey, setLayerKey] = useState("score");
   const [terrainLayer, setTerrainLayer] = useState("sun");
+  const [showIceEvidence, setShowIceEvidence] = useState(false);
   const [selRef, setSelRef] = useState(null); // {type:"spot",rank} | {type:"site",id} | {type:"pick",p}
   const [group, setGroup] = useState("artemis");
   const [cmpRefs, setCmpRefs] = useState([]);
@@ -148,37 +136,40 @@ export default function App() {
   const landEndMs = Math.max(mission.fromMs + H, mission.toMs - mission.durationDays * DAY_MS);
 
   // --- Cálculo automático (con un pequeño retardo) -------------------------
-  const inFlight = useRef(0);
+  const request = useMemo(() => ({
+    windowStartMs: mission.fromMs,
+    windowEndMs: landEndMs,
+    durationDays: mission.durationDays,
+    weights: { sun: weights.sun, earth: weights.earth },
+    sunMode: mission.sunMode,
+    earthMode: mission.earthMode,
+  }), [mission.fromMs, landEndMs, mission.durationDays, weights.sun, weights.earth, mission.sunMode, mission.earthMode]);
+  const current = calculation?.request === request ? calculation : null;
+  const result = problem ? null : current?.result ?? null;
+  const runError = problem ? null : current?.error ?? null;
+  const running = engineReady && !problem && !result && !runError;
+  const progress = current?.progress ?? 0;
+
   useEffect(() => {
-    if (!data || !engineRef.current || problem) return undefined;
-    const t = setTimeout(async () => {
-      inFlight.current += 1;
-      setRunning(true);
-      setRunError(null);
-      setProgress(0);
+    const engine = engineRef.current;
+    if (!engineReady || problem) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
       try {
-        const r = await engineRef.current.run({
-          windowStartMs: mission.fromMs,
-          windowEndMs: landEndMs,
-          durationDays: mission.durationDays,
-          weights: { sun: weights.sun, earth: weights.earth },
-          sunMode: mission.sunMode,
-          earthMode: mission.earthMode,
-        }, setProgress);
-        if (r) {
-          setResult(r);
-          setLayerKey((k) => (k === "sun" ? "score" : k));
-        }
+        const result = await engine.run(request, (progress) => {
+          if (!cancelled) setCalculation({ request, progress });
+        });
+        if (result && !cancelled) setCalculation({ request, result, progress: 1 });
       } catch (e) {
-        setRunError(e.message);
-      } finally {
-        inFlight.current -= 1;
-        if (inFlight.current === 0) setRunning(false);
+        if (!cancelled) setCalculation({ request, error: e.message });
       }
-    }, 500);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, mission.fromMs, mission.toMs, mission.durationDays, mission.sunMode, mission.earthMode, weights.sun, weights.earth, problem]);
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      engine.cancel();
+    };
+  }, [engineReady, request, problem]);
 
   // --- Puntuación, puntos calientes y regiones -----------------------------
   const score = useMemo(() => (data && result ? scoreGrid(result, data.layers, weights, limits) : null), [data, result, weights, limits]);
@@ -338,6 +329,7 @@ export default function App() {
       case "score": v = score; break;
       case "sun": v = result ? result.sun : ly.avgSun || null; break;
       case "earth": v = result ? result.earth : ly.avgEarth || null; break;
+      case "elevation": v = ly.elevation || null; break;
       case "slope": v = ly.slope || null; break;
       case "rough": v = ly.roughness || null; break;
       case "temp": v = ly.tempAvgK || null; break;
@@ -363,6 +355,7 @@ export default function App() {
     if (key === "score") return [`${Math.round(lo)}`, `${Math.round(hi)}`];
     if (key === "sun" || key === "earth") return ["0%", `${Math.round(hi * 100)}%`];
     if (key === "temp") return [`${Math.round(lo)} K`, `${Math.round(hi)} K`];
+    if (key === "elevation") return [`${(lo / 1000).toFixed(1)} km`, `${(hi / 1000).toFixed(1)} km`];
     return LAYERS[key].legend;
   };
   const values = valuesFor(layerKey);
@@ -391,8 +384,8 @@ export default function App() {
   const app = {
     data, result, running, progress, runError, problem, loadState, engineReady,
     places: [...sites, ...spots], groups, group, setGroup, selected, setSelRef, weights, setWeights, limits, setLimits,
-    layerKey, setLayerKey, LAYERS, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
-    terrainLayer, setTerrainLayer,
+    layerKey, setLayerKey, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
+    terrainLayer, setTerrainLayer, showIceEvidence, setShowIceEvidence,
     dim, setDim, mission, periods, setPeriod, setCustom, setDuration, setMissionOpts, restoreDefaults, dirty,
     openSettings: () => setOverlay("settings"), go, tab, setTab,
     cmp: cmpRefs, toggleCmp, inCmp, cmpPlaces, addBest3, canAddBest: ranked.length > 0,

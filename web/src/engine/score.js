@@ -23,12 +23,12 @@ export const TEMP_COLD_K = 50;
 export const TEMP_MILD_K = 250;
 
 export const FACTORS = [
-  { key: "sun", label: "Sunlight", icon: "sun", color: "var(--sun)", hint: "Share of the mission with the Sun above the terrain (LOLA + SPICE)" },
-  { key: "earth", label: "Earth contact", icon: "earth", color: "var(--earth)", hint: "Share of the mission with Earth above the terrain (LOLA + SPICE)" },
+  { key: "sun", label: "Sun visibility", icon: "sun", color: "var(--sun)", hint: "Share of the mission with the Sun above the terrain (LOLA + SPICE)" },
+  { key: "earth", label: "Earth visibility", icon: "earth", color: "var(--earth)", hint: "Share of the mission with Earth above the terrain (LOLA + SPICE)" },
   { key: "slope", label: "Slope", icon: "slope", color: "#8bd17c", hint: "Lower slope scores higher (LOLA LDSM, 240 m)" },
   { key: "rough", label: "Roughness", icon: "relief", color: "#b39ddb", hint: `Smoother ground scores higher; 0 at ${ROUGH_MAX_M} m (LOLA LDRM, 30–120 m baseline)` },
-  { key: "temp", label: "Temperature", icon: "thermometer", color: "#f28b54", hint: `Milder annual average needs less heating; ${TEMP_COLD_K} K → 0, ${TEMP_MILD_K} K → 1 (LRO Diviner)` },
-  { key: "ice", label: "Water ice", icon: "droplet", color: "#4fd1c5", hint: "Closer to ground where ice is stable within 0.5 m (LRO Diviner)" },
+  { key: "temp", label: "Mean ground temperature", icon: "thermometer", color: "#f28b54", hint: `Warmer annual mean at 2 cm scores higher. ${TEMP_COLD_K} K → 0, ${TEMP_MILD_K} K → 1 (LRO Diviner)` },
+  { key: "ice", label: "Modelled ice proximity", icon: "droplet", color: "#4fd1c5", hint: "Distance to terrain where ice could persist within 0.5 m (LRO Diviner)" },
 ];
 export const FACTOR_KEYS = FACTORS.map((f) => f.key);
 export const SCORED_KEYS = FACTOR_KEYS;

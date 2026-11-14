@@ -1,13 +1,15 @@
 // 03 Site: ficha de un lugar con pestañas Overview, Sky & Time, Terrain y Lander's View.
 
-import { Suspense, lazy, useMemo } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import MapView from "../components/MapView.jsx";
+import MapControls, { MapPointReadout } from "../components/MapControls.jsx";
+import { GROUND_GROUPS, LAYERS } from "../data/mapLayers.js";
+import iceDetections from "../data/iceDetections.json";
 import { Icon, Btn, Card, CardHead, Tabs, Fidelity, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, ProfileChip, fmtShort, fmtHM, fmtIso } from "../ui/Shell.jsx";
 import { FACTORS } from "../engine/score.js";
 import { compass, goodHoursPerDay, hourIndex, nextChange, runs } from "../engine/timeline.js";
-import { formatDuration } from "../engine/geometry.js";
-import { Legend } from "./Explore.jsx";
+import { formatDuration, pixelXY } from "../engine/geometry.js";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
 const H = 3600e3;
@@ -122,7 +124,6 @@ function Header({ app, place, idx, total }) {
 
 function Overview({ app, place }) {
   const { tl, lw, result, mission, timeMs, setTimeMs, data, useDates, rankInfo, validation } = app;
-  const layers = data.layers;
   const p = place.p;
   const D = lw?.D ?? mission.durationDays * 24;
   const startMs = tl && lw && lw.best >= 0 ? tl.startMs + lw.best * H : null;
@@ -146,8 +147,6 @@ function Overview({ app, place }) {
     };
   }, [tl]);
 
-  const slope = layers.slope?.[p];
-  const elev = layers.elevation?.[p];
   const horMax = tl ? Math.max(...tl.ctx.hor) : NaN;
 
   // Pros y contras: los factores con datos, de mayor a menor.
@@ -249,10 +248,9 @@ function Overview({ app, place }) {
           {tl ? <GoodDays tl={tl} missionWin={startMs != null ? [startMs, endMs] : null} /> : <p className="muted-12">–</p>}
         </Card>
         <Card className="f1">
-          <CardHead title="Terrain"><span className="pill-sm">LOLA 240 m</span></CardHead>
+          <CardHead title="Ground data"><span className="muted-12">1 km cell</span></CardHead>
+          <GroundReadout data={data} pixel={p} />
           <div className="grid2 mt-12">
-            <Stat label="Slope" value={Number.isFinite(slope) ? slope.toFixed(1) : "–"} unit="°" />
-            <Stat label="Elevation" value={Number.isFinite(elev) ? `${elev >= 0 ? "+" : ""}${(elev / 1000).toFixed(1)}` : "–"} unit="km" />
             <Stat label="Horizon max" value={Number.isFinite(horMax) ? horMax.toFixed(1) : "–"} unit="°" />
             <Stat label="Observer" value={mission.observerM} unit="m" />
           </div>
@@ -410,64 +408,69 @@ function SkyTime({ app }) {
 
 /* --------------------------------------------------------------- Terrain */
 
-const TERRAIN_LAYERS = [
-  { value: "sun", label: "Sunlight" },
-  { value: "earth", label: "Earth view" },
-  { value: "ice", label: "Water ice" },
-  { value: "slope", label: "Slope" },
-  { value: "temp", label: "Temperature" },
-  { value: "rough", label: "Roughness" },
-];
+const TERRAIN_LAYERS = ["sun", "earth", "elevation", "slope", "rough", "temp", "shadow"];
+
+function GroundReadout({ data, pixel }) {
+  const { grid } = data.manifest;
+  const [x, y] = pixelXY(grid, Math.floor(pixel / grid.n), pixel % grid.n);
+  let nearestSquared = Infinity;
+  for (const [iceX, iceY] of iceDetections.points) {
+    nearestSquared = Math.min(nearestSquared, (x - iceX) ** 2 + (y - iceY) ** 2);
+  }
+  return (
+    <div className="ground-groups mt-12">
+      {GROUND_GROUPS.map((group) => (
+        <section className="ground-group" key={group.label}>
+          <h3 className="lbl">{group.label}</h3>
+          <dl className="ground-values">
+            {group.fields.map(({ key, label, format }) => {
+              const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : data.layers[key]?.[pixel];
+              return (
+                <div key={key}>
+                  <dt>{label}</dt>
+                  <dd>{Number.isFinite(value) ? format(value) : "No data"}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 function Terrain({ app, place }) {
-  const { data, terrainLayer, setTerrainLayer, LAYERS, valuesFor, sitesForMap, spotsForMap, setSelRef, legendFor, result } = app;
+  const [hoveredPixel, setHoveredPixel] = useState(null);
+  const { data, terrainLayer, setTerrainLayer, valuesFor, sitesForMap, spotsForMap, legendFor, showIceEvidence, setShowIceEvidence, go } = app;
   const key = terrainLayer;
-  const mapKey = key === "ice" ? "shadow" : key;
-  const layer = LAYERS[mapKey];
-  const values = valuesFor(mapKey);
-  const ends = legendFor(mapKey, values);
-  const p = place.p;
-  const l = data.layers;
-  const fin = (v) => Number.isFinite(v);
-  const rows = [
-    ["sun", "Sunlight", result ? `${Math.round(result.sun[p] * 100)}%` : `${Math.round((l.avgSun?.[p] || 0) * 100)}%`, result ? "of the mission" : "18.6-year average, LOLA"],
-    ["earth", "Earth view", result ? `${Math.round(result.earth[p] * 100)}%` : fin(l.avgEarth?.[p]) ? `${Math.round(l.avgEarth[p] * 100)}%` : "–", result ? "of the mission" : "18.6-year average, LOLA"],
-    ["ice", "Water ice", fin(l.iceDistKm?.[p]) ? `${l.iceDistKm[p].toFixed(1)} km` : "–",
-      fin(l.iceDepthM?.[p]) && l.iceDepthM[p] < 2.87 ? `to ice stable ≤ 0.5 m · here stable at ${l.iceDepthM[p].toFixed(2)} m` : "to ice stable ≤ 0.5 m, Diviner"],
-    ["slope", "Slope", fin(l.slope?.[p]) ? `${l.slope[p].toFixed(1)}°` : "–", "median, 240 m baseline, LOLA"],
-    ["temp", "Temperature", fin(l.tempAvgK?.[p]) ? `${Math.round(l.tempAvgK[p])} K` : "–",
-      fin(l.tempMaxK?.[p]) ? `annual mean at 2 cm · max ${Math.round(l.tempMaxK[p])} K, Diviner` : "annual mean at 2 cm, Diviner"],
-    ["rough", "Roughness", fin(l.roughness?.[p]) ? `${l.roughness[p].toFixed(2)} m` : "–", "height std, 30–120 m baseline, LOLA"],
-  ];
-  const cur = rows.find((r) => r[0] === key);
+  const layer = LAYERS[key];
+  const values = valuesFor(key);
+  const ends = legendFor(key, values);
+  // El Mare analiza el punto elegido: el mapa se centra en él, solo muestra su
+  // marcador y un clic no cambia de punto (eso se hace en Explore).
+  const focusSites = place.type === "site" ? sitesForMap.filter((s) => s.key === place.key) : [];
+  const focusSpots = place.type === "spot" ? spotsForMap.filter((s) => s.key === place.key) : [];
   return (
     <div className="explore">
-      <section aria-label="Terrain map" className="mapsec">
-        <MapView data={data} layer={layer} values={values} sites={sitesForMap} spots={spotsForMap} selected={place} onSelect={setSelRef} onPick={(px) => setSelRef({ type: "pick", p: px })}>
-          <div className="overlay layerbar layerbar--tabs" role="tablist" aria-label="Layer">
-            {TERRAIN_LAYERS.map((o) => (
-              <button key={o.value} type="button" role="tab" aria-selected={key === o.value} disabled={o.disabled || (o.value === "earth" && !result && !data.layers.avgEarth)} title={o.title} className={cx("layerbar__b", key === o.value && "is-on")} onClick={() => setTerrainLayer(o.value)}>{o.label}</button>
-            ))}
+      <section aria-label={`Terrain around ${place.name}`} className="mapsec" data-theme="dark">
+        <MapView data={data} layer={layer} values={values} sites={focusSites} spots={focusSpots} selected={place}
+          showIceEvidence={showIceEvidence} hoverPixel={hoveredPixel} onHover={setHoveredPixel}>
+          <div className="overlay mapnote">
+            <Icon name="map-pin" size={14} />
+            <span>Terrain around {place.short}. Hover to read any cell.</span>
+            <button type="button" className="linkbtn linkbtn--12" onClick={() => go("explore")}>Change site in Explore<Icon name="chevron-right" size={12} /></button>
           </div>
-          <Legend layer={layer} legendEnds={ends} />
         </MapView>
+        <MapControls activeLayer={key} onLayer={setTerrainLayer} layerKeys={TERRAIN_LAYERS} legendEnds={ends}
+          showIceEvidence={showIceEvidence} onIceEvidence={setShowIceEvidence}>
+          <MapPointReadout data={data} layer={layer} values={values} hoveredPixel={hoveredPixel} selected={place}
+            onEnter={() => setHoveredPixel(null)} />
+        </MapControls>
       </section>
       <aside className="rank">
         <Card pad="md2">
-          <CardHead title={cur[1]} size="sm"><Fidelity level="computed" /></CardHead>
-          <div className="big-40 mt-12">{cur[2]}</div>
-          <span className="muted-12">{cur[3]} at {place.short}</span>
-        </Card>
-        <Card pad="md2">
-          <CardHead title="Layers" size="sm" />
-          <div className="layerlist">
-            {rows.map(([k, name, v, sub]) => (
-              <button key={k} type="button" className={cx("layerlist__row", key === k && "is-on")} onClick={() => setTerrainLayer(k)}>
-                <span className="grow">{name}<span className="muted-11"> · {sub}</span></span>
-                <span className="num-13">{v}</span>
-              </button>
-            ))}
-          </div>
+          <CardHead title="Ground data" size="sm"><span className="muted-12">1 km cell</span></CardHead>
+          <GroundReadout data={data} pixel={place.p} />
         </Card>
         <Card pad="md2">
           <CardHead title="Precision" size="sm" />

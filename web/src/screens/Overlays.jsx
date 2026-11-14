@@ -91,7 +91,7 @@ export function SettingsDrawer({ app, onClose }) {
           <Section title="Limits">
             <div className="stack-16">
               <L.Slider label="Maximum slope" value={limits.maxSlopeDeg} min={2} max={30} step={1} onChange={(v) => setLimits({ ...limits, maxSlopeDeg: v })} format={(v) => `${v}°`} description="Pixels steeper than this are left out." />
-              <L.Slider label="Ice reach" value={limits.iceReachKm} min={2} max={30} step={1} onChange={(v) => setLimits({ ...limits, iceReachKm: v })} format={(v) => `${v} km`} description="Distance to ground where ice is stable within 0.5 m (LRO Diviner) at which the water-ice factor drops to zero." />
+              <L.Slider label="Modelled ice reach" value={limits.iceReachKm} min={2} max={30} step={1} onChange={(v) => setLimits({ ...limits, iceReachKm: v })} format={(v) => `${v} km`} description="Distance to terrain where ice could persist within 0.5 m (LRO Diviner) at which the modelled ice proximity factor reaches zero." />
               <Toggle checked={limits.excludePsr} onChange={(v) => setLimits({ ...limits, excludePsr: v })} label="Leave out permanent shadow" description="A solar-powered lander cannot work inside permanently shadowed regions." />
               <Toggle checked={limits.maxNightH != null} onChange={(v) => setLimits({ ...limits, maxNightH: v ? 72 : null })} label="Limit the longest night" description="Leave out spots whose longest dark stretch exceeds the battery autonomy." />
               {limits.maxNightH != null ? (
@@ -102,7 +102,7 @@ export function SettingsDrawer({ app, onClose }) {
         </div>
         <div className="drawer__foot">
           {running ? (
-            <span className="row-8 muted-12"><Icon name="loader" size={14} className="spin" />Recomputing<b className="num-13">{Math.round(progress * 100)}%</b></span>
+            <span className="row-8 muted-12"><Icon name="loader" size={14} className="spin" />Recomputing<b className="num-13">{Math.floor(progress * 100)}%</b></span>
           ) : (
             <span className="row-8 muted-12"><Icon name="check" size={14} />Up to date</span>
           )}

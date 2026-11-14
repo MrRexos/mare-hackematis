@@ -11,19 +11,23 @@ import { DEG, localFrame, pixelXY, xyToUnit } from "./geometry.js";
 
 const SUN_RADIUS_KM = 695700;
 const EARTH_RADIUS_DEG = 0.95; // radio angular medio de la Tierra vista desde la Luna
+const MIN_ELEVATION_SIN = Math.sin(-6 / DEG);
 let S = null; // estado del init
+let activeRun = null;
 
 self.onmessage = (e) => {
   const m = e.data;
   if (m.type === "init") {
     S = m;
-    self.postMessage({ type: "ready" });
   } else if (m.type === "run") {
+    activeRun = m.id;
     run(m.id, m.params);
+  } else if (m.type === "cancel" && activeRun === m.id) {
+    activeRun = null;
   }
 };
 
-function run(id, p) {
+async function run(id, p) {
   const { grid, rows, elevation, horizon, horizonMeta, ephem, ephemMeta } = S;
   const n = grid.n;
   const bins = horizonMeta.bins;
@@ -84,7 +88,12 @@ function run(id, p) {
 
       // Perfil de horizonte del píxel (grados), con el primer bin repetido al final.
       const hb = local * bins;
-      for (let k = 0; k < bins; k++) hor[k] = horizon[hb + k] * qs + qo;
+      let minHorizon = Infinity, maxHorizon = -Infinity;
+      for (let k = 0; k < bins; k++) {
+        const height = hor[k] = horizon[hb + k] * qs + qo;
+        minHorizon = Math.min(minHorizon, height);
+        maxHorizon = Math.max(maxHorizon, height);
+      }
       hor[bins] = hor[0];
 
       const [x, y] = pixelXY(grid, i, j);
@@ -97,34 +106,41 @@ function run(id, p) {
         // Sol: misma dirección para toda la región.
         const sx = sun[t * 3], sy = sun[t * 3 + 1], sz = sun[t * 3 + 2];
         const sUp = sx * up[0] + sy * up[1] + sz * up[2];
-        const sEl = Math.asin(sUp) * DEG;
         let f = 0;
-        if (sEl > -6) {
-          const sAz = Math.atan2(sx * east[0] + sy * east[1], sx * north[0] + sy * north[1] + sz * north[2]) * DEG;
-          const a = (sAz + 360) % 360 / binDeg;
-          const k0 = a | 0;
-          const w = a - k0;
-          const hz = hor[k0] * (1 - w) + hor[k0 + 1] * w;
+        if (sUp > MIN_ELEVATION_SIN) {
+          const sEl = Math.asin(sUp) * DEG;
           const r = sunR[t];
-          const q = (sEl - hz) / r;
-          if (sunMode === "any") f = q > -1 ? 1 : 0;
-          else if (sunMode === "centre") f = q >= 0 ? 1 : 0;
-          else if (sunMode === "whole") f = q >= 1 ? 1 : 0;
-          else f = q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
+          if (sEl - r > maxHorizon) f = 1;
+          else if (sEl + r >= minHorizon) {
+            const sAz = Math.atan2(sx * east[0] + sy * east[1], sx * north[0] + sy * north[1] + sz * north[2]) * DEG;
+            const a = (sAz < 0 ? sAz + 360 : sAz) / binDeg;
+            const k0 = a | 0;
+            const w = a - k0;
+            const hz = hor[k0] * (1 - w) + hor[k0 + 1] * w;
+            const q = (sEl - hz) / r;
+            if (sunMode === "any") f = q > -1 ? 1 : 0;
+            else if (sunMode === "centre") f = q >= 0 ? 1 : 0;
+            else if (sunMode === "whole") f = q >= 1 ? 1 : 0;
+            else f = q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
+          }
         }
         sunF[t] = f;
 
         // Tierra: vector desde el observador (incluye paralaje).
         const ex = earth[t * 3] - ox, ey = earth[t * 3 + 1] - oy, ez = earth[t * 3 + 2] - oz;
-        const ed = Math.hypot(ex, ey, ez);
-        const eEl = Math.asin((ex * up[0] + ey * up[1] + ez * up[2]) / ed) * DEG;
+        const ed = Math.sqrt(ex * ex + ey * ey + ez * ez);
+        const eUp = (ex * up[0] + ey * up[1] + ez * up[2]) / ed;
         let v = 0;
-        if (eEl > -6) {
-          const eAz = Math.atan2(ex * east[0] + ey * east[1], ex * north[0] + ey * north[1] + ez * north[2]) * DEG;
-          const a = (eAz + 360) % 360 / binDeg;
-          const k0 = a | 0;
-          const w = a - k0;
-          v = eEl + earthTol > hor[k0] * (1 - w) + hor[k0 + 1] * w ? 1 : 0;
+        if (eUp > MIN_ELEVATION_SIN) {
+          const eEl = Math.asin(eUp) * DEG + earthTol;
+          if (eEl > maxHorizon) v = 1;
+          else if (eEl >= minHorizon) {
+            const eAz = Math.atan2(ex * east[0] + ey * east[1], ex * north[0] + ey * north[1] + ez * north[2]) * DEG;
+            const a = (eAz < 0 ? eAz + 360 : eAz) / binDeg;
+            const k0 = a | 0;
+            const w = a - k0;
+            v = eEl > hor[k0] * (1 - w) + hor[k0 + 1] * w ? 1 : 0;
+          }
         }
         earthV[t] = v;
       }
@@ -154,7 +170,11 @@ function run(id, p) {
       }
       out.night[local] = longest * stride;
     }
-    if ((i - r0) % 8 === 7) self.postMessage({ type: "progress", id, done: i - r0 + 1 });
+    if ((i - r0 + 1) % 4 === 0 && i + 1 < r1) {
+      self.postMessage({ type: "progress", id, done: i - r0 + 1 });
+      await new Promise((resume) => setTimeout(resume, 0));
+      if (activeRun !== id) return;
+    }
   }
   self.postMessage({ type: "result", id, rows, ...out }, [out.sun.buffer, out.earth.buffer, out.both.buffer, out.night.buffer, out.best.buffer]);
 }

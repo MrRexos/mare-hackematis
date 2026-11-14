@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { L, cssColor } from "../ds.js";
 import { IconBtn } from "../ui/kit.jsx";
-import { latLonToXY, xyToPixel } from "../engine/geometry.js";
+import { formatLatLon, latLonToXY, xyToPixel } from "../engine/geometry.js";
 import { ROUGH_MAX_M } from "../engine/score.js";
+import iceDetections from "../data/iceDetections.json";
 
 // Visor del mapa del polo sur (siempre en tema oscuro, como pide el design system).
 // Dibuja en un <canvas>: relieve sombreado + capa de datos coloreada.
@@ -50,13 +51,14 @@ function makeRamp(layer, colors, extent) {
     case "rough":
       // LOLA LDRM en metros; tope visual en ROUGH_MAX_M (el mismo que la puntuación).
       return (v) => (Number.isFinite(v) ? [...relief, 235 * Math.min(1, v / ROUGH_MAX_M) ** 0.8] : null);
+    case "elevation":
     case "temp": {
-      // Diviner: de la mínima a la máxima de la capa (la leyenda muestra los K).
       const [lo, hi] = extent;
+      const color = layer.ramp === "elevation" ? ink : temp;
       return (v) => {
         if (!Number.isFinite(v)) return null;
         const t = hi > lo ? (v - lo) / (hi - lo) : 1;
-        return [...temp, 30 + 215 * t ** 1.2];
+        return [...color, 30 + 215 * t ** 1.2];
       };
     }
     case "shadow":
@@ -71,14 +73,46 @@ function makeRamp(layer, colors, extent) {
   }
 }
 
-export default function MapView({ data, layer, values, sites, spots, selected, onSelect, onHover, onPick, children }) {
+export default function MapView({ data, layer, values, sites, spots, selected, onSelect, onPick, showIceEvidence, hoverPixel, onHover, children }) {
   const grid = data.manifest.grid;
   const n = grid.n;
+  const [iceRegions, setIceRegions] = useState(null);
+  const [iceRegionError, setIceRegionError] = useState(false);
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ zoom: 1, cx: n / 2, cy: n / 2 });
+  const [impactOpen, setImpactOpen] = useState(false);
+  const impactButton = useRef(null);
+  useEffect(() => {
+    if (!showIceEvidence || iceRegions) return undefined;
+    let cancelled = false;
+    setIceRegionError(false);
+    import("../data/iceEvidence.json")
+      .then(({ default: data }) => { if (!cancelled) setIceRegions(data.regions); })
+      .catch(() => { if (!cancelled) setIceRegionError(true); });
+    return () => { cancelled = true; };
+  }, [showIceEvidence, iceRegions]);
+  const evidencePath = useMemo(() => {
+    if (!iceRegions) return null;
+    const path = new Path2D();
+    for (const region of iceRegions) {
+      for (const ring of region) {
+        ring.forEach(([x, y], i) => {
+          const j = (x + grid.halfM) / grid.pxM;
+          const row = (grid.halfM - y) / grid.pxM;
+          if (i === 0) path.moveTo(j, row);
+          else path.lineTo(j, row);
+        });
+        path.closePath();
+      }
+    }
+    return path;
+  }, [grid, iceRegions]);
+  const detections = useMemo(() => iceDetections.points
+    .map(([x, y]) => xyToPixel(grid, x, y))
+    .filter(([i, j]) => i >= -0.5 && j >= -0.5 && i < n - 0.5 && j < n - 0.5), [grid, n]);
   // Copias en refs para los listeners nativos (rueda, gestos), que no se recrean.
   const sizeRef = useRef(size);
   const viewRef = useRef(view);
@@ -135,7 +169,9 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
   useEffect(() => {
     const el = wrapRef.current;
     const onWheel = (e) => {
+      if (e.target.closest(".overlay, .viewer__zoom")) return;
       e.preventDefault();
+      onHover(null);
       const [sx, sy] = local(e);
       // Ratón (pasos grandes) y trackpad (pasos finos) dan un zoom suave y proporcional.
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
@@ -143,7 +179,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomAt]);
+  }, [zoomAt, onHover]);
 
   // Capa de datos -> imagen n×n.
   useEffect(() => {
@@ -191,13 +227,45 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
     ctx.globalAlpha = 1;
     ctx.imageSmoothingEnabled = view.zoom < 3;
     if (overlayRef.current) ctx.drawImage(overlayRef.current, x0, y0, n * scale, n * scale);
-  }, [size, view, scale, values, layer, data.hillshade, n]);
+    if (showIceEvidence && scale > 0) {
+      const color = cssColor(wrapRef.current, "--earth").join(", ");
+      if (evidencePath) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x0, y0, n * scale, n * scale);
+        ctx.clip();
+        ctx.translate(x0, y0);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = `rgba(${color}, 0.25)`;
+        ctx.strokeStyle = `rgb(${color})`;
+        ctx.lineWidth = 1.4 / scale;
+        ctx.fill(evidencePath, "evenodd");
+        ctx.stroke(evidencePath);
+        ctx.restore();
+      }
+      ctx.beginPath();
+      for (const [i, j] of detections) {
+        const x = x0 + (j + 0.5) * scale;
+        const y = y0 + (i + 0.5) * scale;
+        if (x < 0 || y < 0 || x > size.w || y > size.h) continue;
+        ctx.moveTo(x + 1.9, y);
+        ctx.arc(x, y, 1.9, 0, 2 * Math.PI);
+      }
+      ctx.fillStyle = `rgb(${color})`;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.65)";
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+    }
+  }, [size, view, scale, values, layer, data.hillshade, n, evidencePath, detections, showIceEvidence]);
 
   useEffect(draw, [draw]);
 
   // --- Puntero: arrastrar, pellizcar, clic ----------------------------------
   const onPointerDown = (e) => {
     if (e.target !== canvasRef.current) return; // los marcadores gestionan su propio clic
+    onHover(null);
+    setImpactOpen(false);
     wrapRef.current.focus({ preventScroll: true });
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, local(e));
@@ -212,7 +280,10 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
   };
   const onPointerMove = (e) => {
     const [sx, sy] = local(e);
-    if (e.pointerType === "mouse") onHover?.(pixelIndex(...toPixel(sx, sy)));
+    if (e.pointerType === "mouse") {
+      const hover = e.target === canvasRef.current && !gesture.current;
+      onHover(hover ? pixelIndex(...toPixel(sx, sy)) : null);
+    }
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, [sx, sy]);
     const g = gesture.current;
@@ -230,9 +301,10 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
     }
   };
   const onPointerUp = (e) => {
+    if (!pointers.current.has(e.pointerId)) return;
     const g = gesture.current;
     pointers.current.delete(e.pointerId);
-    if (g?.type === "pan" && !g.moved) {
+    if (e.type === "pointerup" && g?.type === "pan" && !g.moved) {
       const p = pixelIndex(...toPixel(...local(e)));
       if (p != null) onPick?.(p);
     }
@@ -251,18 +323,29 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
   };
   const resetView = () => setView({ zoom: 1, cx: n / 2, cy: n / 2 });
   const onKeyDown = (e) => {
+    if (e.target !== wrapRef.current) return;
     const step = 40 / scale;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
     if (moves[e.key]) { e.preventDefault(); setView((v) => clampView({ ...v, cx: v.cx + moves[e.key][0], cy: v.cy + moves[e.key][1] })); }
     else if (e.key === "+" || e.key === "=") zoomAt(1.5);
     else if (e.key === "-" || e.key === "_") zoomAt(1 / 1.5);
     else if (e.key === "0") resetView();
+    else if (e.key === "Enter" && size.w) {
+      const pixel = pixelIndex(...toPixel(size.w / 2, size.h / 2));
+      if (pixel != null) onPick?.(pixel);
+    }
   };
 
   // Centrar en lo seleccionado (punto caliente, región o punto elegido).
   useEffect(() => {
     if (!selected) return;
-    setView((v) => clampView({ zoom: Math.max(v.zoom, 3), cx: selected.j + 0.5, cy: selected.i + 0.5 }));
+    setView((v) => {
+      const zoom = Math.max(v.zoom, 3);
+      const viewport = sizeRef.current;
+      const sc = baseScale(viewport) * zoom;
+      const verticalOffset = viewport.w < 560 && sc > 0 ? 0.12 * viewport.h / sc : 0;
+      return clampView({ zoom, cx: selected.j + 0.5, cy: selected.i + 0.5 - verticalOffset });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.key]);
 
@@ -278,6 +361,13 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
     const [sx, sy] = toScreen(i, j);
     return sx > -20 && sy > -20 && sx < size.w + 20 && sy < size.h + 20;
   };
+  const impact = iceDetections.impact;
+  const [impactI, impactJ] = xyToPixel(grid, ...latLonToXY(grid, impact.lat, impact.lon));
+  const hover = hoverPixel == null ? null : toScreen(Math.floor(hoverPixel / n), hoverPixel % n);
+
+  useEffect(() => {
+    if (!showIceEvidence) setImpactOpen(false);
+  }, [showIceEvidence]);
 
   return (
     <div
@@ -286,12 +376,12 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
       data-theme="dark"
       tabIndex={0}
       role="application"
-      aria-label="South pole map. Drag to pan, scroll or pinch to zoom, double-click to zoom in, click a spot to score it. Arrow keys move, + and − zoom, 0 resets."
+      aria-label="South pole map. Drag or use arrow keys to pan. Scroll, pinch or use plus and minus to zoom. Select a point for ground data. Enter selects the centre and 0 resets the map."
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onPointerLeave={() => onHover?.(null)}
+      onPointerLeave={() => onHover(null)}
       onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
     >
@@ -331,6 +421,12 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
       {selected?.type === "pick" && inView(selected.i, selected.j) ? (
         <L.MapMarker label={selected.name} shape="custom" state="selected" category="Spot you picked" style={markerPos(selected.i, selected.j)} />
       ) : null}
+      {showIceEvidence && inView(impactI, impactJ) && (
+        <button type="button" ref={impactButton} className="ice-impact" style={markerPos(impactI, impactJ)}
+          aria-label={impact.name} title={impact.name} aria-expanded={impactOpen}
+          onClick={() => setImpactOpen((open) => !open)}
+        ><span className="ice-impact-key" /></button>
+      )}
       <div className="viewer__zoom">
         <IconBtn icon="plus" label="Zoom in" variant="overlay" onClick={() => zoomAt(1.5)} />
         <IconBtn icon="minus" label="Zoom out" variant="overlay" onClick={() => zoomAt(1 / 1.5)} />
@@ -342,6 +438,22 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
         <span className="caption lh-muted">· ×{view.zoom.toFixed(1)}</span>
       </div>
       {children}
+      {showIceEvidence && iceRegionError && <p className="overlay mapnote" role="status">Ice-region outlines could not be loaded.</p>}
+      {showIceEvidence && impactOpen && (
+        <section className="overlay impact-card" aria-label="LCROSS observation">
+          <div className="row-8">
+            <strong className="grow">{impact.name}</strong>
+            <IconBtn icon="x" label="Close LCROSS details" variant="ghost" size={28} onClick={() => {
+              setImpactOpen(false);
+              impactButton.current?.focus({ preventScroll: true });
+            }} />
+          </div>
+          <div className="coords">{formatLatLon(impact.lat, impact.lon, 4)}</div>
+          <p>LCROSS detected water in material excavated here in 2009.</p>
+          <a href={impact.studyUrl} target="_blank" rel="noreferrer">Read the LCROSS study</a>
+        </section>
+      )}
+      {hover && <span className="map-cursor" style={{ left: hover[0], top: hover[1], width: Math.max(4, scale), height: Math.max(4, scale) }} />}
     </div>
   );
 }

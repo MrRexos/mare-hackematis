@@ -17,7 +17,7 @@ export default function LearnPage({ data }) {
         <L.Panel eyebrow="01" title="What the map answers">
           <p className="body-lg">
             For a landing window and a surface time, which 1 km spots near the lunar south pole give the most sunlight and
-            Earth contact, on gentle ground, close to permanently shadowed regions where ice may be?
+            Earth visibility on gentle ground near terrain where water ice could persist?
           </p>
           <p className="body lh-sec">
             At the pole the Sun stays within about 1.6° of the horizon and Earth within about 7°, so the surrounding terrain
@@ -28,8 +28,8 @@ export default function LearnPage({ data }) {
           <ol className="body steps">
             <li>Every 1 km pixel has a terrain horizon in 72 directions, ray-traced over NASA LOLA elevation.</li>
             <li>For each hour of the mission the app checks the Sun disk and Earth against that horizon.</li>
-            <li>It tries every landing time in the window (every 3 h) and keeps the best one per pixel.</li>
-            <li>Score = 100 · Σ weight × factor / Σ weight, with six factors: sunlight, Earth contact, slope, roughness, temperature and water ice. Limits (slope, permanent shadow, night) remove pixels.</li>
+            <li>It samples landing times across the window at a step that depends on its length and keeps the best one per pixel.</li>
+            <li>Score = 100 · Σ weight × factor / Σ weight. Factors include Sun and Earth visibility, slope, roughness, mean ground temperature and modelled ice proximity. Limits for slope, permanent shadow and night can exclude cells.</li>
             <li>Hotspots are connected groups of the top 3% of pixels, ranked by their best pixel.</li>
           </ol>
         </L.Panel>
@@ -38,6 +38,7 @@ export default function LearnPage({ data }) {
             <li><b>Terrain, slope, roughness:</b> LOLA LDEM_75S_240M, LDSM_75S_240M and LDRM_75S_240M, NASA PDS Geosciences Node.</li>
             <li><b>Permanent shadow, long-term Sun and Earth:</b> LOLA LPSR and AVGVISIB 120 m (Mazarico et al. 2011), NASA PDS.</li>
             <li><b>Temperature and ice stability:</b> LRO Diviner Polar Resource Product v2.0 (Paige et al. 2010), NASA PDS. A peer-reviewed thermal model fit to the first mapping year.</li>
+            <li><b>Ice observations:</b> Lemelin et al. (2021) mapped permanently shadowed regions associated with M³ detections. The LCROSS marker uses NASA’s Centaur impact coordinates and the water detection reported by Colaprete et al. (2010).</li>
             <li><b>Sun and Earth:</b> NASA/JPL NAIF SPICE, DE440 ephemeris, MOON_ME frame, light time and aberration.</li>
             <li><b>Artemis III regions:</b> NASA (2024-10-28), approximate centres.</li>
             <li><b>Checks:</b> JPL Horizons API and LOLA AVGVISIB (Sun and Earth).</li>
