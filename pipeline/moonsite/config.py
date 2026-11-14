@@ -68,6 +68,18 @@ DIVINER = {
 #: Profundidad máxima (m) a la que consideramos el hielo "accesible" para la capa de cercanía.
 ICE_ACCESSIBLE_DEPTH_M = 0.5
 
+#: LRO Diviner Global Cumulative Products (Williams et al. 2017, Icarus 283): temperatura
+#: bolométrica MEDIDA de toda la Luna en celdas de 0,5° y 0,25 h de hora local (nadir,
+#: 2009-2015). 18 franjas de 10° de latitud, 156 MB cada una (2,8 GB). Lo usa
+#: moonsite.thermal_global. Se descarga con `python -m moonsite.fetch thermal`.
+DIVINER_GCP_BANDS = [f"{a:02d}s{a - 10:02d}s" for a in range(90, 0, -10)] + [f"{a:02d}n{a + 10:02d}n" for a in range(0, 90, 10)]
+DIVINER_GCP = {
+    b: Remote(f"{PDS_DIVINER}/data_derived_gcp/global_cumul_avg_cyl_{b}_002.tab",
+              RAW / "diviner_gcp" / f"global_cumul_avg_cyl_{b}_002.tab", 156_211_313,
+              f"Diviner GCP {b} (LRO-L-DLRE-5-GCP-V1.0)")
+    for b in DIVINER_GCP_BANDS
+}
+
 #: Relieve global LOLA (cilíndrica simple, 64 px/grado ≈ 474 m en el ecuador). Lo usa
 #: el trabajo T4 (Tierra visible en la malla global G1K). Se descarga con
 #: `python -m moonsite.fetch global`.

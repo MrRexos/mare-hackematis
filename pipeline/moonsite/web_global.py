@@ -4,6 +4,7 @@ La web calcula la luz, la noche más larga y la Tierra visible AL MOMENTO, para 
 de la misión, igual que en el polo sur. Para eso necesita lo que no depende de la fecha:
 
     horizon.u8      horizonte del terreno de cada celda, 72 acimuts   (moonsite.horizon_global)
+    temp_diurnal.u8 temperatura medida por Diviner según la hora local (moonsite.thermal_global)
     elevation.f32   altura del centro de cada celda
     slope/static.f32  pendiente media de la celda, a partir de terrain.slope G1K (T1, Jan)
     hillshade.png   relieve sombreado de LOLA LDEM_64 (solo ayuda visual)
@@ -26,6 +27,7 @@ import numpy as np
 
 from . import config as C
 from . import horizon_global as HG
+from . import thermal_global as TG
 
 OUT = C.WEB_DATA / "global"
 W4_COLS, W4_ROWS = HG.COLS, HG.ROWS      # malla web (0,5°)
@@ -128,9 +130,16 @@ def main(argv=None) -> None:
             "kind": meta.get("kind"), "combine": meta.get("combine", "none"), "fidelity": meta.get("fidelity"),
             "title": meta.get("title"), "sources": meta.get("sources", []), "periods": periodos,
         }
+    anterior = json.loads((OUT / "manifest.json").read_text(encoding="utf-8")) if (OUT / "manifest.json").exists() else {}
     extra = HG.generar()
     if extra:
         manifest.update(extra)
+    # Temperatura (Diviner): se regenera si están los 2,8 GB en .cache; si no, se conserva la que hay.
+    if TG.disponible():
+        manifest.update(TG.generar_web(*TG.curvas()))
+    elif "thermal" in anterior and (C.WEB_DATA / anterior["thermal"]["file"]).exists():
+        manifest["thermal"] = anterior["thermal"]
+        print("   (temperatura: se conserva global/temp_diurnal.u8; para regenerarla, `python -m moonsite.fetch thermal`)")
     hs = _sombreado()
     if hs:
         manifest["hillshade"] = hs

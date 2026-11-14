@@ -1,0 +1,44 @@
+{
+  "id": "thermal.max_temp_k",
+  "version": "0.2.0",
+  "title": "Maximum surface temperature",
+  "description": "Hottest point of the day-night cycle: bolometric surface temperature measured by LRO Diviner, per 0.5° cell.",
+  "units": "K",
+  "validRange": [
+    0,
+    450
+  ],
+  "kind": "static",
+  "owner": "T7 · Temperatura",
+  "fidelity": "approximate",
+  "method": "Diviner Global Cumulative Product: bolometric brightness temperature binned at 0.5° and 0.25 h of local time (nadir, 2009-2015). Averaged to 48 local-time bins, gaps filled by periodic interpolation in local time, then the extreme of each cell's diurnal curve. Each G1K cell takes the 0.5° cell that contains its centre: finer grids add no detail.",
+  "params": {
+    "sourceResolutionDeg": 0.5,
+    "localTimeBins": 48,
+    "resampling": "nearest",
+    "gapsFilledPct": 10.76,
+    "cellsFromLatitudeMeanPct": 0.0,
+    "measuredQuarterHourBinsPct": 68.22
+  },
+  "sources": [
+    {
+      "name": "LRO Diviner Global Cumulative Products (GCP)",
+      "url": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_gcp/",
+      "citation": "Williams et al. (2017), Icarus 283, 300-325; LRO-L-DLRE-5-GCP-V1.0, NASA PDS Geosciences Node"
+    }
+  ],
+  "files": [
+    {
+      "grid": "G1K",
+      "period": "static",
+      "path": "G1K/static.u16",
+      "dtype": "uint16",
+      "scale": 0.01,
+      "offset": 0,
+      "nodata": 65535,
+      "sha256": "21846932c3fe8b69ec0850d7f0d2c453c0239ccb78d9cfdf7e481a4c81f91de9",
+      "min": 50.22840118408203,
+      "max": 438.9996032714844
+    }
+  ]
+}

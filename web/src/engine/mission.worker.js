@@ -4,7 +4,9 @@
 // terreno. Después elige el mejor momento de aterrizaje dentro de la ventana.
 //
 // Mensajes:
-//   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta}
+//   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta, temp?, tempMeta?}
+//   temp (opcional, malla global): curva de temperatura de cada celda por hora local (LRO Diviner).
+//   Con ella se devuelve la temperatura media, mínima y máxima de la superficie durante la misión.
 //   {type: "run", id, params}  ->  {type: "progress", id, done}  ...  {type: "result", id, ...}
 
 import { DEG, cellUnit, localFrame } from "./geometry.js";
@@ -28,7 +30,7 @@ self.onmessage = (e) => {
 };
 
 async function run(id, p) {
-  const { grid, rows, elevation, horizon, horizonMeta, ephem, ephemMeta } = S;
+  const { grid, rows, elevation, horizon, horizonMeta, ephem, ephemMeta, temp, tempMeta } = S;
   const n = grid.cols || grid.n; // columnas (malla polar: n × n; malla global: rows × cols)
   const bins = horizonMeta.bins;
   const binDeg = 360 / bins;
@@ -51,12 +53,14 @@ async function run(id, p) {
   const sun = new Float64Array(T * 3);
   const sunR = new Float64Array(T); // radio angular del Sol (grados)
   const earth = new Float64Array(T * 3);
+  const sunLon = new Float64Array(T); // longitud subsolar (grados): da la hora local de cada celda
   for (let t = 0; t < T; t++) {
     const k = Math.min(ephemMeta.count - 1, p.startIdx + t * stride) * 6;
     const sx = ephem[k], sy = ephem[k + 1], sz = ephem[k + 2];
     const sd = Math.hypot(sx, sy, sz);
     sun[t * 3] = sx / sd; sun[t * 3 + 1] = sy / sd; sun[t * 3 + 2] = sz / sd;
     sunR[t] = Math.asin(SUN_RADIUS_KM / sd) * DEG;
+    sunLon[t] = Math.atan2(sy, sx) * DEG;
     earth[t * 3] = ephem[k + 3]; earth[t * 3 + 1] = ephem[k + 4]; earth[t * 3 + 2] = ephem[k + 5];
   }
 
@@ -69,6 +73,10 @@ async function run(id, p) {
     night: new Float32Array(count).fill(NaN),
     best: new Int32Array(count).fill(-1),
   };
+  const withTemp = !!(temp && tempMeta && grid.type === "latlon");
+  if (withTemp) for (const key of ["tavg", "tmin", "tmax"]) out[key] = new Float32Array(count).fill(NaN);
+  const tBins = withTemp ? tempMeta.bins : 0;
+  const tScale = withTemp ? tempMeta.scaleK : 0;
 
   const sunF = new Float32Array(T);
   const earthV = new Uint8Array(T);
@@ -168,6 +176,28 @@ async function run(id, p) {
         if (sunF[t] < 0.05) { run += 1; if (run > longest) longest = run; } else run = 0;
       }
       out.night[local] = longest * stride;
+
+      // Temperatura de la superficie durante la misión (Diviner): para cada hora, la hora
+      // local de la celda (12 h = Sol en su meridiano) indica el punto de su curva día-noche.
+      if (withTemp) {
+        const lon = grid.lon0 + (j + 0.5) * grid.stepDeg;
+        const tb = local * tBins;
+        let sum = 0, lo = Infinity, hi = -Infinity, cnt = 0;
+        for (let t = bestC; t < bestC + D; t++) {
+          let lt = (12 + (lon - sunLon[t]) / 15) % 24;
+          if (lt < 0) lt += 24;
+          const f = (lt / 24) * tBins - 0.5;
+          const k0 = Math.floor(f);
+          const w = f - k0;
+          const a = temp[tb + ((k0 + tBins) % tBins)], b = temp[tb + ((k0 + 1) % tBins)];
+          if (a === 255 || b === 255) continue;
+          const v = (a * (1 - w) + b * w) * tScale;
+          sum += v; cnt += 1;
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        }
+        if (cnt) { out.tavg[local] = sum / cnt; out.tmin[local] = lo; out.tmax[local] = hi; }
+      }
     }
     if ((i - r0 + 1) % 4 === 0 && i + 1 < r1) {
       self.postMessage({ type: "progress", id, done: i - r0 + 1 });
@@ -175,5 +205,5 @@ async function run(id, p) {
       if (activeRun !== id) return;
     }
   }
-  self.postMessage({ type: "result", id, rows, ...out }, [out.sun.buffer, out.earth.buffer, out.both.buffer, out.night.buffer, out.best.buffer]);
+  self.postMessage({ type: "result", id, rows, ...out }, Object.values(out).map((a) => a.buffer));
 }

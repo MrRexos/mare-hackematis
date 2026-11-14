@@ -5,7 +5,8 @@ const HOUR_MS = 3600 * 1000;
 
 export class MissionEngine {
   constructor(data) {
-    const { manifest, layers, horizon, ephem } = data;
+    const { manifest, layers, horizon, ephem, temp } = data;
+    this.tempMeta = temp ? manifest.thermal : null; // curva de temperatura por hora local (solo Luna entera)
     this.grid = manifest.grid;
     this.ephemMeta = manifest.ephem;
     this.horizonMeta = manifest.horizon;
@@ -33,6 +34,8 @@ export class MissionEngine {
         horizonMeta: this.horizonMeta,
         ephem,
         ephemMeta: this.ephemMeta,
+        temp: this.tempMeta ? temp.slice(r0 * n * this.tempMeta.bins, r1 * n * this.tempMeta.bins) : null,
+        tempMeta: this.tempMeta,
       });
       this.workers.push({ worker, rows: [r0, r1] });
     }
@@ -65,6 +68,7 @@ export class MissionEngine {
       sun: new Float32Array(total), earth: new Float32Array(total), both: new Float32Array(total),
       night: new Float32Array(total), best: new Int32Array(total),
     };
+    if (this.tempMeta) for (const key of ["tavg", "tmin", "tmax"]) res[key] = new Float32Array(total);
     const done = new Array(this.workers.length).fill(0);
     // Unas ~2600 muestras por píxel: 1 h en ventanas cortas, 3-4 h en un año, más en varios años.
     const strideH = Math.max(1, Math.ceil((landingHours + durationH) / 2600));

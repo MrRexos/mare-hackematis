@@ -10,17 +10,22 @@
 //   horizon    horizonte del terreno por celda          (LOLA LDEM_64)
 //   elevation  altura del centro de la celda            (LOLA LDEM_64)
 //   slope      pendiente media de la celda, en grados   (terrain.slope G1K, T1 · Jan)
+//   thermal    temperatura medida de cada celda según la hora local (LRO Diviner): con ella el
+//              motor da la temperatura media, mínima y máxima de la superficie durante la misión
 //
 // Puntuación (la misma regla que el polo sur, score.js):
 //   score = 100 · Σ wᵢ·fᵢ / Σ wᵢ, solo con los factores que tienen datos globales.
-//   sun, earth: fracción de la misión; slope: 1 − pendiente / pendiente máxima.
+//   sun, earth: fracción de la misión; slope: 1 − pendiente / pendiente máxima;
+//   temp: temperatura media de la superficie durante la misión, con los mismos umbrales que
+//   el polo sur (TEMP_COLD_K → 0, TEMP_MILD_K → 1; más templado = menos calefacción).
 // Filtros: pendiente > máxima, noche más larga que la autonomía (si se activa).
 
 import { MissionEngine } from "./missionEngine.js";
+import { TEMP_COLD_K, TEMP_MILD_K } from "./score.js";
 
 const BASE = `${import.meta.env.BASE_URL}data/`;
 
-export const GLOBAL_FACTORS = ["sun", "earth", "slope"];
+export const GLOBAL_FACTORS = ["sun", "earth", "slope", "temp"];
 
 /** Manifest de los datos globales, o null si todavía no se han generado. */
 export async function loadGlobalManifest() {
@@ -49,7 +54,8 @@ export function loadGlobalStatic(gm) {
       getBuffer(gm.horizon.file).then((b) => new Uint8Array(b)),
       getBuffer(gm.elevation.file).then((b) => new Float32Array(b)),
       slopeFile ? getBuffer(slopeFile).then((b) => new Float32Array(b)) : null,
-    ]).then(([horizon, elevation, slope]) => ({ horizon, elevation, slope }))
+      gm.thermal ? getBuffer(gm.thermal.file).then((b) => new Uint8Array(b)) : null,
+    ]).then(([horizon, elevation, slope, temp]) => ({ horizon, elevation, slope, temp }))
       .catch((e) => { staticPromise = null; throw e; });
   }
   return staticPromise;
@@ -60,9 +66,10 @@ let engine = null;
 export function globalEngine(gm, stat, ephem, ephemMeta) {
   if (!engine) {
     engine = new MissionEngine({
-      manifest: { grid: gm.grid, ephem: ephemMeta, horizon: gm.horizon },
+      manifest: { grid: gm.grid, ephem: ephemMeta, horizon: gm.horizon, thermal: gm.thermal },
       layers: { elevation: stat.elevation },
       horizon: stat.horizon,
+      temp: stat.temp,
       ephem,
     });
   }
@@ -76,8 +83,9 @@ export function globalFactorsAt(p, L, limits) {
     sun: L.sun ? L.sun[p] : null,
     earth: L.earth ? L.earth[p] : null,
     slope: L.slope ? (Number.isFinite(slope) ? Math.max(0, 1 - slope / limits.maxSlopeDeg) : NaN) : null,
+    temp: L.temp ? (Number.isFinite(L.temp[p]) ? Math.max(0, Math.min(1, (L.temp[p] - TEMP_COLD_K) / (TEMP_MILD_K - TEMP_COLD_K))) : NaN) : null,
     // Sin malla global todavía: se muestran como «–» en la ficha de la celda.
-    rough: null, temp: null, ice: null,
+    rough: null, ice: null,
   };
 }
 
@@ -92,7 +100,7 @@ export function globalExclusionAt(p, L, limits) {
 /** Puntuación 0-100 de toda la malla W4 (NaN = descartado o sin datos). */
 export function globalScore(L, weights, limits) {
   const keys = GLOBAL_FACTORS.filter((k) => L[k] && (weights[k] || 0) > 0);
-  const n = (L.sun || L.earth || L.slope)?.length || 0;
+  const n = (L.sun || L.earth || L.slope || L.temp)?.length || 0;
   const out = new Float32Array(n).fill(NaN);
   if (!keys.length) return { score: out, keys };
   const wsum = keys.reduce((s, k) => s + weights[k], 0);

@@ -118,6 +118,7 @@ Lo que no depende de la fecha ya está calculado y va en el repositorio
 | `horizon.u8` | Horizonte del terreno de cada celda en 72 acimuts (LOLA LDEM_64), 19 MB |
 | `elevation.f32` | Altura del centro de cada celda |
 | `slope/static.f32` | Pendiente media de la celda, de `terrain.slope` G1K (T1, Jan) |
+| `temp_diurnal.u8` | Temperatura medida por LRO Diviner según la hora local, 48 tramos por celda, 12 MB |
 | `hillshade.png` | Relieve sombreado (ayuda visual) |
 
 Para regenerarlos (solo si cambia el relieve o la pendiente), desde `pipeline/`:
@@ -127,7 +128,25 @@ Para regenerarlos (solo si cambia el relieve o la pendiente), desde `pipeline/`:
 ../.venv/Scripts/python -m moonsite.web_global        # horizontes (~2 min) + pendiente + relieve
 ```
 
-Precisión: un horizonte por celda, trazado en su centro. Comparado con la malla de 1 km para
+**Temperatura de la superficie (T7).** No se modela: se usa la medida por LRO Diviner
+(Global Cumulative Products, Williams et al. 2017), que da la curva día-noche de cada celda
+de 0,5° en función de la hora local. Para cada hora de la misión el navegador calcula la hora
+local de la celda (12 h = Sol en su meridiano) y lee su temperatura; de ahí salen la media,
+la mínima y la máxima de la misión. Varía con las fechas y no cuesta cálculo (una consulta
+por hora). El factor de puntuación usa la media con los mismos umbrales que el polo sur
+(50 K → 0, 250 K → 1). Para regenerarla hacen falta los datos de Diviner (2,8 GB):
+
+```bash
+../.venv/Scripts/python -m moonsite.fetch thermal
+../.venv/Scripts/python -m moonsite.thermal_global    # web + capas thermal.max_temp_k / thermal.min_temp_k
+```
+
+Fiabilidad: frente a las medidas originales de 0,25 h, la curva de 48 tramos se desvía (mediana)
+0,4 K de noche, 1,9 K de día y 4,2 K en la hora de la salida y la puesta de sol, por debajo de
+60° de latitud. Es una media de 2009-2015: no recoge la estación lunar ni el relieve a escala
+menor que la celda.
+
+Precisión de la luz: un horizonte por celda, trazado en su centro. Comparado con la malla de 1 km para
 un solo día (el peor caso), el error medio de la luz es de 1–2 puntos sobre 100 por debajo
 de 60° de latitud y de 6–9 por encima de 70°, sin sesgo. Para los polos está el módulo de 1 km.
 

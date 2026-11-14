@@ -18,6 +18,9 @@ const VIEW = {
   sun: { label: "Sunlight", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
   earth: { label: "Earth view", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
   slope: { label: "Slope", unit: "°", fmt: (v) => `${v.toFixed(1)}°`, extent: () => [0, 30], invert: true },
+  temp: { label: "Mean temp.", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
+  tmin: { label: "Coldest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
+  tmax: { label: "Hottest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
   night: { label: "Longest night", unit: "h", fmt: (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`), extent: (a) => [0, maxOf(a) || 1], invert: true },
 };
 
@@ -91,7 +94,10 @@ export default function GlobalExplore({ app }) {
   const loading = !error && !problem && !runError && !result;
   const progress = current?.progress ?? 0;
 
-  const L = useMemo(() => (result ? { sun: result.sun, earth: result.earth, night: result.night, slope: stat?.slope || null } : {}), [result, stat]);
+  const L = useMemo(() => (result ? {
+    sun: result.sun, earth: result.earth, night: result.night, slope: stat?.slope || null,
+    temp: result.tavg || null, tmin: result.tmin || null, tmax: result.tmax || null,
+  } : {}), [result, stat]);
 
   const { score, keys } = useMemo(() => globalScore(L, weights, limits), [L, weights, limits]);
   const spots = useMemo(() => globalHotspots(score, grid, 10, 5), [score, grid]);
@@ -116,7 +122,7 @@ export default function GlobalExplore({ app }) {
     <div className="overlay layerbar">
       <Icon name="layers" size={16} />
       <span style={{ width: 6 }} />
-      {[["score", { label: "Score" }], ...Object.entries(VIEW)].map(([k, v]) => (
+      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k]) => !(k.startsWith("t") && !gm.thermal))].map(([k, v]) => (
         <button key={k} type="button" aria-pressed={layerKey === k} disabled={k !== "score" && !L[k]}
           className={cx("layerbar__b", layerKey === k && "is-on")} onClick={() => setLayerKey(k)}>
           {layerKey === k ? <Icon name="check" size={12} /> : null}
@@ -249,6 +255,7 @@ export default function GlobalExplore({ app }) {
                 <div className="muted-11">
                   <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{current?.ms ? ` (${(current.ms / 1000).toFixed(1)} s)` : ""}.</div>
                   <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1).</div>
+                  {gm.thermal ? <div>Surface temperature: measured by LRO Diviner (Williams et al. 2017), read at each cell's local time for every hour of the mission.</div> : null}
                 </div>
               </div>
             </Card>
