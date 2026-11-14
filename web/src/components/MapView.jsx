@@ -1,13 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { L, cssColor } from "../ds.js";
 import { latLonToXY, xyToPixel } from "../engine/geometry.js";
 
 // Visor del mapa del polo sur (siempre en tema oscuro, como pide el design system).
 // Dibuja en un <canvas>: relieve sombreado + capa de datos coloreada.
 // Los marcadores son componentes MapMarker del design system encima del canvas.
+//
+// Navegación:
+//   rueda / trackpad  zoom centrado en el cursor (la página no se desplaza)
+//   arrastrar         mover el mapa
+//   pellizcar         zoom en pantallas táctiles
+//   doble clic        acercar (Shift + doble clic: alejar)
+//   clic              seleccionar ese píxel de 1 km y ver su puntuación
+//   teclado           flechas mueven, + / − zoom, 0 vuelve a la vista completa
 
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 10;
+const MAX_ZOOM = 16;
+const NICE_KM = [1, 2, 5, 10, 20, 50, 100, 200];
 
 /** Rampa de color de cada capa: (valor) -> [r, g, b, a 0-255] o null. */
 function makeRamp(layer, colors, extent) {
@@ -48,7 +57,7 @@ function makeRamp(layer, colors, extent) {
   }
 }
 
-export default function MapView({ data, layer, values, sites, spots, selected, onSelect, onHover, children }) {
+export default function MapView({ data, layer, values, sites, spots, selected, onSelect, onHover, onPick, children }) {
   const grid = data.manifest.grid;
   const n = grid.n;
   const wrapRef = useRef(null);
@@ -56,14 +65,71 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
   const overlayRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ zoom: 1, cx: n / 2, cy: n / 2 });
-  const drag = useRef(null);
+  // Copias en refs para los listeners nativos (rueda, gestos), que no se recrean.
+  const sizeRef = useRef(size);
+  const viewRef = useRef(view);
+  sizeRef.current = size;
+  viewRef.current = view;
+  const pointers = useRef(new Map());
+  const gesture = useRef(null);
 
   // Tamaño del visor.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
     ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, []);
+
+  const baseScale = (s) => Math.min(s.w, s.h) / n;
+  const scale = useMemo(() => baseScale(size) * view.zoom, [size, view.zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clampView = useCallback((v) => ({
+    zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom)),
+    cx: Math.min(n, Math.max(0, v.cx)),
+    cy: Math.min(n, Math.max(0, v.cy)),
+  }), [n]);
+
+  /** Zoom manteniendo fijo el punto de pantalla (sx, sy). */
+  const zoomAt = useCallback((factor, sx, sy) => {
+    const s = sizeRef.current;
+    if (sx === undefined) { sx = s.w / 2; sy = s.h / 2; }
+    setView((v) => {
+      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
+      const s0 = baseScale(s) * v.zoom;
+      const s1 = baseScale(s) * zoom;
+      const gx = (sx - s.w / 2) / s0 + v.cx;
+      const gy = (sy - s.h / 2) / s0 + v.cy;
+      return clampView({ zoom, cx: gx - (sx - s.w / 2) / s1, cy: gy - (sy - s.h / 2) / s1 });
+    });
+  }, [clampView]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const local = (e) => {
+    const r = wrapRef.current.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  };
+  const toPixel = useCallback((sx, sy) => {
+    const s = sizeRef.current, v = viewRef.current, sc = baseScale(s) * v.zoom;
+    return [Math.floor((sy - s.h / 2) / sc + v.cy), Math.floor((sx - s.w / 2) / sc + v.cx)];
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const toScreen = useCallback((pi, pj) => [
+    size.w / 2 + (pj + 0.5 - view.cx) * scale,
+    size.h / 2 + (pi + 0.5 - view.cy) * scale,
+  ], [size, view, scale]);
+  const pixelIndex = (pi, pj) => (pi >= 0 && pj >= 0 && pi < n && pj < n ? pi * n + pj : null);
+
+  // Rueda: listener nativo NO pasivo para poder impedir el scroll de la página.
+  useEffect(() => {
+    const el = wrapRef.current;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const [sx, sy] = local(e);
+      // Ratón (pasos grandes) y trackpad (pasos finos) dan un zoom suave y proporcional.
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      zoomAt(Math.exp(-dy * 0.0022), sx, sy);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomAt]);
 
   // Capa de datos -> imagen n×n.
   useEffect(() => {
@@ -92,16 +158,6 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values, layer]);
 
-  const scale = useMemo(() => (Math.min(size.w, size.h) / n) * view.zoom, [size, view.zoom, n]);
-  const toScreen = useCallback((pi, pj) => [
-    size.w / 2 + (pj + 0.5 - view.cx) * scale,
-    size.h / 2 + (pi + 0.5 - view.cy) * scale,
-  ], [size, view, scale]);
-  const toPixel = useCallback((sx, sy) => [
-    Math.floor((sy - size.h / 2) / scale + view.cy),
-    Math.floor((sx - size.w / 2) / scale + view.cx),
-  ], [size, view, scale]);
-
   const draw = useCallback(() => {
     const cv = canvasRef.current;
     if (!cv || !size.w) return;
@@ -123,56 +179,80 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
 
   useEffect(draw, [draw]);
 
-  // --- Interacción: arrastrar, rueda, teclado -----------------------------
-  const clampView = (v) => ({
-    zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom)),
-    cx: Math.min(n, Math.max(0, v.cx)),
-    cy: Math.min(n, Math.max(0, v.cy)),
-  });
-  const zoomAt = (factor, sx = size.w / 2, sy = size.h / 2) => {
-    setView((v) => {
-      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
-      const s0 = (Math.min(size.w, size.h) / n) * v.zoom;
-      const s1 = (Math.min(size.w, size.h) / n) * zoom;
-      const gx = (sx - size.w / 2) / s0 + v.cx;
-      const gy = (sy - size.h / 2) / s0 + v.cy;
-      return clampView({ zoom, cx: gx - (sx - size.w / 2) / s1, cy: gy - (sy - size.h / 2) / s1 });
-    });
-  };
-  const onWheel = (e) => {
-    const r = wrapRef.current.getBoundingClientRect();
-    zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX - r.left, e.clientY - r.top);
-  };
+  // --- Puntero: arrastrar, pellizcar, clic ----------------------------------
   const onPointerDown = (e) => {
-    if (e.target !== canvasRef.current) return;
-    drag.current = { x: e.clientX, y: e.clientY, cx: view.cx, cy: view.cy, moved: false };
+    if (e.target !== canvasRef.current) return; // los marcadores gestionan su propio clic
+    wrapRef.current.focus({ preventScroll: true });
     e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, local(e));
+    const v = viewRef.current;
+    if (pointers.current.size === 1) {
+      const [x, y] = local(e);
+      gesture.current = { type: "pan", x, y, cx: v.cx, cy: v.cy, moved: false };
+    } else if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      gesture.current = { type: "pinch", d: Math.hypot(a[0] - b[0], a[1] - b[1]), moved: true };
+    }
   };
   const onPointerMove = (e) => {
-    const r = wrapRef.current.getBoundingClientRect();
-    const [pi, pj] = toPixel(e.clientX - r.left, e.clientY - r.top);
-    onHover?.(pi >= 0 && pj >= 0 && pi < n && pj < n ? pi * n + pj : null);
-    const d = drag.current;
-    if (!d) return;
-    const dx = e.clientX - d.x, dy = e.clientY - d.y;
-    if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
-    setView((v) => clampView({ ...v, cx: d.cx - dx / scale, cy: d.cy - dy / scale }));
+    const [sx, sy] = local(e);
+    if (e.pointerType === "mouse") onHover?.(pixelIndex(...toPixel(sx, sy)));
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, [sx, sy]);
+    const g = gesture.current;
+    if (!g) return;
+    if (g.type === "pan") {
+      const dx = sx - g.x, dy = sy - g.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
+      const sc = baseScale(sizeRef.current) * viewRef.current.zoom;
+      setView((v) => clampView({ ...v, cx: g.cx - dx / sc, cy: g.cy - dy / sc }));
+    } else if (g.type === "pinch" && pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (g.d > 0) zoomAt(d / g.d, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      g.d = d;
+    }
   };
-  const onPointerUp = () => { drag.current = null; };
+  const onPointerUp = (e) => {
+    const g = gesture.current;
+    pointers.current.delete(e.pointerId);
+    if (g?.type === "pan" && !g.moved) {
+      const p = pixelIndex(...toPixel(...local(e)));
+      if (p != null) onPick?.(p);
+    }
+    if (pointers.current.size === 0) gesture.current = null;
+    else if (pointers.current.size === 1) {
+      // Tras un pellizco, seguir moviendo con el dedo que queda.
+      const [pt] = [...pointers.current.values()];
+      const v = viewRef.current;
+      gesture.current = { type: "pan", x: pt[0], y: pt[1], cx: v.cx, cy: v.cy, moved: true };
+    }
+  };
+  const onDoubleClick = (e) => {
+    if (e.target !== canvasRef.current) return;
+    const [sx, sy] = local(e);
+    zoomAt(e.shiftKey ? 1 / 2 : 2, sx, sy);
+  };
+  const resetView = () => setView({ zoom: 1, cx: n / 2, cy: n / 2 });
   const onKeyDown = (e) => {
-    const step = 20 / scale;
+    const step = 40 / scale;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
     if (moves[e.key]) { e.preventDefault(); setView((v) => clampView({ ...v, cx: v.cx + moves[e.key][0], cy: v.cy + moves[e.key][1] })); }
-    if (e.key === "+" || e.key === "=") zoomAt(1.4);
-    if (e.key === "-") zoomAt(1 / 1.4);
+    else if (e.key === "+" || e.key === "=") zoomAt(1.5);
+    else if (e.key === "-" || e.key === "_") zoomAt(1 / 1.5);
+    else if (e.key === "0") resetView();
   };
 
-  // Centrar en el punto seleccionado.
+  // Centrar en lo seleccionado (punto caliente, región o punto elegido).
   useEffect(() => {
     if (!selected) return;
     setView((v) => clampView({ zoom: Math.max(v.zoom, 3), cx: selected.j + 0.5, cy: selected.i + 0.5 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.rank]);
+  }, [selected?.key]);
+
+  // Barra de escala: el largo "bonito" (1, 2, 5, 10… km) que ocupa ~80-160 px.
+  const pxPerKm = scale / (grid.pxM / 1000);
+  const barKm = NICE_KM.find((k) => k * pxPerKm >= 80) || NICE_KM[NICE_KM.length - 1];
 
   const markerPos = (i, j) => {
     const [sx, sy] = toScreen(i, j);
@@ -190,38 +270,60 @@ export default function MapView({ data, layer, values, sites, spots, selected, o
       data-theme="dark"
       tabIndex={0}
       role="application"
-      aria-label="South pole map. Drag to pan, scroll or press + and − to zoom, arrow keys to move."
-      onWheel={onWheel}
+      aria-label="South pole map. Drag to pan, scroll or pinch to zoom, double-click to zoom in, click a spot to score it. Arrow keys move, + and − zoom, 0 resets."
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onPointerLeave={() => onHover?.(null)}
+      onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
     >
       <canvas ref={canvasRef} className="viewer__canvas" />
       {sites.map((s) => {
-        const [x, y] = latLonToXY(grid, s.lat, s.lon);
+        const [clat, clon] = s.centre || [s.lat, s.lon];
+        const [x, y] = latLonToXY(grid, clat, clon);
         const [i, j] = xyToPixel(grid, x, y);
         if (!inView(i, j)) return null;
-        return <L.MapMarker key={s.id} label={s.name} shape="circle" category="Artemis III candidate region" showLabel={view.zoom >= 2.5} style={markerPos(i, j)} />;
+        const label = Number.isFinite(s.score) ? `${s.name} · ${Math.round(s.score)}` : s.name;
+        return (
+          <L.MapMarker
+            key={s.id}
+            label={label}
+            shape="circle"
+            category="Artemis III candidate region"
+            state={selected?.key === `site-${s.id}` ? "selected" : "default"}
+            showLabel={view.zoom >= 2}
+            style={markerPos(i, j)}
+            onClick={() => onSelect?.({ type: "site", id: s.id })}
+          />
+        );
       })}
       {spots.map((s) => (inView(s.i, s.j) ? (
         <L.MapMarker
           key={`spot-${s.rank}`}
-          label={s.name}
+          label={`${s.name} · ${Math.round(s.peakScore)}`}
           shape="square"
           rank={s.rank}
           category="Best spot for this mission"
-          state={selected?.rank === s.rank ? "selected" : "default"}
-          showLabel={s.rank <= 3}
+          state={selected?.key === `spot-${s.rank}` ? "selected" : "default"}
+          showLabel={s.rank <= 3 || view.zoom >= 3}
           style={markerPos(s.i, s.j)}
-          onClick={() => onSelect?.(s)}
+          onClick={() => onSelect?.({ type: "spot", rank: s.rank })}
         />
       ) : null))}
+      {selected?.type === "pick" && inView(selected.i, selected.j) ? (
+        <L.MapMarker label={selected.name} shape="custom" state="selected" category="Spot you picked" style={markerPos(selected.i, selected.j)} />
+      ) : null}
       <div className="viewer__zoom">
         <L.IconButton icon="plus" label="Zoom in" variant="overlay" size="sm" onClick={() => zoomAt(1.5)} />
         <L.IconButton icon="minus" label="Zoom out" variant="overlay" size="sm" onClick={() => zoomAt(1 / 1.5)} />
-        <L.IconButton icon="locate-fixed" label="Reset view" variant="overlay" size="sm" onClick={() => setView({ zoom: 1, cx: n / 2, cy: n / 2 })} />
+        <L.IconButton icon="locate-fixed" label="Show the whole map" variant="overlay" size="sm" onClick={resetView} />
+      </div>
+      <div className="viewer__scale" aria-label={`Scale: ${barKm} km`}>
+        <span className="viewer__scalebar" style={{ width: barKm * pxPerKm }} />
+        <span className="caption">{barKm} km</span>
+        <span className="caption lh-muted">· ×{view.zoom.toFixed(1)}</span>
       </div>
       {children}
     </div>
