@@ -37,7 +37,9 @@
       "period": "static",
       "path": "G1K/static.f32",
       "dtype": "float32",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "9b3fe491d90f44563c4cf39a22dababf8c99e35b2cfc7e34a1057550720d3010",
+      "min": 0.0,
+      "max": 15.0
     }
   ],
   "description": "Pendent del terreny en graus respecte a l’horitzontal local. PS1K: producte polar LOLA LDSM. G1K: calcula amb scripts/pendent_seguretat.py (LOLA Global LDEM → malla contracte ~1 km)."
