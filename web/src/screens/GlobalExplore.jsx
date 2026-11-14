@@ -9,7 +9,7 @@ import GlobalMap, { viridisCss } from "../components/GlobalMap.jsx";
 import { Icon, Btn, Card, Tabs, FactorGrid, Shape, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { GOALS } from "./Explore.jsx";
-import { PRESETS, presetOf } from "../engine/score.js";
+import { PRESETS, ROUGH_MAX_M, presetOf } from "../engine/score.js";
 import {
   GLOBAL_FACTORS, cellLatLon, fmtLatLon, globalEngine, globalExclusionAt, globalFactorsAt, globalHotspots, globalScore, loadGlobalStatic, TEMP_BAND, WATER_FULL_WT_PCT,
 } from "../engine/globalScore.js";
@@ -18,10 +18,14 @@ const VIEW = {
   sun: { label: "Sunlight", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
   earth: { label: "Earth view", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
   slope: { label: "Slope", unit: "°", fmt: (v) => `${v.toFixed(1)}°`, extent: () => [0, 30], invert: true },
+  rough: { label: "Roughness", unit: "m", fmt: (v) => `${v.toFixed(2)} m`, extent: () => [0, ROUGH_MAX_M], invert: true },
   water: { label: "Water", unit: "wt%", fmt: (v) => `${v.toFixed(3)} wt%`, extent: () => [0, WATER_FULL_WT_PCT] },
   temp: { label: "Mean temp.", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
-  tmin: { label: "Coldest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
-  tmax: { label: "Hottest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
+  // Mínima y máxima: sin capa de mapa, solo en la ficha de cada punto.
+  tmin: { noMap: true, label: "Coldest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
+  tmax: { noMap: true, label: "Hottest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
+  elev: { noMap: true, label: "Elevation", unit: "m", fmt: (v) => `${Math.round(v).toLocaleString("en-US")} m` },
+  psr: { noMap: true, label: "Permanent shadow", unit: "%", fmt: (v) => `${Math.round(v * 100)}%` },
   // Sin capa de mapa propia (se parece demasiado a la de luz): se sigue calculando para el
   // límite de autonomía de Mission settings y se enseña en la ficha de cada celda.
   night: { noMap: true, label: "Longest night", unit: "h", fmt: (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`), extent: (a) => [0, maxOf(a) || 1], invert: true },
@@ -99,6 +103,7 @@ export default function GlobalExplore({ app }) {
 
   const L = useMemo(() => (result ? {
     sun: result.sun, earth: result.earth, night: result.night, slope: stat?.slope || null, water: stat?.water || null,
+    rough: stat?.rough || null, psr: stat?.psr || null, elev: stat?.elevation || null,
     temp: result.tavg || null, tmin: result.tmin || null, tmax: result.tmax || null, tfit: result.tfit || null,
   } : {}), [result, stat]);
 
@@ -125,7 +130,7 @@ export default function GlobalExplore({ app }) {
     <div className="overlay layerbar">
       <Icon name="layers" size={16} />
       <span style={{ width: 6 }} />
-      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k, v]) => !v.noMap && !(k.startsWith("t") && !gm.thermal) && !(k === "water" && !gm.layers?.water))].map(([k, v]) => (
+      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k, v]) => !v.noMap && !(k.startsWith("t") && !gm.thermal) && !(k === "water" && !gm.layers?.water) && !(k === "rough" && !gm.layers?.rough))].map(([k, v]) => (
         <button key={k} type="button" aria-pressed={layerKey === k} disabled={k !== "score" && !L[k]}
           className={cx("layerbar__b", layerKey === k && "is-on")} onClick={() => setLayerKey(k)}>
           {layerKey === k ? <Icon name="check" size={12} /> : null}
@@ -257,7 +262,7 @@ export default function GlobalExplore({ app }) {
                 )}
                 <div className="muted-11">
                   <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{current?.ms ? ` (${(current.ms / 1000).toFixed(1)} s)` : ""}.</div>
-                  <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1).</div>
+                  <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1){gm.layers?.rough ? " · roughness from LOLA LDRM_16" : ""}{gm.layers?.psr ? " · permanent shadow from LOLA LPSR" : ""}.</div>
                   {gm.layers?.water ? <div>Water: water-equivalent hydrogen from Lunar Prospector (0.5° product, true footprint 60–150 km), only attributed to ice above 70° latitude. Full marks at {WATER_FULL_WT_PCT} wt%.</div> : null}
                   {gm.thermal ? <div>Surface temperature: measured by LRO Diviner (Williams et al. 2017), read at each cell's local time for every hour of the mission. Its score is the share of hours in a workable range: full marks from {TEMP_BAND.mildK} to {TEMP_BAND.hotOkK} K, none below {TEMP_BAND.coldK} K or above {TEMP_BAND.hotMaxK} K.</div> : null}
                 </div>

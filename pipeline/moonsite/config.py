@@ -86,6 +86,13 @@ DIVINER_GCP = {
 LOLA_GLOBAL = {
     "ldem64": Remote(f"{PDS_LOLA}/data/lola_gdr/cylindrical/img/ldem_64.img", RAW / "ldem_64.img",
                      530_841_600, "Elevación LOLA global 64 px/grado (23040 x 11520, int16)"),
+    # Vista Whole Moon (moonsite.surface_global): rugosidad global y sombra permanente de los dos polos.
+    "ldrm16": Remote(f"{PDS_LOLA}/data/lola_gdr/cylindrical/img/ldrm_16.img", RAW / "ldrm_16.img",
+                     33_177_600, "Rugosidad LOLA global 16 px/grado (5760 x 2880, int16, mm)"),
+    "lpsr65n": Remote(f"{PDS_LOLA}/extras/illumination/img/lpsr_65n_240m_201608.img", RAW / "lpsr_65n_240m.img",
+                      82_432_800, "Sombra permanente 65-90°N (Mazarico et al. 2011), 240 m/px"),
+    "lpsr65s": Remote(f"{PDS_LOLA}/extras/illumination/img/lpsr_65s_240m_201608.img", RAW / "lpsr_65s_240m.img",
+                      82_432_800, "Sombra permanente 65-90°S (Mazarico et al. 2011), 240 m/px"),
 }
 
 #: Kernels SPICE: efemérides DE440 y orientación de la Luna.

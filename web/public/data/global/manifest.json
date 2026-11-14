@@ -63,6 +63,36 @@
           "end": null
         }
       }
+    },
+    "rough": {
+      "id": "terrain.roughness",
+      "label": "Roughness",
+      "units": "m",
+      "source": "LOLA LDRM_16 (PDS): median of the 8 × 8 samples in each 0.5° cell",
+      "kind": "static",
+      "fidelity": "computed",
+      "periods": {
+        "static": {
+          "file": "global/rough/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
+    },
+    "psr": {
+      "id": "sun.psr_share",
+      "label": "Permanent shadow",
+      "units": "fraction",
+      "source": "LOLA LPSR_65N/65S_240M (Mazarico et al. 2011): share of each 0.5° cell; 0 below 65° latitude",
+      "kind": "static",
+      "fidelity": "computed",
+      "periods": {
+        "static": {
+          "file": "global/psr/static.f32",
+          "start": null,
+          "end": null
+        }
+      }
     }
   },
   "horizon": {

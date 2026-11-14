@@ -7,6 +7,8 @@ de la misión, igual que en el polo sur. Para eso necesita lo que no depende de 
     temp_diurnal.u8 temperatura medida por Diviner según la hora local (moonsite.thermal_global)
     elevation.f32   altura del centro de cada celda
     slope/static.f32  pendiente media de la celda, a partir de terrain.slope G1K (T1, Jan)
+    rough/static.f32  rugosidad (m), de LOLA LDRM_16                     (moonsite.surface_global)
+    psr/static.f32    fracción de la celda en sombra permanente, LOLA LPSR (moonsite.surface_global)
     water/static.f32  agua equivalente (% en peso), de ice.water_equivalent_wt_pct G1K (T9, Joel)
     hillshade.png   relieve sombreado de LOLA LDEM_64 (solo ayuda visual)
 
@@ -28,6 +30,7 @@ import numpy as np
 
 from . import config as C
 from . import horizon_global as HG
+from . import surface_global as SG
 from . import thermal_global as TG
 
 OUT = C.WEB_DATA / "global"
@@ -132,6 +135,21 @@ def main(argv=None) -> None:
             "kind": meta.get("kind"), "combine": meta.get("combine", "none"), "fidelity": meta.get("fidelity"),
             "title": meta.get("title"), "sources": meta.get("sources", []), "periods": periodos,
         }
+    # Rugosidad y sombra permanente (LOLA global): propiedades fijas del terreno.
+    for key, datos, info in (
+        ("rough", SG.rugosidad(), {"id": "terrain.roughness", "label": "Roughness", "units": "m",
+                                   "source": "LOLA LDRM_16 (PDS): median of the 8 × 8 samples in each 0.5° cell"}),
+        ("psr", SG.sombra_permanente(), {"id": "sun.psr_share", "label": "Permanent shadow", "units": "fraction",
+                                         "source": "LOLA LPSR_65N/65S_240M (Mazarico et al. 2011): share of each 0.5° cell; 0 below 65° latitude"}),
+    ):
+        if datos is None:
+            print(f"   (falta el producto LOLA de {key}: ejecuta `python -m moonsite.fetch global`)")
+            continue
+        (OUT / key).mkdir(parents=True, exist_ok=True)
+        datos.astype("<f4").tofile(OUT / key / "static.f32")
+        manifest["layers"][key] = {**info, "kind": "static", "fidelity": "computed",
+                                   "periods": {"static": {"file": f"global/{key}/static.f32", "start": None, "end": None}}}
+        print(f"   {info['id']} → {key}/static.f32")
     anterior = json.loads((OUT / "manifest.json").read_text(encoding="utf-8")) if (OUT / "manifest.json").exists() else {}
     extra = HG.generar()
     if extra:

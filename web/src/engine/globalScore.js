@@ -11,6 +11,8 @@
 //              latitud, 4 horizontes por celda (2 × 2 puntos) y se promedia su luz
 //   elevation  altura del centro de la celda            (LOLA LDEM_64)
 //   slope      pendiente media de la celda, en grados   (terrain.slope G1K, T1 · Jan)
+//   rough      rugosidad, m                              (LOLA LDRM_16)
+//   psr        fracción de la celda en sombra permanente (LOLA LPSR, 65°-90° en los dos polos)
 //   water      agua equivalente, % en peso              (ice.water_equivalent_wt_pct G1K, T9 · Joel)
 //   thermal    temperatura medida de cada celda según la hora local (LRO Diviner): con ella el
 //              motor da la temperatura media, mínima y máxima de la superficie durante la misión
@@ -22,15 +24,16 @@
 //   temp: confort térmico, hora a hora. Cada hora de la misión puntúa según la temperatura de
 //   la superficie (ver TEMP_BAND) y el factor es la media de esas notas: así una noche a 95 K
 //   y un mediodía a 390 K penalizan los dos, aunque la media de ambos parezca templada.
-// Filtros: pendiente > máxima, noche más larga que la autonomía y contacto mínimo con la
+//   rough: 1 − rugosidad / ROUGH_MAX_M, la misma regla del polo sur.
+// Filtros: pendiente > máxima, celda mayoritariamente en sombra permanente, noche más larga que la autonomía y contacto mínimo con la
 // Tierra (los dos últimos, si se activan en Mission settings).
 
 import { MissionEngine } from "./missionEngine.js";
-import { TEMP_COLD_K, TEMP_MILD_K } from "./score.js";
+import { ROUGH_MAX_M, TEMP_COLD_K, TEMP_MILD_K } from "./score.js";
 
 const BASE = `${import.meta.env.BASE_URL}data/`;
 
-export const GLOBAL_FACTORS = ["sun", "earth", "slope", "temp", "ice"];
+export const GLOBAL_FACTORS = ["sun", "earth", "slope", "rough", "temp", "ice"];
 
 /**
  * Agua equivalente (% en peso) a la que el factor de hielo vale 1. El dato es de Lunar
@@ -71,6 +74,7 @@ export function loadGlobalStatic(gm) {
   if (!staticPromise) {
     const slopeFile = gm.layers?.slope?.periods?.static?.file;
     const waterFile = gm.layers?.water?.periods?.static?.file;
+    const f32 = (key) => { const f = gm.layers?.[key]?.periods?.static?.file; return f ? getBuffer(f).then((b) => new Float32Array(b)) : null; };
     staticPromise = Promise.all([
       getBuffer(gm.horizon.file).then((b) => new Uint8Array(b)),
       getBuffer(gm.elevation.file).then((b) => new Float32Array(b)),
@@ -78,7 +82,8 @@ export function loadGlobalStatic(gm) {
       gm.thermal ? getBuffer(gm.thermal.file).then((b) => new Uint8Array(b)) : null,
       gm.horizon.sub ? getBuffer(gm.horizon.sub.file).then((b) => new Uint8Array(b)) : null,
       waterFile ? getBuffer(waterFile).then((b) => new Float32Array(b)) : null,
-    ]).then(([horizon, elevation, slope, temp, horizonSub, water]) => ({ horizon, elevation, slope, temp, horizonSub, water }))
+      f32("rough"), f32("psr"),
+    ]).then(([horizon, elevation, slope, temp, horizonSub, water, rough, psr]) => ({ horizon, elevation, slope, temp, horizonSub, water, rough, psr }))
       .catch((e) => { staticPromise = null; throw e; });
   }
   return staticPromise;
@@ -109,8 +114,7 @@ export function globalFactorsAt(p, L, limits) {
     slope: L.slope ? (Number.isFinite(slope) ? Math.max(0, 1 - slope / limits.maxSlopeDeg) : NaN) : null,
     temp: L.tfit ? L.tfit[p] : null,
     ice: L.water ? (Number.isFinite(L.water[p]) ? Math.max(0, Math.min(1, L.water[p] / WATER_FULL_WT_PCT)) : NaN) : null,
-    // Sin malla global todavía: se muestra como «–» en la ficha de la celda.
-    rough: null,
+    rough: L.rough ? (Number.isFinite(L.rough[p]) ? Math.max(0, Math.min(1, 1 - L.rough[p] / ROUGH_MAX_M)) : NaN) : null,
   };
 }
 
@@ -118,6 +122,7 @@ export function globalExclusionAt(p, L, limits) {
   const slope = L.slope?.[p];
   if (L.slope && !Number.isFinite(slope)) return "No terrain data";
   if (L.slope && slope > limits.maxSlopeDeg) return `Mean slope ${slope.toFixed(1)}° is above ${limits.maxSlopeDeg}°`;
+  if (L.psr && limits.excludePsr && L.psr[p] > 0.5) return "Mostly in permanent shadow";
   if (L.night && limits.maxNightH != null && L.night[p] > limits.maxNightH) return "Night longer than battery autonomy";
   if (L.earth && limits.minEarthPct != null && !(L.earth[p] * 100 >= limits.minEarthPct)) return `Earth in view ${Math.round(L.earth[p] * 100)}% of the mission, below ${limits.minEarthPct}%`;
   return null;

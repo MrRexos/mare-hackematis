@@ -119,6 +119,8 @@ Lo que no depende de la fecha ya está calculado y va en el repositorio
 | `horizon_sub.u8` | Por encima de 60° de latitud, 4 horizontes por celda (2 × 2 puntos), 25 MB |
 | `elevation.f32` | Altura del centro de cada celda |
 | `slope/static.f32` | Pendiente media de la celda, de `terrain.slope` G1K (T1, Jan) |
+| `rough/static.f32` | Rugosidad (m), LOLA LDRM_16: mediana de las muestras de cada celda |
+| `psr/static.f32` | Fracción de la celda en sombra permanente, LOLA LPSR 65°–90° de los dos polos |
 | `water/static.f32` | Agua equivalente (% en peso), de `ice.water_equivalent_wt_pct` G1K (T9, Joel) |
 | `temp_diurnal.u8` | Temperatura medida por LRO Diviner según la hora local, 48 tramos por celda, 12 MB |
 | `hillshade.png` | Relieve sombreado (ayuda visual) |
@@ -129,6 +131,12 @@ Para regenerarlos (solo si cambia el relieve o la pendiente), desde `pipeline/`:
 ../.venv/Scripts/python -m moonsite.fetch global      # LDEM_64 + SPICE
 ../.venv/Scripts/python -m moonsite.web_global        # horizontes (~2 min) + pendiente + relieve
 ```
+
+**Rugosidad y sombra permanente.** Igual que en el polo sur, pero con los productos de LOLA
+para toda la Luna: rugosidad de LDRM_16 (misma regla de puntuación, 0 a 1,5 m) y sombra
+permanente de LPSR_65N/65S_240M. El límite «Leave out permanent shadow» descarta las celdas
+con más del 50 % en sombra permanente. En la zona común, la rugosidad global y la del polo
+sur tienen una correlación de 0,96. Se descargan con `python -m moonsite.fetch global`.
 
 **Agua.** Capa «Water» y factor de hielo de la puntuación: agua equivalente del hidrógeno
 medido por Lunar Prospector (producto de 0,5°, huella real de 60–150 km), que solo se atribuye
