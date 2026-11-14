@@ -1,32 +1,27 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { L } from "../ds.js";
+import { L, cssColor } from "../ds.js";
+import { makeRamp } from "./MapView.jsx";
 import { IconBtn } from "../ui/kit.jsx";
 import { cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
-// Mapa de toda la Luna (equirectangular, malla W4 1440 × 720). Relieve LOLA de fondo y
-// la capa elegida encima con la rampa viridis (legible con daltonismo). Las celdas
-// descartadas o sin datos se dibujan con trama, para no depender solo del color.
+// Mapa de toda la Luna (equirectangular, malla global de 0,5°). Mismo aspecto que el visor
+// del polo sur (MapView): relieve LOLA de fondo y la capa elegida encima con las mismas
+// rampas de color del design system; las celdas descartadas quedan sin color.
 //   rueda: zoom en el cursor · arrastrar: mover · clic: elegir celda · 0: vista completa
 
 const MAX_ZOOM = 12;
+const WATER_RGB = [79, 209, 197]; // el color del factor de hielo/agua
 
-const VIRIDIS = (() => {
-  const c = [[0.2777, 0.0054, 0.334], [0.105, 1.4046, 1.3845], [-0.3308, 0.2148, 0.095], [-4.6342, -5.7991, -19.3324],
-    [6.2283, 14.1799, 56.6906], [4.7764, -13.7451, -65.353], [-5.4355, 4.6459, 26.3124]];
-  const lut = new Uint8Array(256 * 3);
-  for (let n = 0; n < 256; n++) {
-    const t = n / 255;
-    for (let ch = 0; ch < 3; ch++) {
-      let v = 0;
-      for (let k = 6; k >= 0; k--) v = v * t + c[k][ch];
-      lut[n * 3 + ch] = Math.round(Math.max(0, Math.min(1, v)) * 255);
-    }
+/** Rampa de la capa: las del polo sur, más la de agua (solo existe aquí). */
+function rampFor(layer, colors, extent) {
+  if (layer.ramp === "water") {
+    const hi = layer.max || extent[1] || 1;
+    return (v) => (Number.isFinite(v) && v > 0 ? [...WATER_RGB, 40 + 205 * Math.min(1, v / hi) ** 0.8] : null);
   }
-  return lut;
-})();
-export const viridisCss = () => `linear-gradient(90deg, ${[0, 64, 128, 192, 255].map((n) => `rgb(${VIRIDIS[n * 3]},${VIRIDIS[n * 3 + 1]},${VIRIDIS[n * 3 + 2]})`).join(",")})`;
+  return makeRamp(layer, colors, extent);
+}
 
-export default function GlobalMap({ grid, hillshade, values, extent, invert, spots, selectedP, onSelect, onHover, opacity = 0.8, children }) {
+export default function GlobalMap({ grid, hillshade, layer, values, spots, selectedP, onSelect, onHover, children }) {
   const { cols, rows } = grid;
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -47,30 +42,30 @@ export default function GlobalMap({ grid, hillshade, values, extent, invert, spo
   const base = (s) => Math.min(s.w / cols, s.h / rows);
   const scale = base(size) * view.zoom;
 
-  // Capa coloreada (una imagen de 1440 × 720 que luego se escala).
-  const dataCanvas = useMemo(() => {
-    if (!values) return null;
+  // Capa coloreada: una imagen del tamaño de la malla que luego se escala (como en MapView).
+  const [dataCanvas, setDataCanvas] = useState(null);
+  useEffect(() => {
+    if (!values || !wrapRef.current) { setDataCanvas(null); return; }
+    const el = wrapRef.current;
+    const colors = {
+      both: cssColor(el, "--both"), sun: cssColor(el, "--sun"), earth: cssColor(el, "--earth"),
+      ink: cssColor(el, "--ink"), lineStrong: cssColor(el, "--line-strong"),
+      relief: [179, 157, 219], temp: [242, 139, 84],
+    };
+    let lo = Infinity, hi = -Infinity;
+    for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    const ramp = rampFor(layer, colors, [lo, hi]);
     const c = document.createElement("canvas");
     c.width = cols; c.height = rows;
     const ctx = c.getContext("2d");
     const im = ctx.createImageData(cols, rows);
-    const [lo, hi] = extent;
     for (let p = 0; p < values.length; p++) {
-      const v = values[p], o = p * 4;
-      if (!Number.isFinite(v)) {
-        const i = Math.floor(p / cols), j = p % cols;
-        const g = (i + j) % 6 < 2 ? 120 : 45;
-        im.data[o] = im.data[o + 1] = im.data[o + 2] = g; im.data[o + 3] = 150;
-        continue;
-      }
-      let t = hi > lo ? (v - lo) / (hi - lo) : 1;
-      t = Math.max(0, Math.min(1, invert ? 1 - t : t));
-      const n = Math.round(t * 255) * 3;
-      im.data[o] = VIRIDIS[n]; im.data[o + 1] = VIRIDIS[n + 1]; im.data[o + 2] = VIRIDIS[n + 2]; im.data[o + 3] = 255;
+      const rgba = ramp(values[p], Math.floor(p / cols), p % cols);
+      if (rgba) im.data.set([rgba[0], rgba[1], rgba[2], rgba[3]], p * 4);
     }
     ctx.putImageData(im, 0, 0);
-    return c;
-  }, [values, extent, invert, cols, rows]);
+    setDataCanvas(c);
+  }, [values, layer, cols, rows]);
 
   const toScreen = useCallback((x, y) => [size.w / 2 + (x - view.cx) * scale, size.h / 2 + (y - view.cy) * scale], [size, view, scale]);
   const toGrid = (sx, sy) => {
@@ -86,21 +81,20 @@ export default function GlobalMap({ grid, hillshade, values, extent, invert, spo
     cv.style.width = `${size.w}px`; cv.style.height = `${size.h}px`;
     const ctx = cv.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#050505";
-    ctx.fillRect(0, 0, size.w, size.h);
+    ctx.clearRect(0, 0, size.w, size.h);
     const [x0, y0] = toScreen(0, 0);
     ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = !dataCanvas ? 0.9 : layer?.ramp === "score" ? 0.3 : 0.5;
     if (hillshade) ctx.drawImage(hillshade, x0, y0, cols * scale, rows * scale);
+    ctx.globalAlpha = 1;
     if (dataCanvas) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.globalAlpha = hillshade ? opacity : 1;
+      ctx.imageSmoothingEnabled = view.zoom < 3;
       ctx.drawImage(dataCanvas, x0, y0, cols * scale, rows * scale);
-      ctx.globalAlpha = 1;
     }
-    // Retícula cada 30°
-    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    // Retícula cada 30°, discreta (el polo sur lleva barra de escala; aquí orientan las coordenadas).
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
     ctx.lineWidth = 1;
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
     ctx.font = "11px system-ui, sans-serif";
     for (let lon = -150; lon <= 150; lon += 30) {
       const [x] = toScreen((lon + 180) / grid.stepDeg, 0);
@@ -112,7 +106,7 @@ export default function GlobalMap({ grid, hillshade, values, extent, invert, spo
       ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + cols * scale, y); ctx.stroke();
       ctx.fillText(`${lat}°`, Math.max(0, x0) + 4, y - 4);
     }
-  }, [size, view, scale, hillshade, dataCanvas, opacity, cols, rows, grid.stepDeg, toScreen]);
+  }, [size, view, scale, hillshade, dataCanvas, layer, cols, rows, grid.stepDeg, toScreen]);
 
   const clamp = (v) => ({ zoom: Math.min(MAX_ZOOM, Math.max(1, v.zoom)), cx: Math.min(cols, Math.max(0, v.cx)), cy: Math.min(rows, Math.max(0, v.cy)) });
   const zoomAt = (f, sx, sy) => {

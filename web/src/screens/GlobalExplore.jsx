@@ -1,46 +1,79 @@
-// 02 Explore · Whole Moon: mapa de calor de toda la Luna para las fechas de la misión.
-// La luz, la Tierra visible y la noche más larga se calculan al momento en el navegador
-// (mismo motor que el polo sur) con los horizontes globales ya trazados; la pendiente es
-// la malla de la rama Jan. De momento solo con fecha fija de aterrizaje.
-// El polo sur sigue usando Explore.jsx, sin cambios.
+// 02 Explore · Whole Moon: la misma pantalla que el polo sur (Explore.jsx) para toda la Luna.
+// Mismo esquema: barra de capas, ficha del punto, leyenda, bandeja de comparar y, a la
+// derecha, objetivo, mejor lugar y ranking. Cambian los datos: malla global de 0,5°, con la
+// luz, la Tierra y la temperatura calculadas al momento para las fechas de la misión
+// (useGlobalMission). De momento solo con fecha fija de aterrizaje.
 
-import { useEffect, useMemo, useState } from "react";
-import GlobalMap, { viridisCss } from "../components/GlobalMap.jsx";
-import { Icon, Btn, Card, Tabs, FactorGrid, Shape, cx } from "../ui/kit.jsx";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import GlobalMap from "../components/GlobalMap.jsx";
+import { Icon, Btn, Card, Tabs, Fidelity, FactorGrid, FactorSpark, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
-import { GOALS } from "./Explore.jsx";
+import { CompareTray, GOALS } from "./Explore.jsx";
 import { PRESETS, ROUGH_MAX_M, presetOf } from "../engine/score.js";
-import {
-  GLOBAL_FACTORS, cellLatLon, fmtLatLon, TEMP_BAND, WATER_FULL_WT_PCT,
-} from "../engine/globalScore.js";
+import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
-const VIEW = {
-  sun: { label: "Sunlight", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
-  earth: { label: "Earth view", unit: "%", fmt: (v) => `${Math.round(v * 100)}%`, extent: () => [0, 1] },
-  slope: { label: "Slope", unit: "°", fmt: (v) => `${v.toFixed(1)}°`, extent: () => [0, 30], invert: true },
-  rough: { label: "Roughness", unit: "m", fmt: (v) => `${v.toFixed(2)} m`, extent: () => [0, ROUGH_MAX_M], invert: true },
-  water: { label: "Water", unit: "wt%", fmt: (v) => `${v.toFixed(3)} wt%`, extent: () => [0, WATER_FULL_WT_PCT] },
-  temp: { label: "Mean temp.", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
-  // Mínima y máxima: sin capa de mapa, solo en la ficha de cada punto.
-  tmin: { noMap: true, label: "Coldest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
-  tmax: { noMap: true, label: "Hottest", unit: "K", fmt: (v) => `${Math.round(v)} K`, extent: () => [40, 400] },
-  elev: { noMap: true, label: "Elevation", unit: "m", fmt: (v) => `${Math.round(v).toLocaleString("en-US")} m` },
-  psr: { noMap: true, label: "Permanent shadow", unit: "%", fmt: (v) => `${Math.round(v * 100)}%` },
-  // Sin capa de mapa propia (se parece demasiado a la de luz): se sigue calculando para el
-  // límite de autonomía de Mission settings y se enseña en la ficha de cada celda.
-  night: { noMap: true, label: "Longest night", unit: "h", fmt: (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`), extent: (a) => [0, maxOf(a) || 1], invert: true },
+const PDS = "https://pds-geosciences.wustl.edu/lro/";
+const LOLA = `${PDS}lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/`;
+const DIVINER = `${PDS}urn-nasa-pds-lro_diviner_derived1/data_derived_gcp/`;
+const DE440 = "https://ssd.jpl.nasa.gov/planets/eph_export.html";
+const percent = (v) => `${Math.round(v * 100)}%`;
+
+/** Capas del mapa, con el mismo formato que las del polo sur (data/mapLayers.js). `key` = dato en G.L. */
+const LAYERS = {
+  score: {
+    label: "Mission score", short: "Score", ramp: "score", legend: ["Lower", "Higher"], format: (v) => `${Math.round(v)}/100`,
+    description: "Suitability from 0 to 100, computed from the six weighted mission factors. The active limits can exclude a cell from the map.",
+    sources: [],
+  },
+  sun: {
+    label: "Sun visibility", short: "Sun", ramp: "sun", legend: ["0%", "100%"], format: percent,
+    description: "Share of the surface stay when the Sun clears the terrain horizon of the cell, computed in your browser for the mission dates. One horizon per 0.5° cell; four above 60° latitude.",
+    sources: [["NASA PDS · LOLA LDEM_64", `${LOLA}ldem_64.lbl`], ["JPL DE440 ephemerides", DE440]],
+  },
+  earth: {
+    label: "Earth visibility", short: "Earth", ramp: "earth", legend: ["0%", "100%"], format: percent,
+    description: "Share of the surface stay with Earth above the terrain horizon of the cell, computed for the mission dates. A radio link also requires an available ground station and suitable equipment.",
+    sources: [["NASA PDS · LOLA LDEM_64", `${LOLA}ldem_64.lbl`], ["JPL DE440 ephemerides", DE440]],
+  },
+  elev: {
+    label: "Terrain elevation", short: "Elevation", ramp: "elevation", format: (v) => `${Math.round(v).toLocaleString("en-US")} m`,
+    legendOf: (lo, hi) => [`${(lo / 1000).toFixed(1)} km`, `${(hi / 1000).toFixed(1)} km`],
+    description: "Height at the centre of the 0.5° cell, relative to the Moon’s 1,737.4 km reference sphere.",
+    sources: [["NASA PDS · LOLA LDEM_64", `${LOLA}ldem_64.lbl`]],
+  },
+  slope: {
+    label: "Terrain slope", short: "Slope", ramp: "slope", legend: ["0°", "30°+"], format: (v) => `${v.toFixed(1)}°`,
+    description: "Mean slope of the 1 km cells inside each 0.5° cell (about 15 km at the equator). Small steep areas are averaged out at this scale.",
+    sources: [["USGS · LOLA global DEM 118 m", "https://astrogeology.usgs.gov/search/map/moon_lro_lola_dem_118m"]],
+  },
+  rough: {
+    label: "Terrain roughness", short: "Roughness", ramp: "rough", legend: ["0 m", `${ROUGH_MAX_M} m+`], format: (v) => `${v.toFixed(2)} m`,
+    description: "Typical variation in height after fitting a local plane to the laser measurements. Median of the LOLA global roughness samples inside the cell; the same quantity and scoring rule as the south pole.",
+    sources: [["NASA PDS · LOLA LDRM_16", `${LOLA}ldrm_16.lbl`]],
+  },
+  temp: {
+    label: "Mean surface temperature", short: "Surface temp.", ramp: "temp", format: (v) => `${Math.round(v)} K`,
+    legendOf: (lo, hi) => [`${Math.round(lo)} K`, `${Math.round(hi)} K`],
+    description: `Mean surface temperature during the mission, from LRO Diviner measurements read at each cell's local time, hour by hour. The score is the share of hours in a workable range: full marks from ${TEMP_BAND.mildK} to ${TEMP_BAND.hotOkK} K, none below ${TEMP_BAND.coldK} K or above ${TEMP_BAND.hotMaxK} K.`,
+    sources: [["NASA PDS · Diviner Global Cumulative Products", DIVINER]],
+  },
+  water: {
+    label: "Water equivalent", short: "Water", ramp: "water", max: WATER_FULL_WT_PCT, legend: ["0 wt%", `${WATER_FULL_WT_PCT} wt%+`], format: (v) => `${v.toFixed(3)} wt%`,
+    description: `Water-equivalent hydrogen from Lunar Prospector, only attributed to ice above 70° latitude. True footprint 60–150 km, so crater-scale deposits look diluted. Full marks at ${WATER_FULL_WT_PCT} wt%.`,
+    sources: [["NASA PDS · Lunar Prospector special products", "https://pds-geosciences.wustl.edu/missions/lunarp/reduced_special.html"]],
+  },
 };
+const MAP_LAYERS = Object.keys(LAYERS);
 
-function maxOf(a) {
-  let hi = -Infinity;
-  if (a) for (const v of a) if (v > hi) hi = v;
-  return Number.isFinite(hi) ? hi : null;
-}
-function extentOf(a) {
-  let lo = Infinity, hi = -Infinity;
-  if (a) for (const v of a) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  return Number.isFinite(hi) ? [lo, hi] : [0, 1];
-}
+/** Lecturas extra de la ficha del punto (no son capas de mapa). */
+const POINT_FIELDS = [
+  ["elev", "Elevation", LAYERS.elev.format],
+  ["tmin", "Coldest", (v) => `${Math.round(v)} K`],
+  ["tmax", "Hottest", (v) => `${Math.round(v)} K`],
+  ["psr", "Permanent shadow", percent],
+  ["night", "Longest night", (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`)],
+];
 
 export function RegionTabs({ region, setRegion, globalReady }) {
   return (
@@ -53,64 +86,99 @@ export function RegionTabs({ region, setRegion, globalReady }) {
   );
 }
 
+/** Recorte del relieve alrededor de una celda (miniatura del ranking), como Thumb del polo sur. */
+function GlobalThumb({ place, hillshadeUrl, size = 44, deg = 24, radius = 10 }) {
+  if (!place || !hillshadeUrl) return <span className="thumb" style={{ width: size, height: size, borderRadius: radius }} />;
+  const w = size * (360 / deg), h = w / 2;
+  const x = ((place.lon + 180) / 360) * w - size / 2;
+  const y = ((90 - place.lat) / 180) * h - size / 2;
+  return (
+    <span className="thumb" aria-hidden="true"
+      style={{ width: size, height: size, borderRadius: radius, backgroundImage: `url(${hillshadeUrl})`, backgroundSize: `${w}px ${h}px`, backgroundPosition: `${-x}px ${-y}px` }}>
+      <i />
+    </span>
+  );
+}
+
+function CompareToggle({ inCmp, onClick, size = "md" }) {
+  return <Btn variant="secondary" size={size} icon={inCmp ? "check" : "plus"} aria-pressed={inCmp} onClick={onClick}>Compare</Btn>;
+}
+
 export default function GlobalExplore({ app }) {
-  const { globalManifest: gm, G, mission, problem, weights, setWeights, limits, openSettings, go, Rail, regionId: region, setRegion, gSel: sel, setGSel: setSel, inCmp, toggleCmp } = app;
+  const {
+    globalManifest: gm, G, mission, problem, weights, setWeights, openSettings, go, Rail,
+    regionId: region, setRegion, gSel: sel, setGSel: setSel, inCmp, toggleCmp, cmpPlaces,
+  } = app;
   const grid = gm.grid;
-  // El cálculo y los datos son compartidos (useGlobalMission): los usan también Mare y Compare.
-  const { L, score, keys, spots, error, runError, loading, progress, ready, ms } = G;
+  const { L, score, keys, spots, error, runError, loading, progress, ready, result } = G;
   const [layerKey, setLayerKey] = useState("score");
-  const [hover, setHover] = useState(null);
+  const [hoverP, setHoverP] = useState(null);
   const [hillshade, setHillshade] = useState(null);
+  const sources = useRef(null);
+  const hillshadeUrl = gm.hillshade ? `${import.meta.env.BASE_URL}data/${gm.hillshade}` : null;
 
   useEffect(() => {
-    if (!gm.hillshade) return;
+    if (!hillshadeUrl) return;
     const img = new Image();
     img.onload = () => setHillshade(img);
-    img.src = `${import.meta.env.BASE_URL}data/${gm.hillshade}`;
-  }, [gm.hillshade]);
+    img.src = hillshadeUrl;
+  }, [hillshadeUrl]);
 
-  const scoreExtent = useMemo(() => extentOf(score), [score]);
+  const layerKeys = MAP_LAYERS.filter((k) => k === "score" || (k === "temp" ? gm.thermal : k === "water" || k === "rough" ? gm.layers?.[k] : true));
+  const layer = LAYERS[layerKey];
+  const values = layerKey === "score" ? score : L[layerKey] || null;
+  const legendEnds = (() => {
+    if (!values || layer.legend) return layer.legend || ["–", "–"];
+    let lo = Infinity, hi = -Infinity;
+    for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    return Number.isFinite(hi) ? layer.legendOf(lo, hi) : ["–", "–"];
+  })();
 
-  const values = layerKey === "score" ? score : L[layerKey];
-  const extent = layerKey === "score" ? scoreExtent : VIEW[layerKey].extent(values);
-  const invert = layerKey !== "score" && VIEW[layerKey].invert;
-
-  const best = spots[0] ? G.placeOf(spots[0].p) : null;
+  const places = spots.map((s) => G.placeOf(s.p));
+  const best = places[0] || null;
+  const rest = places.slice(1);
   const selected = sel != null ? G.placeOf(sel) : null;
-  const openSite = (place) => { setSel(place.p); go("site"); };
   const goal = presetOf(weights);
-  const ignored = Object.entries(weights).filter(([k, w]) => w > 0 && !GLOBAL_FACTORS.includes(k)).map(([k]) => k);
+  const dates = result ? `${fmtShort(mission.fromMs)} → ${fmtShort(mission.toMs)}` : null;
+  const openSite = (place) => { setSel(place.p); app.setTab("overview"); go("site"); };
+  const ignored = Object.entries(weights).filter(([k, w]) => w > 0 && !GLOBAL_FACTORS.includes(k)).length;
 
-  const layerBar = (
-    <div className="overlay layerbar">
-      <Icon name="layers" size={16} />
-      <span style={{ width: 6 }} />
-      {[["score", { label: "Score" }], ...Object.entries(VIEW).filter(([k, v]) => !v.noMap && !(k.startsWith("t") && !gm.thermal) && !(k === "water" && !gm.layers?.water) && !(k === "rough" && !gm.layers?.rough))].map(([k, v]) => (
-        <button key={k} type="button" aria-pressed={layerKey === k} disabled={k !== "score" && !L[k]}
-          className={cx("layerbar__b", layerKey === k && "is-on")} onClick={() => setLayerKey(k)}>
-          {layerKey === k ? <Icon name="check" size={12} /> : null}
-          {v.label}
-        </button>
-      ))}
-    </div>
-  );
-
-  const hoverBox = hover ? (() => {
-    const c = G.placeOf(hover.p);
+  // Ficha del punto: el que está bajo el cursor o, si no hay, el seleccionado (como en el polo sur).
+  const pointP = hoverP ?? selected?.p;
+  const pending = layerKey === "score" && loading;
+  const readout = pointP != null ? (() => {
+    const hovering = hoverP != null;
+    const v = values ? values[pointP] : NaN;
+    const reading = pending ? "Calculating…" : Number.isFinite(v) ? layer.format(v) : layerKey === "score" ? "Left out" : "No data";
+    const excluded = hovering ? null : selected.excluded;
     return (
-      <div className="overlay gtip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
-        <div className="num-13">{c.coords}</div>
-        <div>Score: <b>{Number.isFinite(c.score) ? Math.round(c.score) : "–"}</b>{c.excluded ? ` · ${c.excluded}` : ""}</div>
-        {Object.keys(VIEW).filter((k) => L[k]).map((k) => (
-          <div key={k}>{VIEW[k].label}: {Number.isFinite(L[k][hover.p]) ? VIEW[k].fmt(L[k][hover.p]) : "no data"}</div>
-        ))}
-      </div>
+      <section className="overlay map-readout" aria-label={hovering ? "Point under cursor" : "Selected point"} onPointerEnter={selected ? () => setHoverP(null) : undefined}>
+        <div className="row-8">
+          <span className="num-13 grow ellipsis">{hovering ? "Point under cursor" : selected.name}</span>
+          <span className="coords">{hovering ? fmtLatLon(...cellLatLon(grid, pointP)) : selected.coords}</span>
+        </div>
+        <div className="row-8">
+          <span className="muted-12 grow">{layer.label}</span>
+          <strong className="num-15">{reading}</strong>
+        </div>
+        {!pending && ["score", "sun", "earth", "temp"].includes(layerKey) && dates ? (
+          <div className="row-8"><span className="muted-12 grow">Your dates</span><span className="num-13">{dates}</span></div>
+        ) : null}
+        {!hovering ? POINT_FIELDS.filter(([k]) => L[k] && Number.isFinite(L[k][pointP])).map(([k, name, fmt]) => (
+          <div key={k} className="row-8"><span className="muted-12 grow">{name}</span><span className="num-13">{fmt(L[k][pointP])}</span></div>
+        )) : null}
+        {excluded && layerKey === "score" ? <div className="note-12"><Icon name="info" size={12} />{excluded}</div> : null}
+        {selected && !hovering ? (
+          <div className="row-6">
+            <Btn variant="primary" size="sm" iconRight="arrow-right" onClick={() => openSite(selected)}>Open site</Btn>
+            <CompareToggle size="sm" inCmp={inCmp(selected)} onClick={() => toggleCmp(selected)} />
+            <div className="grow" />
+            <IconBtn icon="x" label="Clear selection" variant="ghost" size={32} onClick={() => setSel(null)} />
+          </div>
+        ) : null}
+      </section>
     );
   })() : null;
-
-  const legendEnds = layerKey === "score"
-    ? [`${Math.round(extent[0])}`, `${Math.round(extent[1])}`]
-    : (invert ? [extent[1], extent[0]] : extent).map((v) => VIEW[layerKey].fmt(v));
 
   return (
     <div className="shell">
@@ -124,55 +192,83 @@ export default function GlobalExplore({ app }) {
         </header>
 
         <div className="explore">
-          <section aria-label="Whole Moon map" className="mapsec">
-            <GlobalMap
-              grid={grid}
-              hillshade={hillshade}
-              values={values}
-              extent={extent}
-              invert={invert}
-              spots={spots}
-              selectedP={sel}
-              onSelect={setSel}
-              onHover={(p, e) => {
-                if (p == null || !e) return setHover(null);
-                const r = e.currentTarget.getBoundingClientRect();
-                return setHover({ p, x: e.clientX - r.left, y: e.clientY - r.top });
-              }}
-            >
-              {layerBar}
-              {hoverBox}
-              {selected ? (
-                <div className="overlay selcard">
-                  <div className="row-8">
-                    <Shape kind="square" selected />
-                    <span className="num-15 grow ellipsis">{selected.name}</span>
-                    <span className="num-15">{Number.isFinite(selected.score) ? Math.round(selected.score) : "–"}</span>
+          <div className="explore-map">
+            <section aria-label="Moon map" className="mapsec" data-theme="dark">
+              <GlobalMap grid={grid} hillshade={hillshade} layer={layer} values={values} spots={spots} selectedP={sel}
+                onSelect={setSel} onHover={(p) => setHoverP(p ?? null)}>
+                <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
+                {error ? (
+                  <div className="overlay mapnote"><Icon name="alert" size={14} />Whole-Moon data could not be loaded: {error}</div>
+                ) : !ready ? (
+                  <div className="overlay mapnote"><Icon name="loader" size={14} className="spin" />Loading whole-Moon terrain horizons…</div>
+                ) : null}
+              </GlobalMap>
+
+              <div className="map-controls">
+                <div className="map-controls__row">
+                  <div className="overlay layerbar" role="group" aria-label="Map layer">
+                    <Icon name="layers" size={16} />
+                    {layerKeys.map((key) => (
+                      <button key={key} type="button" className={cx("layerbar__b", layerKey === key && "is-on")}
+                        aria-label={LAYERS[key].label} title={LAYERS[key].label} aria-pressed={layerKey === key} onClick={() => setLayerKey(key)}>
+                        <span className="layerbar__check">{layerKey === key && <Icon name="check" size={12} />}</span>
+                        {LAYERS[key].short}
+                      </button>
+                    ))}
                   </div>
-                  <div className="coords">{selected.coords} · {grid.stepDeg}° cell (~{Math.round(grid.stepDeg * 30.3)} km at the equator)</div>
-                  {selected.excluded ? <div className="note-12"><Icon name="info" size={12} />{selected.excluded}</div> : null}
-                  <FactorGrid values={selected.factors} />
-                  <div className="row-6">
-                    <Btn size="sm" variant="primary" icon="map-pin" onClick={() => openSite(selected)}>Open site</Btn>
-                    <Btn size="sm" icon={inCmp(selected) ? "check" : "plus"} aria-pressed={inCmp(selected)} onClick={() => toggleCmp(selected)}>Compare</Btn>
-                    <div className="grow" />
-                    <Btn size="sm" variant="ghost" icon="x" onClick={() => setSel(null)}>Clear</Btn>
+                  <div className="overlay map-controls__extras">
+                    <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
                   </div>
                 </div>
-              ) : null}
-              <div className="overlay glegend" aria-label="Legend">
-                <span className="lbl">{layerKey === "score" ? "Score" : VIEW[layerKey].label}</span>
-                <span className="glegend__ramp" style={{ background: viridisCss() }} />
-                <span className="glegend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></span>
-                <span className="glegend__na"><i />Excluded / no data</span>
+                {readout}
               </div>
-              {loading ? (
-                <div className="overlay mapnote"><Icon name="loader" size={14} className="spin" />
-                  {ready ? `Computing Sun and Earth for every cell… ${Math.round(progress * 100)}%` : "Loading whole-Moon horizons…"}
+
+              <details className="overlay map-legend">
+                <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
+                <div className="overlay legend__pop">
+                  <div className="legend__row"><Shape kind="square" />Best cell</div>
+                  <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
+                  <div className="legend__ramp">
+                    <span className="legend__name">{layer.label}</span>
+                    <div className={cx("ramp", `ramp--${layer.ramp === "water" ? "earth" : layer.ramp}`)} style={layer.ramp === "water" ? { background: "linear-gradient(90deg, transparent, #4fd1c5)" } : undefined} />
+                    <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
+                  </div>
+                  {layerKey === "score" ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
                 </div>
-              ) : null}
-            </GlobalMap>
-          </section>
+              </details>
+
+              {createPortal(<dialog className="layer-info" ref={sources} aria-labelledby="gmap-layer-info-title">
+                <div className="layer-info__head">
+                  <h2 id="gmap-layer-info-title" className="h-lg">Map layers and sources</h2>
+                  <IconBtn icon="x" label="Close layer sources" variant="ghost" onClick={() => sources.current.close()} />
+                </div>
+                <div className="layer-info__body">
+                  {layerKeys.map((key) => {
+                    const { label, description, sources: links } = LAYERS[key];
+                    return (
+                      <section key={key} className={cx("layer-info__item", layerKey === key && "layer-info__item--current")}>
+                        <h3>{label}</h3>
+                        <p>{description}</p>
+                        {links.length > 0 && (
+                          <div className="layer-info__links">
+                            {links.map(([name, url]) => <a key={url} href={url} target="_blank" rel="noreferrer">{name}<Icon name="external-link" size={12} /></a>)}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                  <section className="layer-info__item">
+                    <h3>Whole-Moon grid</h3>
+                    <p>
+                      {grid.stepDeg}° cells (about {Math.round(grid.stepDeg * 30.3)} km at the equator). Sun, Earth and temperature are computed in your browser for the mission dates;
+                      slope, roughness, elevation, water and permanent shadow are fixed properties of the terrain. The limit “Leave out permanent shadow” drops cells
+                      with more than 50% in permanent shadow (LOLA). For 1 km detail near the south pole, switch to South Pole.
+                    </p>
+                  </section>
+                </div>
+              </dialog>, document.body)}
+            </section>
+          </div>
 
           <aside aria-label="Ranking" className="rank">
             <Card pad="md" className="rank__goal">
@@ -183,70 +279,92 @@ export default function GlobalExplore({ app }) {
                   <button type="button" className="linkbtn linkbtn--12" onClick={() => go("priorities")}>Weights<Icon name="chevron-right" size={12} /></button>
                 </div>
                 <Tabs label="Goal" value={goal} onChange={(g) => setWeights({ ...PRESETS[g] })} options={GOALS.map((g) => ({ value: g, label: g }))} className="tabs--block" />
-                <span className="muted-11">
-                  Scored with {keys.length ? keys.map((k) => ({ temp: "Thermal comfort", ice: "Water" }[k] || VIEW[k].label)).join(", ") : "nothing yet"}.
-                  {ignored.length ? ` ${ignored.length} other weights have no whole-Moon data and are not used here.` : ""}
-                </span>
+                {ignored || (result && keys.length < GLOBAL_FACTORS.length) ? (
+                  <span className="muted-11">Scored with {keys.length} of 6 factors; the rest have no whole-Moon data or zero weight.</span>
+                ) : null}
               </div>
             </Card>
 
             <Card pad="md2" className="rank__best">
               <div className="stack-14">
-                <div className="row-8"><span className="lbl">Best on the whole Moon</span></div>
-                {error || runError ? (
-                  <div className="state state--left"><Icon name="alert" size={16} style={{ color: "var(--danger)" }} /><span className="state__title">{error ? "Could not load the whole-Moon data" : "Could not compute this mission"}</span><span className="state__text">{error || runError}</span></div>
-                ) : problem ? (
+                <div className="row-8">
+                  <span className="lbl">Best</span>
+                  <span className="muted-11">{goal || "Custom weights"}</span>
+                  <div className="grow" />
+                  {loading || best ? <Fidelity level={loading ? "processing" : "computed"} /> : null}
+                </div>
+                {problem || runError ? (
                   <div className="state state--left">
-                    <Icon name="calendar" size={16} />
-                    <span className="state__title">Check the mission dates</span>
-                    <span className="state__text">{problem}</span>
+                    <Icon name="alert" size={16} style={{ color: "var(--danger)" }} />
+                    <span className="state__title">No valid window</span>
+                    <span className="state__text">{problem || runError}</span>
                     <Btn size="sm" icon="sliders" onClick={openSettings}>Mission settings</Btn>
                   </div>
-                ) : !best ? (
-                  <div className="state state--left">
-                    <span className="state__title">{loading ? "Scoring" : "No cell passes your limits"}</span>
-                    {!loading ? <Btn size="sm" icon="sliders" onClick={openSettings}>Mission settings</Btn> : null}
+                ) : error ? (
+                  <p className="muted-12">Map data could not be loaded.</p>
+                ) : loading ? (
+                  <div className="state state--left" aria-label="Mission calculation">
+                    <span className="row-8"><Icon name="loader" size={16} className="spin" /><span className="state__title">{ready ? "Scoring" : "Loading map data"}</span>{ready && <span className="muted-12">{Math.floor(progress * 100)}%</span>}</span>
+                    {ready && <div className="progress" role="progressbar" aria-label="Mission calculation" aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></div>}
                   </div>
+                ) : !best ? (
+                  <p className="muted-12">{result ? "No cell passes the current limits." : "Mission results unavailable."}</p>
                 ) : (
                   <>
                     <button type="button" className="best" onClick={() => setSel(best.p)}>
+                      <GlobalThumb place={best} hillshadeUrl={hillshadeUrl} size={76} radius={14} />
                       <span className="best__text">
                         <span className="best__rank">01</span>
-                        <span className="best__name">{best.coords}</span>
-                        <span className="coords">{grid.stepDeg}° cell</span>
+                        <span className="best__name">{best.name}</span>
+                        <span className="coords">{best.coords}</span>
                       </span>
-                      <span className="best__score"><span>{Math.round(best.score)}</span><span className="muted-11">/100</span></span>
+                      <span className="best__score">
+                        <span>{Math.round(best.score)}</span>
+                        <span className="muted-11">/100</span>
+                      </span>
                     </button>
+                    {dates ? (
+                      <div className="row-8">
+                        <Icon name="calendar" size={14} />
+                        <span className="num-13">{dates}</span>
+                        <span className="muted-11">{mission.durationDays} d</span>
+                      </div>
+                    ) : null}
                     <FactorGrid values={best.factors} />
                     <div className="row-8">
-                      <Btn size="sm" variant="primary" icon="map-pin" onClick={() => openSite(best)}>Open site</Btn>
-                      <Btn size="sm" icon={inCmp(best) ? "check" : "plus"} aria-pressed={inCmp(best)} onClick={() => toggleCmp(best)}>Compare</Btn>
+                      <Btn variant="primary" iconRight="arrow-right" onClick={() => openSite(best)}>Open site</Btn>
+                      <CompareToggle inCmp={inCmp(best)} onClick={() => toggleCmp(best)} />
                     </div>
                   </>
                 )}
-                <div className="muted-11">
-                  <div>Sunlight, Earth view and longest night: computed in your browser for {fmtShort(mission.fromMs)} → {fmtShort(mission.toMs)}{ms ? ` (${(ms / 1000).toFixed(1)} s)` : ""}.</div>
-                  <div>Terrain horizons from LOLA LDEM_64, one per {grid.stepDeg}° cell · Sun and Earth from SPICE DE440 · slope from the 1 km grid (Jan, T1){gm.layers?.rough ? " · roughness from LOLA LDRM_16" : ""}{gm.layers?.psr ? " · permanent shadow from LOLA LPSR" : ""}.</div>
-                  {gm.layers?.water ? <div>Water: water-equivalent hydrogen from Lunar Prospector (0.5° product, true footprint 60–150 km), only attributed to ice above 70° latitude. Full marks at {WATER_FULL_WT_PCT} wt%.</div> : null}
-                  {gm.thermal ? <div>Surface temperature: measured by LRO Diviner (Williams et al. 2017), read at each cell's local time for every hour of the mission. Its score is the share of hours in a workable range: full marks from {TEMP_BAND.mildK} to {TEMP_BAND.hotOkK} K, none below {TEMP_BAND.coldK} K or above {TEMP_BAND.hotMaxK} K.</div> : null}
-                </div>
               </div>
             </Card>
 
             <Card pad="sm" className="rank__list">
               <div className="stack-10">
-                <div className="row-8 px-4"><h2 className="h-sm">Ranking/</h2><span className="muted-11">cells ≥ 5° apart</span></div>
+                <div className="row-8 px-4"><h2 className="h-sm">Ranking/</h2></div>
+                <div className="row-6 px-4 wrap">
+                  <span className="chip is-on">Best cells<span className="chip__n">{places.length}</span></span>
+                </div>
                 <div className="rows">
-                  {spots.slice(1).map((s, k) => (
-                    <div key={s.p} className={cx("rrow", sel === s.p && "is-sel")}>
+                  {rest.length === 0 && !loading ? <p className="muted-12 px-4">Nothing to rank yet.</p> : null}
+                  {rest.map((p, k) => (
+                    <div key={p.key} className={cx("rrow", sel === p.p && "is-sel")}>
                       <span className="rrow__rank">{String(k + 2).padStart(2, "0")}</span>
-                      <button type="button" className="rrow__main" onClick={() => setSel(s.p)}>
-                        <span className="rrow__text"><span className="row-6"><Shape kind="square" /><span className="rrow__name">{fmtLatLon(s.lat, s.lon)}</span></span></span>
+                      <button type="button" className="rrow__main" onClick={() => setSel(p.p)}>
+                        <GlobalThumb place={p} hillshadeUrl={hillshadeUrl} />
+                        <span className="rrow__text">
+                          <span className="row-6"><Shape kind={p.shape} /><span className="rrow__name">{p.coords}</span></span>
+                          <FactorSpark values={p.factors} />
+                        </span>
                       </button>
-                      <span className="rrow__score">{Math.round(s.score)}</span>
+                      <span className="rrow__score">{Number.isFinite(p.score) ? Math.round(p.score) : "–"}</span>
+                      <button type="button" className={cx("ibtn ibtn--outline", inCmp(p) && "is-on")} style={{ width: 32, height: 32 }}
+                        aria-label={inCmp(p) ? `Remove ${p.name} from compare` : `Add ${p.name} to compare`} aria-pressed={inCmp(p)} onClick={() => toggleCmp(p)}>
+                        <Icon name={inCmp(p) ? "check" : "plus"} size={16} />
+                      </button>
                     </div>
                   ))}
-                  {spots.length <= 1 && !loading ? <p className="muted-12 px-4">Nothing to rank yet.</p> : null}
                 </div>
               </div>
             </Card>
