@@ -94,21 +94,21 @@ Fórmula: `suitability = 100 * max(0, 1 - slope_deg / 15)`.
 
 ```bash
 pip install -r requirements.txt   # rasterio scipy numpy …
-# Primera vegada (calcula des de LOLA i desa les malles):
-python3 scripts/pendent_seguretat.py --force-recompute --outdir data/pendent_g1k
-# Després (el pendent no canvia): només llegeix les malles guardades
-python3 scripts/pendent_seguretat.py --load-only
+# Ús normal: només llegeix malles ja processades (mai LOLA)
+python3 scripts/pendent_seguretat.py
+# Excepció (una vegada, si cal regenerar binaris):
+# python3 scripts/pendent_seguretat.py --regenerate-from-lola --outdir data/pendent_g1k
 python tools/validate_layer.py layers/terrain.slope
 python tools/validate_layer.py layers/suitability.slope
 ```
 
 ```python
-from scripts.pendent_seguretat import load_pendent_layers, PendentLayers
-result = load_pendent_layers()       # sense recalcular
+from scripts.pendent_seguretat import compute_pendent_layers, PendentLayers
+result = compute_pendent_layers()    # sempre llegeix cache; mai recalcula des de LOLA
 pendent = result.slope_deg           # float32, graus (pendent)
 seguretat = result.suitability       # float32 / alias result.safety, 0–100
 ```
 
 Els binaris G1K són grans (~228 MB pendent + ~57 MB seguretat): es desen localment
 a `layers/.../G1K/` (o release / carpeta d’equip, contracte §3.3); a git només
-`layer.json` (+ catàleg). Un cop generats, no cal tornar a calcular.
+`layer.json` (+ catàleg). L’API pública **no** torna a calcular el pendent.
