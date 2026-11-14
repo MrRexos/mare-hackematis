@@ -47,19 +47,16 @@ function WeightRow({ f, value, onChange }) {
   );
 }
 
-export default function SetupPriorities({ weights, setWeights, mission, region, go, openSettings }) {
+export default function SetupPriorities({ weights, setWeights, mission, region, openSettings }) {
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
 
   return (
     <SetupShell
-      step="priorities"
       eyebrow="03 — What matters/"
       title={<>What<br />matters<br />most?</>}
       lead="Each factor scores a site from 0 to 100. Its final score is the weighted average, so the weights always add up to 100%."
-      go={go}
-      back="when"
-      brief={<MissionBrief mission={mission} region={region} cta="Find sites" onCta={() => go("explore")} openSettings={openSettings} />}
+      brief={<MissionBrief mission={mission} region={region} openSettings={openSettings} />}
     >
           <div className="stack-10">
             <div className="row-base">

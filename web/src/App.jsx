@@ -11,6 +11,7 @@ import Home from "./screens/Home.jsx";
 import SetupWhere from "./screens/SetupWhere.jsx";
 import SetupWhen from "./screens/SetupWhen.jsx";
 import SetupPriorities from "./screens/SetupPriorities.jsx";
+import SetupLayout from "./screens/SetupLayout.jsx";
 import Explore from "./screens/Explore.jsx";
 import Site from "./screens/Site.jsx";
 import Compare from "./screens/Compare.jsx";
@@ -76,6 +77,9 @@ function useMedia(query) {
   return m;
 }
 
+// Portada y pasos de configuración, en orden (comparten el mismo marco).
+const SETUP_ORDER = ["home", "where", "when", "priorities"];
+
 export default function App() {
   // La app empieza en la portada (la de la Luna). Solo el polo sur tiene datos de momento.
   const [screen, setScreen] = useState("home");
@@ -104,7 +108,13 @@ export default function App() {
   const [cmpRefs, setCmpRefs] = useState([]);
   const [timeMs, setTimeMs] = useState(() => todayMs());
 
+  // Dirección de la transición entre la portada y los pasos: +1 adelante, -1 atrás, 0 sin animar.
+  const [dir, setDir] = useState(0);
+  const screenRef = useRef(screen);
   const go = useCallback((s) => {
+    const a = SETUP_ORDER.indexOf(screenRef.current), b = SETUP_ORDER.indexOf(s);
+    setDir(a >= 0 && b >= 0 && a !== b ? Math.sign(b - a) : 0);
+    screenRef.current = s;
     setScreen(s);
     window.scrollTo(0, 0);
   }, []);
@@ -425,14 +435,24 @@ export default function App() {
   };
 
   let page;
-  if (screen === "home") {
-    page = <Home region={region} mission={mission} weights={weights} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
-  } else if (screen === "where") {
-    page = <SetupWhere region={region} setRegion={setRegion} mission={mission} go={go} />;
-  } else if (screen === "when") {
-    page = <SetupWhen mission={mission} region={region} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} go={go} />;
-  } else if (screen === "priorities") {
-    page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} region={region} go={go} openSettings={() => setOverlay("settings")} />;
+  if (SETUP_ORDER.includes(screen)) {
+    const openSettings = () => setOverlay("settings");
+    const nav = {
+      home: { back: null, next: { label: "Start", aria: "Start: step 01, destination", onClick: () => go("where") } },
+      where: { back: "home", next: { label: "Next", aria: "Next: step 02, when", onClick: () => go("when") } },
+      when: { back: "where", next: { label: "Next", aria: "Next: step 03, what matters", onClick: () => go("priorities"), disabled: !!problem } },
+      priorities: { back: "when", next: { label: "Find sites", onClick: () => go("explore"), disabled: !!problem } },
+    }[screen];
+    let content;
+    if (screen === "home") content = <Home region={region} mission={mission} weights={weights} go={go} />;
+    else if (screen === "where") content = <SetupWhere region={region} setRegion={setRegion} mission={mission} />;
+    else if (screen === "when") content = <SetupWhen mission={mission} region={region} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} />;
+    else content = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} region={region} openSettings={openSettings} />;
+    page = (
+      <SetupLayout screen={screen} dir={dir} go={go} back={nav.back} next={nav.next} openSettings={openSettings} openLearn={() => go("learn")}>
+        {content}
+      </SetupLayout>
+    );
   } else if (screen === "site") {
     page = <Site app={app} />;
   } else if (screen === "compare") {

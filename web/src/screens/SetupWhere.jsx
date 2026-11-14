@@ -14,16 +14,13 @@ function MoonThumb({ cap }) {
   );
 }
 
-export default function SetupWhere({ region, setRegion, mission, go }) {
+export default function SetupWhere({ region, setRegion, mission }) {
   return (
     <SetupShell
-      step="where"
       eyebrow="01 — Destination/"
       title={<>Where<br />do you<br />land?</>}
       lead="Pick the region to plan. The south pole has hour-by-hour data today; the rest of the Moon is on the way."
-      go={go}
-      back="home"
-      brief={<MissionBrief mission={mission} region={region} cta="Continue" onCta={() => go("when")} />}
+      brief={<MissionBrief mission={mission} region={region} />}
     >
       <div className="row-base">
         <span className="lbl">Region</span>

@@ -59,20 +59,17 @@ export function LengthSlider({ value, onChange }) {
 export const SEARCH_RANGES = [["next12", "Next 12 months"], ["nofixed", "2026 – 2030"], ["custom", "Custom range"]];
 
 /** Paso 02 — When: todo lo temporal (un día concreto o buscar en un rango) y los días en superficie. */
-export default function SetupWhen({ mission, region, setPeriod, setCustom, setFixed, setDuration, periods, problem, go }) {
+export default function SetupWhen({ mission, region, setPeriod, setCustom, setFixed, setDuration, periods, problem }) {
   const fixed = mission.period === "fixed";
   const rangeText = mission.period === "next12" ? `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`
     : mission.period === "nofixed" ? `${fmtDay(periods.nofixed[0])} → ${fmtDay(periods.nofixed[1])}` : null;
 
   return (
     <SetupShell
-      step="when"
       eyebrow="02 — When/"
       title={<>When<br />do you<br />go?</>}
       lead="Choose one landing day to compare every site on the same dates, or let the planner find each site's best days."
-      go={go}
-      back="where"
-      brief={<MissionBrief mission={mission} region={region} cta="Continue" onCta={() => go("priorities")} />}
+      brief={<MissionBrief mission={mission} region={region} />}
     >
       <div className="row-base"><span className="lbl">Landing date</span></div>
       <div role="radiogroup" aria-label="Landing date" className="dest">

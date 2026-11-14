@@ -28,7 +28,7 @@ export function SetupSteps({ current, go, className }) {
   return (
     <nav aria-label="Setup steps" className={cx("steps", className)}>
       {SETUP_STEPS.map(([n, id, name], k) => {
-        const h = k === at ? 16 : Math.abs(k - at) === 1 ? 8 : 3;
+        const h = at < 0 ? 6 : k === at ? 16 : Math.abs(k - at) === 1 ? 8 : 3;
         return (
           <button type="button" key={n} aria-label={`Step ${n}: ${name}`} title={name} aria-current={k === at ? "step" : undefined}
             className={cx("steps__s", k === at && "is-on")} onClick={() => go(id)}>
@@ -41,10 +41,10 @@ export function SetupSteps({ current, go, className }) {
   );
 }
 
-/** Resumen de la misión (igual en los tres pasos) con la acción principal del paso. */
+/** Resumen de la misión (igual en los tres pasos). La acción principal vive en la barra inferior. */
 export function MissionBrief({ mission, region, cta, onCta, openSettings }) {
   return (
-    <section className="card card--lg prio__brief" aria-label="Mission brief">
+    <section className="card card--lg setup__brief" aria-label="Mission brief">
       <div className="stack-20">
         <h2 className="h-lg">Mission brief</h2>
         <div className="brief">
@@ -53,44 +53,27 @@ export function MissionBrief({ mission, region, cta, onCta, openSettings }) {
           <div><span className="lbl">On the surface</span><span><span className="num-15">{mission.durationDays}</span> <span className="unit">days</span></span></div>
           <div><span className="lbl">Observer</span><span><span className="num-15">Lander</span> <span className="unit">{mission.observerM} m</span></span></div>
         </div>
-        <Btn variant="primary" size="lg" iconRight="arrow-right" className="btn--block" onClick={onCta}>{cta}</Btn>
+        {cta ? <Btn variant="primary" size="lg" iconRight="arrow-right" className="btn--block" onClick={onCta}>{cta}</Btn> : null}
         {openSettings ? <button type="button" className="linkbtn" onClick={openSettings}><Icon name="sliders" size={14} />Rules</button> : null}
       </div>
     </section>
   );
 }
 
-export default function SetupShell({ step, eyebrow, title, lead, children, brief, go, back }) {
+/**
+ * Contenido de un paso dentro de SetupLayout: cabecera (columna 1), controles
+ * (columnas 2–3) y resumen (columna 4). El marco, la Luna y la navegación son del layout.
+ */
+export default function SetupShell({ eyebrow, title, lead, children, brief }) {
   return (
-    <div className="prio">
-      <div className="prio__lines" aria-hidden="true">
-        {[25, 50, 75].map((x) => (
-          <span key={x} style={{ left: `${x}%` }}>
-            <i className="cross" style={{ top: 150 }} />
-            <i className="cross" style={{ top: 840 }} />
-          </span>
-        ))}
+    <>
+      <div className="setup__head">
+        <div className="eyebrow-13">{eyebrow}</div>
+        <h1 className="setup__title">{title}</h1>
+        {lead ? <p className="setup__lead">{lead}</p> : null}
       </div>
-      <div className="prio__top">
-        <a href="#" className="when__brand prio__brand" title="Home" onClick={(e) => { e.preventDefault(); go("home"); }}>Mare Hackematis</a>
-        <div className="grow" />
-        <button type="button" className="linkbtn" onClick={() => go("explore")}>Skip<Icon name="arrow-right" size={14} /></button>
-      </div>
-      <div className="prio__body">
-        <div className="prio__head">
-          <div className="eyebrow-13">{eyebrow}</div>
-          <h1 className="display-88">{title}</h1>
-          {lead ? <p className="prio__lead">{lead}</p> : null}
-        </div>
-        <div className="prio__weights">{children}</div>
-        {brief}
-      </div>
-      <SetupSteps current={step} go={go} className="prio__steps" />
-      {back ? (
-        <div className="prio__foot">
-          <Btn variant="outline" size="lg" icon="arrow-left" onClick={() => go(back)}>Back</Btn>
-        </div>
-      ) : null}
-    </div>
+      <div className="setup__main">{children}</div>
+      {brief ? <aside className="setup__aside">{brief}</aside> : null}
+    </>
   );
 }
