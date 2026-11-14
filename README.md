@@ -1,4 +1,4 @@
-# Binarios de capas G1K (T9 + ice.hydrogen_ppm)
+# Binarios de capas G1K (T9 + ice.hydrogen_ppm + ice.water_equivalent_wt_pct)
 
 Rama solo de datos: no se fusiona con `main`. Los `layer.json` están en `main`/`joel/recursos-y-eyecta`.
 
