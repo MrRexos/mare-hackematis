@@ -2,6 +2,7 @@
 // Se dibujan con <Icon name="sun" size={16} />.
 
 export const ICONS = {
+ "astronaut-helmet": "<path d=\"M5 18a9 9 0 1 1 14 0\"></path><rect x=\"5.5\" y=\"6.5\" width=\"13\" height=\"9\" rx=\"4\"></rect><path d=\"M9 9.5h3\"></path><path d=\"M5 18h14l-1 4H6z\"></path><path d=\"M9 20h6\"></path>",
  "orbit": "<circle cx=\"12\" cy=\"12\" r=\"3\"></circle><circle cx=\"19\" cy=\"5\" r=\"2\"></circle><circle cx=\"5\" cy=\"19\" r=\"2\"></circle><path d=\"M10.4 21.9a10 10 0 0 0 9.941-15.416\"></path><path d=\"M13.5 2.1a10 10 0 0 0-9.841 15.416\"></path>",
  "map-pin": "<path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\"></path><circle cx=\"12\" cy=\"10\" r=\"3\"></circle>",
  "compare": "<circle cx=\"5\" cy=\"6\" r=\"3\"></circle><path d=\"M12 6h5a2 2 0 0 1 2 2v7\"></path><path d=\"m15 9-3-3 3-3\"></path><circle cx=\"19\" cy=\"18\" r=\"3\"></circle><path d=\"M12 18H7a2 2 0 0 1-2-2V9\"></path><path d=\"m9 15 3 3-3 3\"></path>",

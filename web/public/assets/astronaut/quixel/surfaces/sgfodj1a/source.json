@@ -1,0 +1,7 @@
+{
+  "id": "sgfodj1a",
+  "name": "Sand",
+  "sourceArchive": "sand_sgfodj1a_1k.zip",
+  "scanArea": "2x2 m",
+  "import": "Original color/normal; R=AO, G=roughness, B=0. No displacement."
+}

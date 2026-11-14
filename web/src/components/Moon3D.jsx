@@ -26,7 +26,7 @@ function srgbToLinear(c) {
   return (c / 255) ** 2.2;
 }
 
-export default function Moon3D({ data, mission, result, sites, spots, selected, selectionKey = selected?.key, viewSwitch, timeMs: extTime, onTimeChange, onSelect }) {
+export default function Moon3D({ data, mission, result, sites, spots, selected, selectionKey = selected?.key, viewSwitch, toolbarActions, timeMs: extTime, onTimeChange, onSelect }) {
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
@@ -403,6 +403,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
             onChange={(v) => setExag(Number(v))}
             options={[{ value: "1", label: "×1" }, { value: "3", label: "×3" }, { value: "6", label: "×6" }]}
           />
+          {toolbarActions}
         </div>
       </L.Panel>
       <L.Panel tone="overlay" padding="compact" className="hud hud--readings">

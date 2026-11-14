@@ -7,4 +7,13 @@ export default defineConfig({
   base: "./",
   plugins: [react()],
   worker: { format: "es" },
+  server: {
+    proxy: {
+      // Only this public NASA host is reachable; preserves HTTP Range for GeoTIFF windows.
+      "/__nasa-dem/data/": {
+        target: "https://pgda.gsfc.nasa.gov", changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/__nasa-dem/, ""),
+      },
+    },
+  },
 });

@@ -12,6 +12,7 @@ import { compass, goodHoursPerDay, hoursPerDay, hourIndex, nextChange, runs } fr
 import { formatDuration, pixelXY } from "../engine/geometry.js";
 
 const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
+const AstronautMode = lazy(() => import("../astronaut/AstronautMode.jsx"));
 const H = 3600e3;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -553,6 +554,7 @@ function Terrain({ app, place }) {
 /* ------------------------------------------------------------------ página */
 
 export default function Site({ app }) {
+  const [astronaut, setAstronaut] = useState(false);
   const { selected, Rail, TimeBarEl, siteList, data, moonMission, result, sitesForMap, spotsForMap, timeMs, setTimeMs, tab, go } = app;
   const place = selected;
   if (!place || !data) {
@@ -580,16 +582,18 @@ export default function Site({ app }) {
         {tab === "overview" ? <Overview app={app} place={place} /> : null}
         {tab === "sky" ? <SkyTime app={app} /> : null}
         {tab === "terrain" ? <Terrain app={app} place={place} /> : null}
-        {tab === "lander" ? (
+        {tab === "lander" && !astronaut ? (
           <section aria-label="Lander's view" className="mapsec mapsec--tall">
             <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
               <Moon3D data={data} mission={moonMission} result={result} selected={place} timeMs={timeMs} onTimeChange={setTimeMs}
-                sites={sitesForMap.filter((s) => s.key === place.key)} spots={spotsForMap.filter((s) => s.key === place.key)} />
+                sites={sitesForMap.filter((s) => s.key === place.key)} spots={spotsForMap.filter((s) => s.key === place.key)}
+                toolbarActions={<IconBtn icon="astronaut-helmet" label="Astronaut Mode" variant="raised" size={36} iconSize={20} onClick={() => setAstronaut(true)} />} />
             </Suspense>
           </section>
         ) : null}
-        {(tab === "sky" || tab === "lander") && TimeBarEl}
+        {(tab === "sky" || tab === "lander") && !astronaut && TimeBarEl}
       </main>
+      {astronaut ? <Suspense fallback={<div role="status" className="ovl ovl--center"><span className="state__title">Loading Astronaut Mode…</span></div>}><AstronautMode app={app} onClose={() => setAstronaut(false)} /></Suspense> : null}
     </div>
   );
 }
