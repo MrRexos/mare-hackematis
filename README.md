@@ -116,6 +116,7 @@ Lo que no depende de la fecha ya está calculado y va en el repositorio
 | Fichero | Contenido |
 |---|---|
 | `horizon.u8` | Horizonte del terreno de cada celda en 72 acimuts (LOLA LDEM_64), 19 MB |
+| `horizon_sub.u8` | Por encima de 60° de latitud, 4 horizontes por celda (2 × 2 puntos), 25 MB |
 | `elevation.f32` | Altura del centro de cada celda |
 | `slope/static.f32` | Pendiente media de la celda, de `terrain.slope` G1K (T1, Jan) |
 | `temp_diurnal.u8` | Temperatura medida por LRO Diviner según la hora local, 48 tramos por celda, 12 MB |
@@ -150,9 +151,12 @@ Fiabilidad: frente a las medidas originales de 0,25 h, la curva de 48 tramos se 
 60° de latitud. Es una media de 2009-2015: no recoge la estación lunar ni el relieve a escala
 menor que la celda.
 
-Precisión de la luz: un horizonte por celda, trazado en su centro. Comparado con la malla de 1 km para
-un solo día (el peor caso), el error medio de la luz es de 1–2 puntos sobre 100 por debajo
-de 60° de latitud y de 6–9 por encima de 70°, sin sesgo. Para los polos está el módulo de 1 km.
+Precisión de la luz: por debajo de 60° de latitud hay un horizonte por celda, trazado en su
+centro; por encima, donde el Sol va rasante, 4 horizontes por celda (2 × 2 puntos) y se
+promedia su luz. Comparado con la malla de 1 km para un solo día (el peor caso), el error
+medio es de 1–2 puntos sobre 100 por debajo de 60°, 1,5 entre 60° y 70°, 2,8 entre 70° y 80°
+y 4,4 por encima de 80° (con un solo punto eran 3,4, 6,2 y 8,7), sin sesgo. Para los polos
+está el módulo de 1 km.
 
 Las matrices G1K de luz y Tierra (`moonsite.sun_global`, `moonsite.earth_global`) siguen
 sirviendo como referencia y para el contrato de datos, pero la web ya no las necesita.

@@ -40,11 +40,12 @@ export function xyToUnit(R, x, y) {
  * Vector unitario (MOON_ME) del centro de la celda (i, j).
  * Malla polar (polo sur, n × n) o malla global lat/lon (grid.type === "latlon":
  * fila 0 desde lat0 hacia el sur, columna 0 desde lon0 hacia el este).
+ * En la malla global, (fi, fj) eligen un punto dentro de la celda (0,5 = centro).
  */
-export function cellUnit(grid, i, j) {
+export function cellUnit(grid, i, j, fi = 0.5, fj = 0.5) {
   if (grid.type === "latlon") {
-    const lat = (grid.lat0 - (i + 0.5) * grid.stepDeg) * RAD;
-    const lon = (grid.lon0 + (j + 0.5) * grid.stepDeg) * RAD;
+    const lat = (grid.lat0 - (i + fi) * grid.stepDeg) * RAD;
+    const lon = (grid.lon0 + (j + fj) * grid.stepDeg) * RAD;
     const cl = Math.cos(lat);
     return [cl * Math.cos(lon), cl * Math.sin(lon), Math.sin(lat)];
   }

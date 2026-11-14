@@ -49,14 +49,30 @@
     "maxDistanceM": 300000.0,
     "source": "Ray-marched over LOLA LDEM_64 (PDS)",
     "fidelity": "approximate",
-    "note": "One horizon per 0.5° cell, traced at the cell centre: regional screening, not site certification."
+    "note": "One horizon per 0.5° cell, traced at the cell centre: regional screening, not site certification.",
+    "sub": {
+      "file": "global/horizon_sub.u8",
+      "n": 2,
+      "minAbsLatDeg": 60.0,
+      "rowRanges": [
+        [
+          0,
+          60
+        ],
+        [
+          300,
+          360
+        ]
+      ],
+      "order": "[high-latitude row, column, sub-latitude, sub-longitude, azimuth bin]",
+      "note": "Above 60° latitude each cell has 2×2 horizons at points spread inside it; sunlight and Earth view are the mean over them."
+    }
   },
   "elevation": {
     "file": "global/elevation.f32",
     "units": "m",
     "source": "LOLA LDEM_64 (PDS), bilinear at the cell centre"
   },
-  "hillshade": "global/hillshade.png",
   "thermal": {
     "file": "global/temp_diurnal.u8",
     "dtype": "uint8",
@@ -78,5 +94,6 @@
     "gapsFilledPct": 10.76,
     "cellsFromLatitudeMeanPct": 0.0,
     "measuredQuarterHourBinsPct": 68.22
-  }
+  },
+  "hillshade": "global/hillshade.png"
 }

@@ -12,6 +12,10 @@ Para cada celda de la malla web (0,5°, 720 × 360; fila 0 desde +90°, columna 
                         norte), 1 byte: grados = q · 0,25 − 6,5 (de −6,5° a +57,25°;
                         el relieve global tiene paredes de cráter de más de 50°).
 - global/elevation.f32  altura LOLA del centro de la celda (m sobre la esfera de 1737,4 km).
+- global/horizon_sub.u8 por encima de 60° de latitud, donde el Sol va rasante y el relieve
+                        manda, 4 horizontes por celda (2 × 2 puntos repartidos dentro de
+                        ella) en lugar de uno. La web promedia la luz de los 4 puntos.
+                        Orden: [fila alta, columna, sub-latitud, sub-longitud, acimut].
 
 Mismo trazado que T3/T4 (earth_global._horizonte): rayos sobre la esfera con curvatura,
 de 0,5 a 300 km, sobre LOLA LDEM_64.
@@ -37,6 +41,11 @@ COLS, ROWS = 720, 360
 #: Codificación en 1 byte (más ancha que la del polo sur: aquí hay horizontes de −6° a +56°).
 Q_OFFSET_DEG = -6.5
 Q_SCALE_DEG = 0.25
+#: Más puntos donde hacen falta: celdas con |latitud| > SUB_MIN_LAT llevan SUB_N × SUB_N horizontes.
+#: Medido contra la malla de 1 km (un día): el error medio de la luz baja de 3,6-7,4 a 1,5-4,2
+#: puntos sobre 100 en esas latitudes; por debajo de 60° con un punto ya es de 1-2.
+SUB_N = 2
+SUB_MIN_LAT = 60.0
 
 
 @njit(cache=True, parallel=True)
@@ -79,6 +88,33 @@ def calcular(dem, lat, lon):
     return hor, elev
 
 
+def filas_altas() -> list[list[int]]:
+    """Rangos [fila0, fila1) de la malla con |latitud del centro| > SUB_MIN_LAT."""
+    lat, _ = centros()
+    alta = np.abs(lat) > SUB_MIN_LAT
+    cortes = np.flatnonzero(np.diff(np.concatenate([[0], alta.astype(np.int8), [0]])))
+    return [[int(a), int(b)] for a, b in cortes.reshape(-1, 2)]
+
+
+def subpuntos(filas: np.ndarray):
+    """Latitudes y longitudes de los SUB_N × SUB_N puntos de cada celda de las filas dadas."""
+    off = (np.arange(SUB_N) + 0.5) / SUB_N * STEP_DEG
+    lat = (90.0 - filas[:, None] * STEP_DEG - off[None, :]).ravel()
+    lon = (-180.0 + np.arange(COLS)[:, None] * STEP_DEG + off[None, :]).ravel()
+    return lat, lon
+
+
+def calcular_sub(dem, filas: np.ndarray) -> np.ndarray:
+    """Horizontes de los subpuntos: [fila, columna, sub-latitud, sub-longitud, acimut] en grados."""
+    lat, lon = subpuntos(filas)
+    hor, _ = calcular(dem, lat, lon)
+    return hor.reshape(filas.size, SUB_N, COLS, SUB_N, NBINS).transpose(0, 2, 1, 3, 4)
+
+
+def _byte(hor: np.ndarray) -> np.ndarray:
+    return np.clip(np.rint((hor - Q_OFFSET_DEG) / Q_SCALE_DEG), 0, 255).astype(np.uint8)
+
+
 def generar(log=print) -> dict | None:
     """Escribe global/horizon.u8 y global/elevation.f32. Devuelve la entrada del manifest."""
     from .pds import CylRaster
@@ -92,12 +128,17 @@ def generar(log=print) -> dict | None:
     lat, lon = centros()
     t0 = time.time()
     hor, elev = calcular(dem, lat, lon)
-    q = np.clip(np.rint((hor - Q_OFFSET_DEG) / Q_SCALE_DEG), 0, 255).astype(np.uint8)
+    seg = time.time() - t0
     OUT.mkdir(parents=True, exist_ok=True)
-    q.tofile(OUT / "horizon.u8")
+    _byte(hor).tofile(OUT / "horizon.u8")
+    rangos = filas_altas()
+    filas = np.concatenate([np.arange(a, b) for a, b in rangos])
+    t1 = time.time()
+    _byte(calcular_sub(dem, filas)).tofile(OUT / "horizon_sub.u8")
+    log(f"   subpuntos {SUB_N} × {SUB_N} en {filas.size} filas (|lat| > {SUB_MIN_LAT:g}°) en {time.time() - t1:.0f} s")
     elev.astype("<f4").tofile(OUT / "elevation.f32")
     fuera = float(((hor < Q_OFFSET_DEG) | (hor > Q_OFFSET_DEG + 255 * Q_SCALE_DEG)).mean())
-    log(f"   horizontes {ROWS} × {COLS} × {NBINS} en {time.time() - t0:.0f} s · "
+    log(f"   horizontes {ROWS} × {COLS} × {NBINS} en {seg:.0f} s · "
         f"de {float(hor.min()):.1f}° a {float(hor.max()):.1f}° · {100 * fuera:.3f} % recortado al rango del byte")
     return {
         "horizon": {"file": "global/horizon.u8", "dtype": "uint8", "bins": NBINS,
@@ -106,7 +147,10 @@ def generar(log=print) -> dict | None:
                     "observerHeightM": C.OBSERVER_HEIGHT_M, "minDistanceM": C.G1K_HORIZON_MIN_M,
                     "maxDistanceM": C.HORIZON_MAX_M, "source": "Ray-marched over LOLA LDEM_64 (PDS)",
                     "fidelity": "approximate",
-                    "note": "One horizon per 0.5° cell, traced at the cell centre: regional screening, not site certification."},
+                    "note": "One horizon per 0.5° cell, traced at the cell centre: regional screening, not site certification.",
+                    "sub": {"file": "global/horizon_sub.u8", "n": SUB_N, "minAbsLatDeg": SUB_MIN_LAT, "rowRanges": rangos,
+                            "order": "[high-latitude row, column, sub-latitude, sub-longitude, azimuth bin]",
+                            "note": f"Above {SUB_MIN_LAT:g}° latitude each cell has {SUB_N}×{SUB_N} horizons at points spread inside it; sunlight and Earth view are the mean over them."}},
         "elevation": {"file": "global/elevation.f32", "units": "m",
                       "source": "LOLA LDEM_64 (PDS), bilinear at the cell centre"},
     }

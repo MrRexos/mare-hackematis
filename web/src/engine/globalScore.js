@@ -7,7 +7,8 @@
 // se queda con su mejor ventana dentro del periodo (por ejemplo, un mes).
 //
 // Lo que no depende de la fecha viene ya calculado por pipeline/moonsite/web_global.py:
-//   horizon    horizonte del terreno por celda          (LOLA LDEM_64)
+//   horizon    horizonte del terreno por celda          (LOLA LDEM_64); por encima de 60° de
+//              latitud, 4 horizontes por celda (2 × 2 puntos) y se promedia su luz
 //   elevation  altura del centro de la celda            (LOLA LDEM_64)
 //   slope      pendiente media de la celda, en grados   (terrain.slope G1K, T1 · Jan)
 //   thermal    temperatura medida de cada celda según la hora local (LRO Diviner): con ella el
@@ -64,7 +65,8 @@ export function loadGlobalStatic(gm) {
       getBuffer(gm.elevation.file).then((b) => new Float32Array(b)),
       slopeFile ? getBuffer(slopeFile).then((b) => new Float32Array(b)) : null,
       gm.thermal ? getBuffer(gm.thermal.file).then((b) => new Uint8Array(b)) : null,
-    ]).then(([horizon, elevation, slope, temp]) => ({ horizon, elevation, slope, temp }))
+      gm.horizon.sub ? getBuffer(gm.horizon.sub.file).then((b) => new Uint8Array(b)) : null,
+    ]).then(([horizon, elevation, slope, temp, horizonSub]) => ({ horizon, elevation, slope, temp, horizonSub }))
       .catch((e) => { staticPromise = null; throw e; });
   }
   return staticPromise;
@@ -78,6 +80,7 @@ export function globalEngine(gm, stat, ephem, ephemMeta) {
       manifest: { grid: gm.grid, ephem: ephemMeta, horizon: gm.horizon, thermal: gm.thermal },
       layers: { elevation: stat.elevation },
       horizon: stat.horizon,
+      horizonSub: stat.horizonSub,
       temp: stat.temp,
       ephem,
     });

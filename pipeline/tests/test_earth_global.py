@@ -166,3 +166,20 @@ def test_horizonte_global_coincide_con_referencia():
             ref, r0 = horizonte_ref(dem, float(la), float(lo))
             assert np.abs(hor[i, j] - ref).max() < 0.01
             assert abs(elev[i, j] - (r0 - 1_737_400.0 - 2.0)) < 0.5
+
+
+def test_subpuntos_de_alta_latitud():
+    """Por encima de 60° cada celda lleva 2 × 2 horizontes: están donde dice el orden
+    [fila, columna, sub-latitud, sub-longitud, acimut] y coinciden con la referencia."""
+    from moonsite import horizon_global as HG
+    rangos = HG.filas_altas()
+    assert rangos == [[0, 60], [300, 360]]                       # |latitud del centro| > 60°
+    dem = dem_sintetico()
+    filas = np.array([3, 330])
+    sub = HG.calcular_sub(dem, filas)
+    assert sub.shape == (2, HG.COLS, HG.SUB_N, HG.SUB_N, 72)
+    for f, col, a, b in [(0, 10, 0, 1), (1, 700, 1, 0)]:
+        lat = 90 - (filas[f] + (a + 0.5) / HG.SUB_N) * HG.STEP_DEG
+        lon = -180 + (col + (b + 0.5) / HG.SUB_N) * HG.STEP_DEG
+        ref, _ = horizonte_ref(dem, float(lat), float(lon))
+        assert np.abs(sub[f, col, a, b] - ref).max() < 0.01
