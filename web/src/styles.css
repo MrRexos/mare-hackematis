@@ -562,6 +562,52 @@ button:disabled { cursor: default; }
 .rail__brand small { font-size: 9px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-tertiary); text-transform: uppercase; }
 .rail__brand:hover small { color: var(--ink); }
 .prio__brand { position: static; }
+
+/* ---------- Pasos de configuración (01 destino · 02 cuándo · 03 pesos) ---------- */
+.prio__lead { margin: 0; max-width: 300px; font-size: 15px; line-height: 22px; color: var(--ink-secondary); }
+.setup-sep { height: 1px; margin: 14px 0 4px; background: var(--line); }
+.setup-note { margin: 0; }
+.prio__weights .lslider { width: 100%; }
+.prio__weights .dates input { width: 150px; font-size: 13px; }
+
+/* Tarjetas de destino (paso 01) */
+.dest { display: flex; flex-direction: column; gap: 10px; }
+.dest__card {
+  display: flex; align-items: center; gap: 18px; width: 100%; padding: 14px 20px 14px 14px; border-radius: 16px;
+  text-align: left; background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--line);
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+.dest__card:hover:not(:disabled) { background: var(--surface-raised); }
+.dest__card.is-on { background: var(--surface-raised); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.dest__card:disabled { cursor: not-allowed; }
+.dest__card:disabled .dest__moon, .dest__card:disabled .dest__name { opacity: 0.45; }
+.dest__card:focus-visible, .opt__head:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.dest__moon { position: relative; flex: none; width: 64px; height: 64px; border-radius: 50%; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--line); }
+.dest__moon::after { content: ""; position: absolute; inset: 0; border-radius: 50%; }
+.dest__moon--south::after { background: linear-gradient(to top, transparent 0 27%, rgba(6, 6, 7, 0.74) 27%); }
+.dest__moon--north::after { background: linear-gradient(to bottom, transparent 0 27%, rgba(6, 6, 7, 0.74) 27%); }
+.dest__moon--all::after { background: radial-gradient(circle, transparent 62%, rgba(6, 6, 7, 0.28)); }
+.dest__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dest__name { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.006em; color: var(--ink); }
+.dest__sub { font-size: 13px; line-height: 18px; color: var(--ink-tertiary); }
+.dest__state { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-tertiary); }
+.dest__state.is-on { color: var(--ink); }
+
+/* Opciones desplegables (paso 02) */
+.opt { border-radius: 16px; background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--line); transition: background 150ms ease, box-shadow 150ms ease; }
+.opt:hover:not(.is-on) { background: var(--surface-raised); }
+.opt.is-on { background: var(--surface-raised); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.opt__head { display: flex; align-items: center; gap: 16px; width: 100%; padding: 16px 20px; border-radius: 16px; text-align: left; }
+.opt__dot { flex: none; width: 18px; height: 18px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px var(--line-strong); transition: box-shadow 150ms ease; }
+.opt.is-on .opt__dot { box-shadow: inset 0 0 0 5px var(--ink); }
+.opt__body { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 0 20px 18px 54px; }
+@media (max-width: 767px) {
+  .dest__card { display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: 14px; row-gap: 8px; padding: 14px; }
+  .dest__moon { width: 48px; height: 48px; grid-row: span 2; }
+  .dest__state { grid-column: 2; }
+  .opt__head { padding: 14px 16px; }
+  .opt__body { padding: 0 16px 16px 50px; }
+}
 .steps.prio__steps { top: auto; bottom: 34px; left: 48px; }
 .site-score { gap: 4px; margin-left: var(--space-6); padding-left: var(--space-6); border-left: 1px solid var(--line); align-self: center; }
 .label3d--btn { pointer-events: auto; cursor: pointer; border: 0; font-family: inherit; }

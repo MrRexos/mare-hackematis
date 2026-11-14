@@ -1,8 +1,9 @@
-// 01 Mission setup — When: periodo y duración de la misión.
+// Paso 02 — When: periodo y duración de la misión (y piezas que reutiliza el panel de misión).
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Icon, cx } from "../ui/kit.jsx";
 import { fmtDay } from "../ui/Shell.jsx";
+import SetupShell, { MissionBrief } from "./SetupShell.jsx";
 
 export const LENGTH_STEPS = [1, 2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90, 180, 270, 365, 545, 730];
 
@@ -57,146 +58,77 @@ export function LengthSlider({ value, onChange }) {
 /** Rangos de búsqueda del modo "Find the best dates". */
 export const SEARCH_RANGES = [["next12", "Next 12 months"], ["nofixed", "2026 – 2030"], ["custom", "Custom range"]];
 
-/** Los tres pasos de la configuración de misión: destino, fechas y pesos. */
-export const SETUP_STEPS = [["01", "where", "Destination"], ["02", "when", "Dates"], ["03", "priorities", "What matters"]];
-
-/** Indicador de pasos 01 · 02 · 03 (se puede pulsar para saltar a cualquiera). */
-export function SetupSteps({ current, go, className }) {
-  const at = SETUP_STEPS.findIndex(([, id]) => id === current);
-  return (
-    <nav aria-label="Setup steps" className={cx("steps", className)}>
-      {SETUP_STEPS.map(([n, id, name], k) => {
-        const h = k === at ? 16 : Math.abs(k - at) === 1 ? 8 : 3;
-        return (
-          <button type="button" key={n} aria-label={`Step ${n}: ${name}`} title={name} aria-current={k === at ? "step" : undefined} className={cx("steps__s", k === at && "is-on")} onClick={() => go(id)}>
-            <span style={{ height: h }} />
-            <b>{n}</b>
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-/**
- * Marco común de los pasos 01 (destino) y 02 (fechas): marca (vuelve al inicio),
- * menú, líneas, luna, pasos, "skip", About y botón Next.
- */
-export function SetupFrame({ step, title, children, go, openSettings, openLearn, onNext, nextLabel }) {
-  const [menu, setMenu] = useState(false);
-  const [about, setAbout] = useState(false);
-  return (
-    <div className="when">
-      <div className="when__lines" aria-hidden="true">
-        {[27, 42.65, 58.3, 73.95].map((x) => <span key={x} style={{ left: `${x}%` }} />)}
-      </div>
-      <a href="#" className="when__brand" title="Back to the start" onClick={(e) => { e.preventDefault(); go("where"); }}>Mare Hackematis</a>
-      <div className="when__menu">
-        <button type="button" className="ibtn ibtn--ghost" style={{ width: 32, height: 32 }} aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-          <Icon name="menu" size={16} />
-        </button>
-      </div>
-      {menu ? (
-        <nav aria-label="Menu" className="popmenu when__pop">
-          <button type="button" onClick={() => go("explore")}><Icon name="orbit" size={16} />Explore</button>
-          <button type="button" onClick={() => go("compare")}><Icon name="compare" size={16} />Compare</button>
-          <button type="button" onClick={() => { setMenu(false); openSettings(); }}><Icon name="sliders" size={16} />Settings</button>
-          <button type="button" onClick={openLearn}><Icon name="info" size={16} />How it works</button>
-        </nav>
-      ) : null}
-
-      <h1 className="when__title">{title}</h1>
-
-      {children}
-
-      <nav aria-label="Shortcuts" className="when__side">
-        <button type="button" onClick={() => go("explore")}>skip</button>
-        <span title="All times in UTC">utc</span>
-      </nav>
-
-      <img src={`${import.meta.env.BASE_URL}img/moon.png`} alt="" className="when__moon" />
-
-      <SetupSteps current={step} go={go} />
-
-      {about ? (
-        <div role="dialog" aria-label="About" className="about">
-          <div className="about__head">
-            <span>Hackemate</span>
-            <button type="button" className="ibtn ibtn--ghost" style={{ width: 28, height: 28 }} aria-label="Close" onClick={() => setAbout(false)}><Icon name="x" size={16} /></button>
-          </div>
-          <p>Computer engineering students at FIB.</p>
-          <ul>
-            <li>Oier Hernanz</li><li>Victor Puy</li><li>Pol Salvador</li><li>Nil Font</li><li>Jan Tarriño</li><li>Joel Susi</li>
-          </ul>
-          <span className="about__foot">Mare Hackematis · NASA Space Apps 2026</span>
-        </div>
-      ) : null}
-      <button type="button" className="when__about" onClick={() => setAbout(!about)}>About</button>
-
-      <button type="button" className="nextbtn" aria-label={`Next: ${nextLabel}`} onClick={onNext}>
-        Next
-        <span><Icon name="arrow-right" size={18} /></span>
-      </button>
-    </div>
-  );
-}
-
-/** Paso 02 — Fechas: modo de fecha (fija o búsqueda) y días en superficie. */
-export default function SetupWhen({ mission, setPeriod, setCustom, setFixed, setDuration, periods, problem, go, openSettings, openLearn }) {
+/** Paso 02 — When: todo lo temporal (un día concreto o buscar en un rango) y los días en superficie. */
+export default function SetupWhen({ mission, region, setPeriod, setCustom, setFixed, setDuration, periods, problem, go }) {
   const fixed = mission.period === "fixed";
-  const searchSub = mission.period === "next12" ? `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`
-    : mission.period === "nofixed" ? `${new Date(periods.nofixed[0]).getUTCFullYear()} → ${new Date(periods.nofixed[1]).getUTCFullYear()}` : null;
+  const rangeText = mission.period === "next12" ? `${fmtDay(periods.next12[0])} → ${fmtDay(periods.next12[1])}`
+    : mission.period === "nofixed" ? `${fmtDay(periods.nofixed[0])} → ${fmtDay(periods.nofixed[1])}` : null;
 
   return (
-    <SetupFrame step="when" title={<>Plan<br />your<br />landing</>} go={go} openSettings={openSettings} openLearn={openLearn}
-      onNext={() => go("priorities")} nextLabel="what matters">
-      <div role="radiogroup" aria-label="When" className="when__cols">
-        {/* 01 — Tengo fecha: todas las celdas se evalúan en esas mismas fechas. */}
-        <div className="when__col">
-          <span className="when__idx">01</span>
-          <button type="button" role="radio" aria-checked={fixed} className={cx("when__opt", fixed && "is-on")} onClick={() => setPeriod("fixed")}>{"I have a\nlanding date"}</button>
+    <SetupShell
+      step="when"
+      eyebrow="02 — When/"
+      title={<>When<br />do you<br />go?</>}
+      lead="Choose one landing day to compare every site on the same dates, or let the planner find each site's best days."
+      go={go}
+      back="where"
+      brief={<MissionBrief mission={mission} region={region} cta="Continue" onCta={() => go("priorities")} />}
+    >
+      <div className="row-base"><span className="lbl">Landing date</span></div>
+      <div role="radiogroup" aria-label="Landing date" className="dest">
+        <div className={cx("opt", fixed && "is-on")}>
+          <button type="button" role="radio" aria-checked={fixed} className="opt__head" onClick={() => setPeriod("fixed")}>
+            <span className="opt__dot" />
+            <span className="dest__text">
+              <span className="dest__name">One landing day</span>
+              <span className="dest__sub">Every site is scored on the same dates</span>
+            </span>
+          </button>
           {fixed ? (
-            <>
-              <div className="when__dates">
-                <label><span>Land</span><input type="date" aria-label="Landing date" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setFixed(fromInput(e.target.value))} /></label>
+            <div className="opt__body">
+              <div className="dates">
+                <label><span className="lbl">Land</span><input type="date" aria-label="Landing day" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setFixed(fromInput(e.target.value))} /></label>
               </div>
-              <span className="when__sub">Every site is scored for these dates · back {fmtDay(mission.toMs)}</span>
-            </>
-          ) : <span className="when__sub">Compare all sites on the same dates</span>}
-          <button type="button" className={cx("when__act", fixed && "is-on")} onClick={() => setPeriod("fixed")}>{fixed ? "Selected" : "Select"}</button>
+              <span className="muted-12">Back on {fmtDay(mission.toMs)}</span>
+            </div>
+          ) : null}
         </div>
 
-        {/* 02 — Búscame la mejor: cada celda en sus mejores días del rango. */}
-        <div className="when__col">
-          <span className="when__idx">02</span>
-          <button type="button" role="radio" aria-checked={!fixed} className={cx("when__opt", !fixed && "is-on")} onClick={() => !fixed || setPeriod("next12")}>{"Find the\nbest dates"}</button>
+        <div className={cx("opt", !fixed && "is-on")}>
+          <button type="button" role="radio" aria-checked={!fixed} className="opt__head" onClick={() => fixed && setPeriod("next12")}>
+            <span className="opt__dot" />
+            <span className="dest__text">
+              <span className="dest__name">Find the best dates</span>
+              <span className="dest__sub">Each site gets its own best days within a range</span>
+            </span>
+          </button>
           {!fixed ? (
-            <>
+            <div className="opt__body">
               <div className="chips" role="radiogroup" aria-label="Search range">
                 {SEARCH_RANGES.map(([id, label]) => (
                   <button key={id} type="button" role="radio" aria-checked={mission.period === id} className={cx("chip", mission.period === id && "is-on")} onClick={() => setPeriod(id)}>{label}</button>
                 ))}
               </div>
               {mission.period === "custom" ? (
-                <div className="when__dates">
-                  <label><span>From</span><input type="date" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(fromInput(e.target.value), mission.toMs)} /></label>
-                  <label><span>To</span><input type="date" value={toInput(mission.toMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(mission.fromMs, fromInput(e.target.value))} /></label>
+                <div className="dates">
+                  <label><span className="lbl">From</span><input type="date" aria-label="From" value={toInput(mission.fromMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(fromInput(e.target.value), mission.toMs)} /></label>
+                  <label><span className="lbl">To</span><input type="date" aria-label="To" value={toInput(mission.toMs)} min={toInput(periods.range[0])} max={toInput(periods.range[1])} onChange={(e) => e.target.value && setCustom(mission.fromMs, fromInput(e.target.value))} /></label>
                 </div>
-              ) : <span className="when__sub">{searchSub}</span>}
-              <span className="when__sub">Each site gets its own best days</span>
-            </>
-          ) : <span className="when__sub">Each site gets its own best days</span>}
-          <button type="button" className={cx("when__act", !fixed && "is-on")} onClick={() => !fixed || setPeriod("next12")}>{!fixed ? "Selected" : "Select"}</button>
+              ) : <span className="muted-12">{rangeText}</span>}
+            </div>
+          ) : null}
         </div>
-
-        {/* 03 — Días en superficie (siempre visible). */}
-        <div className="when__col">
-          <span className="when__idx">03</span>
-          <span className="when__opt is-on is-static">{`${lengthLong(mission.durationDays)}\non surface`}</span>
-          <LengthSlider value={mission.durationDays} onChange={setDuration} />
-        </div>
-        {problem ? <p className="when__problem" role="status"><Icon name="alert" size={14} />{problem}</p> : null}
       </div>
-    </SetupFrame>
+
+      <div className="setup-sep" />
+      <div className="row-base">
+        <span className="lbl">Days on the surface</span>
+        <div className="grow" />
+        <span className="num-15">{lengthLong(mission.durationDays)}</span>
+      </div>
+      <LengthSlider value={mission.durationDays} onChange={setDuration} />
+      <p className="muted-12 setup-note">How long the lander must work after touchdown, from 1 day to 2 years.</p>
+      {problem ? <p className="note-12" role="status"><Icon name="alert" size={12} />{problem}</p> : null}
+    </SetupShell>
   );
 }

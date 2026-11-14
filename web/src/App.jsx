@@ -7,6 +7,7 @@ import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
 import { landingWindows, runs, siteTimeline, windowDetails } from "./engine/timeline.js";
 import { Rail, TimeBar, fmtShort } from "./ui/Shell.jsx";
+import Home from "./screens/Home.jsx";
 import SetupWhere from "./screens/SetupWhere.jsx";
 import SetupWhen from "./screens/SetupWhen.jsx";
 import SetupPriorities from "./screens/SetupPriorities.jsx";
@@ -76,8 +77,8 @@ function useMedia(query) {
 }
 
 export default function App() {
-  // La app empieza en el paso 01 (destino). Solo el polo sur tiene datos de momento.
-  const [screen, setScreen] = useState("where");
+  // La app empieza en la portada (la de la Luna). Solo el polo sur tiene datos de momento.
+  const [screen, setScreen] = useState("home");
   const [region, setRegion] = useState("south");
   const [tab, setTab] = useState("overview");
   const [dim, setDim] = useState("2D");
@@ -424,10 +425,12 @@ export default function App() {
   };
 
   let page;
-  if (screen === "where") {
-    page = <SetupWhere region={region} setRegion={setRegion} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
+  if (screen === "home") {
+    page = <Home region={region} mission={mission} weights={weights} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
+  } else if (screen === "where") {
+    page = <SetupWhere region={region} setRegion={setRegion} mission={mission} go={go} />;
   } else if (screen === "when") {
-    page = <SetupWhen mission={mission} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
+    page = <SetupWhen mission={mission} region={region} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} go={go} />;
   } else if (screen === "priorities") {
     page = <SetupPriorities weights={weights} setWeights={setWeights} mission={mission} region={region} go={go} openSettings={() => setOverlay("settings")} />;
   } else if (screen === "site") {

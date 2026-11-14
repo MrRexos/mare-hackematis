@@ -1,10 +1,9 @@
-// 01 Mission setup — What matters: pesos (%) de cada factor y la región.
+// Paso 03 — What matters: pesos (%) de cada factor.
 
 import { useRef } from "react";
-import { Icon, Btn, Choice, cx } from "../ui/kit.jsx";
+import { Icon, cx } from "../ui/kit.jsx";
 import { FACTORS, PRESETS, presetOf, rebalance } from "../engine/score.js";
-import { SetupSteps } from "./SetupWhen.jsx";
-import { REGIONS } from "./SetupWhere.jsx";
+import SetupShell, { MissionBrief } from "./SetupShell.jsx";
 
 function WeightRow({ f, value, onChange }) {
   const drag = useRef(false);
@@ -49,33 +48,19 @@ function WeightRow({ f, value, onChange }) {
 }
 
 export default function SetupPriorities({ weights, setWeights, mission, region, go, openSettings }) {
-  const regionName = (REGIONS.find((r) => r.id === region)?.title || "South Pole").replace("\n", " ");
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
-  const periodName = { fixed: "Landing date set", next12: "Best dates · next 12 months", nofixed: "Best dates · 2026–2030", custom: "Best dates · custom range" }[mission.period];
 
   return (
-    <div className="prio">
-      <div className="prio__lines" aria-hidden="true">
-        {[25, 50, 75].map((x) => (
-          <span key={x} style={{ left: `${x}%` }}>
-            <i className="cross" style={{ top: 150 }} />
-            <i className="cross" style={{ top: 840 }} />
-          </span>
-        ))}
-      </div>
-      <div className="prio__top">
-        <a href="#" className="when__brand prio__brand" title="Back to the start" onClick={(e) => { e.preventDefault(); go("where"); }}>Mare Hackematis</a>
-        <div className="grow" />
-        <button type="button" className="linkbtn" onClick={() => go("explore")}>Skip<Icon name="arrow-right" size={14} /></button>
-      </div>
-      <div className="prio__body">
-        <div className="prio__head">
-          <div className="eyebrow-13">03 — What matters/</div>
-          <h1 className="display-88">What<br />matters<br />most?</h1>
-        </div>
-
-        <div className="prio__weights">
+    <SetupShell
+      step="priorities"
+      eyebrow="03 — What matters/"
+      title={<>What<br />matters<br />most?</>}
+      lead="Each factor scores a site from 0 to 100. Its final score is the weighted average, so the weights always add up to 100%."
+      go={go}
+      back="when"
+      brief={<MissionBrief mission={mission} region={region} cta="Find sites" onCta={() => go("explore")} openSettings={openSettings} />}
+    >
           <div className="stack-10">
             <div className="row-base">
               <span className="lbl">Weights</span>
@@ -96,26 +81,6 @@ export default function SetupPriorities({ weights, setWeights, mission, region, 
               <WeightRow key={f.key} f={f} value={weights[f.key] || 0} onChange={(v) => setWeights(rebalance(weights, f.key, v))} />
             ))}
           </div>
-        </div>
-
-        <section className="card card--lg prio__brief">
-          <div className="stack-20">
-            <h2 className="h-lg">Mission brief</h2>
-            <div className="brief">
-              <div><span className="lbl">Destination</span><span className="num-15">{regionName}</span></div>
-              <div><span className="lbl">Period</span><span className="num-15">{periodName}</span></div>
-              <div><span className="lbl">On the surface</span><span><span className="num-15">{mission.durationDays}</span> <span className="unit">days</span></span></div>
-              <div><span className="lbl">Observer</span><span><span className="num-15">Lander</span> <span className="unit">{mission.observerM} m</span></span></div>
-            </div>
-            <Btn variant="primary" size="lg" iconRight="arrow-right" className="btn--block" onClick={() => go("explore")}>Find sites</Btn>
-            <button type="button" className="linkbtn" onClick={openSettings}><Icon name="sliders" size={14} />Rules</button>
-          </div>
-        </section>
-      </div>
-      <SetupSteps current="priorities" go={go} className="prio__steps" />
-      <div className="prio__foot">
-        <Btn variant="outline" size="lg" icon="arrow-left" onClick={() => go("when")}>Back</Btn>
-      </div>
-    </div>
+    </SetupShell>
   );
 }

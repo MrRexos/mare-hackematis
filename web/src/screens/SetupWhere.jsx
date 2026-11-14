@@ -1,37 +1,53 @@
-// 01 Mission setup — Destination: dónde es la expedición (polo sur, Luna entera, polo norte).
+// Paso 01 — Destination: dónde es la expedición (polo sur, Luna entera, polo norte).
 // De momento solo el polo sur tiene datos; las otras zonas se muestran como "Coming soon".
 
 import { Icon, cx } from "../ui/kit.jsx";
-import { SetupFrame } from "./SetupWhen.jsx";
+import SetupShell, { MissionBrief, REGIONS } from "./SetupShell.jsx";
 
-export const REGIONS = [
-  { id: "south", idx: "01", title: "South\nPole", sub: "8 Artemis III regions · 1 km grid · hour by hour", ready: true },
-  { id: "moon", idx: "02", title: "Whole\nMoon", sub: "Monthly averages for every site on the Moon", ready: false },
-  { id: "north", idx: "03", title: "North\nPole", sub: "Same detail as the south pole, for the north", ready: false },
-];
+export { REGIONS };
 
-export default function SetupWhere({ region, setRegion, go, openSettings, openLearn }) {
+/** Miniatura de la Luna con la zona resaltada (casquete sur, toda o casquete norte). */
+function MoonThumb({ cap }) {
   return (
-    <SetupFrame step="where" title={<>Choose<br />your<br />destination</>} go={go} openSettings={openSettings} openLearn={openLearn}
-      onNext={() => go("when")} nextLabel="dates">
-      <div role="radiogroup" aria-label="Destination" className="when__cols">
+    <span className={cx("dest__moon", `dest__moon--${cap}`)} aria-hidden="true"
+      style={{ backgroundImage: `url(${import.meta.env.BASE_URL}img/moon.png)` }} />
+  );
+}
+
+export default function SetupWhere({ region, setRegion, mission, go }) {
+  return (
+    <SetupShell
+      step="where"
+      eyebrow="01 — Destination/"
+      title={<>Where<br />do you<br />land?</>}
+      lead="Pick the region to plan. The south pole has hour-by-hour data today; the rest of the Moon is on the way."
+      go={go}
+      back="home"
+      brief={<MissionBrief mission={mission} region={region} cta="Continue" onCta={() => go("when")} />}
+    >
+      <div className="row-base">
+        <span className="lbl">Region</span>
+      </div>
+      <div role="radiogroup" aria-label="Destination" className="dest">
         {REGIONS.map((r) => {
           const on = region === r.id;
           return (
-            <div key={r.id} className={cx("when__col", !r.ready && "is-soon")}>
-              <span className="when__idx">{r.idx}</span>
-              <button type="button" role="radio" aria-checked={on} aria-disabled={!r.ready || undefined} disabled={!r.ready}
-                className={cx("when__opt", on && "is-on")} onClick={() => setRegion(r.id)}>{r.title}</button>
-              <span className="when__sub">{r.sub}</span>
+            <button key={r.id} type="button" role="radio" aria-checked={on} disabled={!r.ready}
+              className={cx("dest__card", on && "is-on")} onClick={() => setRegion(r.id)}>
+              <MoonThumb cap={r.cap} />
+              <span className="dest__text">
+                <span className="dest__name">{r.name}</span>
+                <span className="dest__sub">{r.sub}</span>
+              </span>
               {r.ready ? (
-                <button type="button" className={cx("when__act", on && "is-on")} onClick={() => setRegion(r.id)}>{on ? "Selected" : "Select"}</button>
+                <span className={cx("dest__state", on && "is-on")}>{on ? <><Icon name="check" size={14} />Selected</> : "Select"}</span>
               ) : (
-                <span className="when__soon"><Icon name="clock" size={12} />Coming soon</span>
+                <span className="dest__state dest__state--soon"><Icon name="clock" size={14} />Coming soon</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
-    </SetupFrame>
+    </SetupShell>
   );
 }
