@@ -36,9 +36,12 @@ Abre http://localhost:5173.
 
 ## Capa global de la Tierra (trabajo T4 · Nil)
 
-`earth.visible_fraction.mean` en la malla G1K: fracción del tiempo en que el centro de
-la Tierra está por encima del horizonte LOLA (con paralaje). Depende del **periodo / día**.
-También genera `suitability.earth` (0–100). Código: `pipeline/moonsite/earth_global.py`.
+`earth.visible_fraction.mean` en la malla G1K (10 916 × 5 458): fracción del tiempo en que
+el centro de la Tierra está por encima del horizonte LOLA, con paralaje. Depende del
+**periodo / día**. Datos: LOLA LDEM_64 y SPICE DE440. También genera `suitability.earth`
+(0–100; 0 por debajo de `EARTH_MIN_PCT`). Código: `pipeline/moonsite/earth_global.py`.
+
+No necesita los horizontes de T2. Un mes en G1K: ~20 min con 2 núcleos.
 
 ```bash
 cd pipeline
@@ -46,6 +49,7 @@ python -m moonsite.fetch global              # SPICE + LDEM_64 (~531 MB)
 python -m moonsite.earth_global 2026-11-14   # un día (UTC)
 python -m moonsite.earth_global --mes 2026-11
 python -m moonsite.earth_global --estandar   # 60 meses + media 2026–2030
+python ../tools/validate_layer.py ../layers/earth.visible_fraction.mean
 ```
 
 Preview web (W4, temporal): `python3 scripts/export_web_global_earth_preview.py --dias 2026-11-14 2026-11-21`
