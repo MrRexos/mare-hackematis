@@ -68,6 +68,14 @@ DIVINER = {
 #: Profundidad máxima (m) a la que consideramos el hielo "accesible" para la capa de cercanía.
 ICE_ACCESSIBLE_DEPTH_M = 0.5
 
+#: Relieve global LOLA (cilíndrica simple, 64 px/grado ≈ 474 m en el ecuador). Lo usa
+#: el trabajo T4 (Tierra visible en la malla global G1K). Se descarga con
+#: `python -m moonsite.fetch global`.
+LOLA_GLOBAL = {
+    "ldem64": Remote(f"{PDS_LOLA}/data/lola_gdr/cylindrical/img/ldem_64.img", RAW / "ldem_64.img",
+                     530_841_600, "Elevación LOLA global 64 px/grado (23040 x 11520, int16)"),
+}
+
 #: Kernels SPICE: efemérides DE440 y orientación de la Luna.
 SPICE = {
     "lsk": Remote(f"{NAIF}/lsk/naif0012.tls", KERNELS / "naif0012.tls", note="segundos intercalares"),
@@ -109,4 +117,18 @@ EPHEM_STEP_S = 3600.0                  # una posición por hora
 EPHEM_FRAME = "MOON_ME"                # marco de LOLA (Mean Earth / Polar Axis)
 ABCORR = "LT+S"                        # posiciones aparentes, como Horizons "airless apparent"
 SUN_RADIUS_KM = 695_700.0
+
+# ---------------------------------------------------------------------------
+# Malla global G1K (contrato de datos v0.2, §2) y capa Tierra (T4)
+# ---------------------------------------------------------------------------
+G1K_COLS = 10_916            # columna 0 empieza en -180°E
+G1K_ROWS = 5_458             # fila 0 empieza en +90°
+#: El DEM global es de ~474 m: por debajo de esta distancia el relieve no se resuelve.
+G1K_HORIZON_MIN_M = 500.0
+G1K_HORIZON_STEP_M = 474.0
+LAYERS_DIR = REPO / "layers"
+#: Nota derivada 0-100 (suitability.earth): por debajo de este % del tiempo con la
+#: Tierra visible la celda vale 0. La puntuación oficial la calcula la web con los
+#: límites del usuario (contrato §6); esto es solo la vista rápida.
+EARTH_MIN_PCT = 25.0
 EARTH_RADIUS_KM = 6_378.1366

@@ -54,7 +54,7 @@ export default function Compare({ app }) {
       <main className="shell__main">
         <header className="pagehead">
           <div className="pagehead__title">
-            <div className="eyebrow-13">04 — {scored.length} of 4 sites · {region}</div>
+            <div className="eyebrow-13">04 — {scored.length} of 4 sites · South Pole</div>
             <h1 className="h-page">Compare/</h1>
           </div>
           <div className="grow" />

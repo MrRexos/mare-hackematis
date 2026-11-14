@@ -1,9 +1,25 @@
 {
-  "contractVersion": "0.1",
+  "contractVersion": "0.2",
   "layers": [
     "ice.psr_distance_km",
     "sun.psr_mask",
     "terrain.elevation",
-    "terrain.slope"
+    "terrain.slope",
+    "suitability.slope",
+    "ice.hydrogen_ppm",
+    "ice.water_equivalent_wt_pct",
+    "radiation.natural_gamma_dose",
+    "radiation.potassium_ppm",
+    "radiation.thorium_ppm",
+    "radiation.uranium_ppm",
+    "regolith.al2o3_wt_pct",
+    "regolith.cao_wt_pct",
+    "regolith.feo_wt_pct",
+    "regolith.mgo_wt_pct",
+    "regolith.sio2_wt_pct",
+    "regolith.tio2_wt_pct",
+    "sun.visible_fraction.mean",
+    "sun.longest_night_h.max",
+    "earth.visible_fraction.mean"
   ]
 }

@@ -12,6 +12,8 @@ import SetupWhere from "./screens/SetupWhere.jsx";
 import SetupWhen from "./screens/SetupWhen.jsx";
 import SetupPriorities from "./screens/SetupPriorities.jsx";
 import Explore from "./screens/Explore.jsx";
+import GlobalExplore from "./screens/GlobalExplore.jsx";
+import { loadGlobalManifest } from "./engine/globalScore.js";
 import Site from "./screens/Site.jsx";
 import Compare from "./screens/Compare.jsx";
 import { ExportDialog, SettingsDrawer } from "./screens/Overlays.jsx";
@@ -103,6 +105,10 @@ export default function App() {
   const [group, setGroup] = useState("artemis");
   const [cmpRefs, setCmpRefs] = useState([]);
   const [timeMs, setTimeMs] = useState(() => todayMs());
+  // Región (se elige en el paso 01): "south" = polo sur (motor horario); "moon" = Luna entera,
+  // con las mallas G1K ya calculadas y reducidas a W4 (no se calcula nada en el navegador).
+  const [globalManifest, setGlobalManifest] = useState(null);
+  useEffect(() => { loadGlobalManifest().then(setGlobalManifest); }, []);
 
   const go = useCallback((s) => {
     setScreen(s);
@@ -402,6 +408,9 @@ export default function App() {
     return `${fmtShort(a)} → ${fmtShort(a + result.durationH * H)}`;
   };
 
+  // Whole Moon: ajusta las fechas a un periodo que sí tiene mallas calculadas.
+  const useDates = (a, b) => setCustom(Math.floor(a / DAY_MS) * DAY_MS, Math.ceil((b + DAY_MS) / DAY_MS) * DAY_MS);
+
   const RailEl = <Rail screen={screen} go={go} onMission={() => setOverlay("settings")} onExport={() => setOverlay("export")} />;
   const TimeBarEl = (
     <TimeBar startMs={mission.fromMs} endMs={mission.toMs} timeMs={timeMs} setTimeMs={setTimeMs} windows={windowsMs} missionWin={missionWin} lanes={lanes} />
@@ -421,6 +430,7 @@ export default function App() {
     tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: "South Pole",
     datesFor, fixedDates: mission.period === "fixed",
     curWin,
+    regionId: region, setRegion, globalManifest, globalReady: !!globalManifest, useDates,
     exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,
   };
 
@@ -428,7 +438,7 @@ export default function App() {
   if (screen === "home") {
     page = <Home region={region} mission={mission} weights={weights} go={go} openSettings={() => setOverlay("settings")} openLearn={() => go("learn")} />;
   } else if (screen === "where") {
-    page = <SetupWhere region={region} setRegion={setRegion} mission={mission} go={go} />;
+    page = <SetupWhere region={region} setRegion={setRegion} mission={mission} go={go} globalManifest={globalManifest} />;
   } else if (screen === "when") {
     page = <SetupWhen mission={mission} region={region} setPeriod={setPeriod} setCustom={setCustom} setFixed={setFixed} setDuration={setDuration} periods={periods} problem={problem} go={go} />;
   } else if (screen === "priorities") {
@@ -444,6 +454,8 @@ export default function App() {
         <main className="shell__main">{data ? <div className="card card--flush"><LearnPage data={data} /></div> : null}</main>
       </div>
     );
+  } else if (region === "moon" && globalManifest) {
+    page = <GlobalExplore app={app} />;
   } else {
     page = <Explore app={app} />;
   }
