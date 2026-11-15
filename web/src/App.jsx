@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadData } from "./data/loadData.js";
 import { MissionEngine } from "./engine/missionEngine.js";
 import { DAY_MS, changePeriod, resolveMission, validateTiming } from "./engine/missionTiming.js";
-import { DEFAULT_LIMITS, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
+import { DEFAULT_LIMITS, TEMP_BAND, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
 import { LAYERS } from "./data/mapLayers.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
@@ -178,7 +178,7 @@ export default function App() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const result = await engine.run(request, (progress) => {
+        const result = await engine.run({ ...request, tempBand: TEMP_BAND }, (progress) => {
           if (!cancelled) setCalculation({ request, progress });
         });
         if (result && !cancelled) setCalculation({ request, result, progress: 1 });
@@ -372,7 +372,7 @@ export default function App() {
       case "elevation": v = ly.elevation || null; break;
       case "slope": v = ly.slope || null; break;
       case "rough": v = ly.roughness || null; break;
-      case "temp": v = ly.tempAvgK || null; break;
+      case "temp": v = result?.tavg || ly.tempAvgK || null; break;
       case "shadow": {
         // Trama = sombra permanente (LOLA LPSR); brillo = cercanía a hielo estable a ≤ 0,5 m (Diviner).
         if (!ly.iceDistKm) break;

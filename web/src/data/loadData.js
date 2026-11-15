@@ -40,6 +40,8 @@ export async function loadData(onProgress = () => {}) {
   let ephem = null;
   let hillshade = null;
   let validation = null;
+  let temp = null;
+  if (manifest.thermal) jobs.push(["Surface temperature", async () => (temp = new Uint8Array(await getBuffer(manifest.thermal.file)))]);
   if (manifest.horizon) jobs.push(["Terrain horizons", async () => (horizon = new Uint8Array(await getBuffer(manifest.horizon.file)))]);
   if (manifest.ephem) jobs.push(["Sun and Earth positions", async () => (ephem = new Float32Array(await getBuffer(manifest.ephem.file)))]);
   if (manifest.hillshade) jobs.push(["Relief shading", async () => (hillshade = await getImage(manifest.hillshade.file))]);
@@ -54,5 +56,5 @@ export async function loadData(onProgress = () => {}) {
       onProgress(done, jobs.length, label);
     }),
   );
-  return { manifest, layers, horizon, ephem, hillshade, validation };
+  return { manifest, layers, horizon, ephem, hillshade, validation, temp };
 }

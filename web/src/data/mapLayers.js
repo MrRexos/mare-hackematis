@@ -44,9 +44,9 @@ export const LAYERS = {
     sources: [["NASA PDS · LOLA LDRM_75S_240M", LOLA + "ldrm_75s_240m.lbl"]],
   },
   temp: {
-    label: "Mean ground temperature", short: "Ground temp.", ramp: "temp", format: kelvin,
-    description: "Modelled annual mean at 2 cm below the surface, averaged within each cell. Mare also shows the mean of the annual surface maxima in the cell. Both are fixed values across mission dates.",
-    sources: [["NASA PDS · Diviner Polar Resource Product", DIVINER]],
+    label: "Mean surface temperature", short: "Surface temp.", ramp: "temp", format: kelvin,
+    description: "Mean surface temperature during the mission, from LRO Diviner measurements read at each cell's local time, hour by hour: the same data and rule as the whole-Moon map. The source is a 0.5° grid (about 15 km), so it does not resolve a cold crater floor next to a warm ridge; Mare also shows the 1 km polar thermal model. Before a run, the map shows that model's annual mean at 2 cm depth.",
+    sources: [["NASA PDS · Diviner Global Cumulative Products", "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_gcp/"], ["NASA PDS · Diviner Polar Resource Product", DIVINER]],
   },
   shadow: {
     label: "Modelled ice proximity", short: "Ice proximity", ramp: "shadow", legend: ["Far", "Near"], format: kilometres,
@@ -63,7 +63,12 @@ export const GROUND_GROUPS = [
     { key: "slope", label: "Slope", format: degrees },
     { key: "roughness", label: "Roughness", format: metres },
   ] },
-  { label: "Temperature", fields: [
+  { label: "Surface temperature in the mission", fields: [
+    { key: "tavg", source: "mission", label: "Mean", format: kelvin },
+    { key: "tmin", source: "mission", label: "Coldest", format: kelvin },
+    { key: "tmax", source: "mission", label: "Hottest", format: kelvin },
+  ] },
+  { label: "Polar thermal model (1 km)", fields: [
     { key: "tempAvgK", label: "Annual mean at 2 cm", format: kelvin },
     { key: "tempMaxK", label: "Annual surface high", format: kelvin },
   ] },

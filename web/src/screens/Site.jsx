@@ -74,7 +74,12 @@ export function GoodDays({ tl, missionWin, compact, kinds }) {
 }
 
 function GoodDaysRows({ tl, missionWin, kinds }) {
-  const rows = useMemo(() => kinds.map((k) => [k, hoursPerDay(tl, k)]), [tl, kinds]);
+  const all = useMemo(() => kinds.map((k) => [k, hoursPerDay(tl, k)]), [tl, kinds]);
+  // Si la Tierra no cambia en todo el periodo (siempre a la vista, o nunca), su tira y la de
+  // "ambos" no aportan nada: se sustituyen por una frase. Ocurre en casi toda la Luna entera.
+  const earthDays = all.find(([k]) => k === "earth")?.[1];
+  const steady = earthDays?.length && earthDays.every((h) => h === earthDays[0]) && (earthDays[0] === 0 || earthDays[0] === 24) ? earthDays[0] : null;
+  const rows = steady == null ? all : all.filter(([k]) => k === "sun");
   const span = tl.n * H;
   const pct = (ms) => `${(((ms - tl.startMs) / span) * 100).toFixed(3)}%`;
   const months = [];
@@ -89,8 +94,10 @@ function GoodDaysRows({ tl, missionWin, kinds }) {
     <div className="gdays gdays--rows">
       <p className="muted-12 gdays__help">
         Each column is one day; the brighter it is, the more hours that day (0–24 h).
-        <b> Sun</b> means power for the panels, <b>Earth</b> means direct radio contact, <b>Both</b> is the ideal state.
-        The outlined box is the best mission window.
+        {steady == null
+          ? <><b> Sun</b> means power for the panels, <b>Earth</b> means direct radio contact, <b>Both</b> is the ideal state.</>
+          : <><b> Sun</b> means power for the panels. <b>Earth</b> is {steady === 24 ? "in view all day, every day of this period, so direct radio contact never drops" : "never in view in this period, so there is no direct radio contact"}.</>}
+        {" "}The outlined box is the best mission window.
       </p>
       <div className="gdays__row gdays__row--axis" aria-hidden="true">
         <span />
@@ -257,10 +264,10 @@ function Overview({ app, place }) {
   const scored = FACTORS.filter((f) => Number.isFinite(place.factors?.[f.key])).sort((a, b) => place.factors[b.key] - place.factors[a.key]);
   const pros = scored.slice(0, 3).filter((f) => place.factors[f.key] >= 50);
   const cons = scored.slice(-3).reverse().filter((f) => place.factors[f.key] < 60);
-  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Milder temperatures", ice: "Close to stable ice",
-    ...(app.moon ? { temp: "Workable temperatures", ice: "Water signal" } : {}) };
-  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Very cold", ice: "Far from stable ice",
-    ...(app.moon ? { temp: "Extreme temperatures", ice: "No water signal" } : {}) };
+  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Workable temperatures", ice: "Close to stable ice",
+    ...(app.moon ? { ice: "Water signal" } : {}) };
+  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Extreme temperatures", ice: "Far from stable ice",
+    ...(app.moon ? { ice: "No water signal" } : {}) };
 
   // Escala de la mini-barra: cubre todo el tramo "Land between" y la misión, con margen;
   // las posiciones se recortan a 0–100 % para que nada se salga de la tarjeta.
@@ -355,12 +362,12 @@ function Overview({ app, place }) {
 
       <div className="flexrow">
         <Card className="f2">
-          <CardHead title="Good days"><span className="muted-12">Hours per day with Sun, with Earth and with both</span></CardHead>
+          <CardHead title="Good days"><span className="muted-12">Hours per day with Sun and, where it changes, with Earth and with both</span></CardHead>
           {tl ? <GoodDays tl={tl} missionWin={startMs != null ? [startMs, endMs] : null} kinds={GOOD_DAY_KINDS} /> : <p className="muted-12">–</p>}
         </Card>
         <Card className="f1">
           <CardHead title="Ground data"><span className="muted-12">{app.moon ? `${app.gdata.manifest.grid.stepDeg}° cell` : "1 km cell"}</span></CardHead>
-          {app.moon ? <GlobalGround app={app} pixel={p} /> : <GroundReadout data={data} pixel={p} />}
+          {app.moon ? <GlobalGround app={app} pixel={p} /> : <GroundReadout data={data} pixel={p} result={app.result} />}
           <div className="grid2 mt-12">
             <Stat label="Horizon max" value={Number.isFinite(horMax) ? horMax.toFixed(1) : "–"} unit="°" />
             <Stat label="Observer" value={mission.observerM} unit="m" />
@@ -526,7 +533,7 @@ function SkyTime({ app }) {
 
 const TERRAIN_LAYERS = ["sun", "earth", "elevation", "slope", "rough", "temp", "shadow"];
 
-function GroundReadout({ data, pixel }) {
+function GroundReadout({ data, pixel, result }) {
   const { grid } = data.manifest;
   const [x, y] = pixelXY(grid, Math.floor(pixel / grid.n), pixel % grid.n);
   let nearestSquared = Infinity;
@@ -539,8 +546,8 @@ function GroundReadout({ data, pixel }) {
         <section className="ground-group" key={group.label}>
           <h3 className="lbl">{group.label}</h3>
           <dl className="ground-values">
-            {group.fields.map(({ key, label, format }) => {
-              const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : data.layers[key]?.[pixel];
+            {group.fields.map(({ key, label, format, source }) => {
+              const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : (source === "mission" ? result?.[key] : data.layers[key])?.[pixel];
               return (
                 <div key={key}>
                   <dt>{label}</dt>
@@ -587,7 +594,7 @@ function Terrain({ app, place }) {
       <aside className="rank">
         <Card pad="md2">
           <CardHead title="Ground data" size="sm"><span className="muted-12">1 km cell</span></CardHead>
-          <GroundReadout data={data} pixel={place.p} />
+          <GroundReadout data={data} pixel={place.p} result={app.result} />
         </Card>
         <Card pad="md2">
           <CardHead title="Precision" size="sm" />

@@ -9,7 +9,8 @@
 //   earth  fracción de la misión con la Tierra visible             [cálculo: LOLA + SPICE]
 //   slope  1 − pendiente / pendiente máxima                         [LOLA LDSM]
 //   rough  1 − rugosidad / ROUGH_MAX_M                              [LOLA LDRM]
-//   temp   temperatura media anual: más templado = menos calefacción [LRO Diviner PRP]
+//   temp   confort térmico: fracción de horas de la misión con temperatura de superficie
+//          trabajable, hora a hora según la hora local (igual que en la Luna entera) [LRO Diviner GCP]
 //   ice    1 − distancia a hielo estable a ≤ 0,5 m / alcance        [LRO Diviner PRP]
 // Radiación, impactos y valor científico se quitaron: no hay mapas oficiales por sitio.
 //
@@ -18,16 +19,22 @@
 
 /** Rugosidad (m) a la que el factor llega a 0. LOLA LDRM: desviación de alturas a 30–120 m. */
 export const ROUGH_MAX_M = 1.5;
-/** Temperatura media anual (K, Diviner a 2 cm) que corresponde a factor 0 y a factor 1. */
+/** Temperatura de la superficie (K) que corresponde a factor 0 y a factor 1 por el lado frío. */
 export const TEMP_COLD_K = 50;
 export const TEMP_MILD_K = 250;
+/**
+ * Nota de una hora según la temperatura de la superficie (K), la misma en el polo sur y en la
+ * Luna entera: ≤ coldK → 0 · sube hasta 1 en mildK · 1 hasta hotOkK · baja hasta 0 en hotMaxK.
+ * 350 K (77 °C) aún puntúa 1; 400 K (127 °C), por encima del máximo ecuatorial, 0.
+ */
+export const TEMP_BAND = { coldK: TEMP_COLD_K, mildK: TEMP_MILD_K, hotOkK: 350, hotMaxK: 400 };
 
 export const FACTORS = [
   { key: "sun", label: "Sun visibility", icon: "sun", color: "var(--sun)", hint: "Share of the mission with the Sun above the terrain (LOLA + SPICE)" },
   { key: "earth", label: "Earth visibility", icon: "earth", color: "var(--earth)", hint: "Share of the mission with Earth above the terrain (LOLA + SPICE)" },
   { key: "slope", label: "Slope", icon: "slope", color: "#8bd17c", hint: "Lower slope scores higher (LOLA LDSM, 240 m)" },
   { key: "rough", label: "Roughness", icon: "relief", color: "#b39ddb", hint: `Smoother ground scores higher; 0 at ${ROUGH_MAX_M} m (LOLA LDRM, 30–120 m baseline)` },
-  { key: "temp", label: "Mean ground temperature", icon: "thermometer", color: "#f28b54", hint: `Warmer annual mean at 2 cm scores higher. ${TEMP_COLD_K} K → 0, ${TEMP_MILD_K} K → 1 (LRO Diviner)` },
+  { key: "temp", label: "Thermal comfort", icon: "thermometer", color: "#f28b54", hint: `Share of mission hours with a workable surface temperature: ${TEMP_COLD_K} K → 0, ${TEMP_MILD_K}–${TEMP_BAND.hotOkK} K → 1, ${TEMP_BAND.hotMaxK} K → 0 (LRO Diviner)` },
   { key: "ice", label: "Modelled ice proximity", icon: "droplet", color: "#4fd1c5", hint: "Distance to terrain where ice could persist within 0.5 m (LRO Diviner)" },
 ];
 export const FACTOR_KEYS = FACTORS.map((f) => f.key);
@@ -90,7 +97,8 @@ export function factorsAt(p, mission, layers, limits) {
     earth: mission ? mission.earth[p] : NaN,
     slope: Number.isFinite(slope) ? clamp01(1 - slope / limits.maxSlopeDeg) : NaN,
     rough: Number.isFinite(rough) ? clamp01(1 - rough / ROUGH_MAX_M) : NaN,
-    temp: Number.isFinite(tavg) ? clamp01((tavg - TEMP_COLD_K) / (TEMP_MILD_K - TEMP_COLD_K)) : NaN,
+    // Con misión calculada: nota hora a hora (mission.tfit). Sin ella, la media anual del subsuelo.
+    temp: mission?.tfit ? mission.tfit[p] : Number.isFinite(tavg) ? clamp01((tavg - TEMP_COLD_K) / (TEMP_MILD_K - TEMP_COLD_K)) : NaN,
     ice: Number.isFinite(iceKm) ? clamp01(1 - iceKm / limits.iceReachKm) : NaN,
   };
 }

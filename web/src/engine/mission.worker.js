@@ -7,7 +7,7 @@
 //   {type: "init", grid, rows: [r0, r1], elevation, horizon, horizonMeta, ephem, ephemMeta, temp?, tempMeta?, sub?}
 //   sub (opcional, malla global): { n, base, idx, horizon } con n × n horizontes por celda en las filas
 //   de alta latitud (idx[fila] = posición de la fila en sub.horizon, −1 si la fila usa un solo punto).
-//   temp (opcional, malla global): curva de temperatura de cada celda por hora local (LRO Diviner).
+//   temp (opcional): curva de temperatura de cada celda por hora local (LRO Diviner).
 //   Con ella se devuelve la temperatura media, mínima y máxima de la superficie durante la misión
 //   y, si params.tempBand existe, el confort térmico (tfit, 0-1): media de la nota de cada hora.
 //   {type: "run", id, params}  ->  {type: "progress", id, done}  ...  {type: "result", id, ...}
@@ -77,7 +77,7 @@ async function run(id, p) {
     night: new Float32Array(count).fill(NaN),
     best: new Int32Array(count).fill(-1),
   };
-  const withTemp = !!(temp && tempMeta && grid.type === "latlon");
+  const withTemp = !!(temp && tempMeta);
   if (withTemp) for (const key of ["tavg", "tmin", "tmax", "tfit"]) out[key] = new Float32Array(count).fill(NaN);
   const band = withTemp ? p.tempBand : null; // { coldK, mildK, hotOkK, hotMaxK }
   const tBins = withTemp ? tempMeta.bins : 0;
@@ -195,7 +195,9 @@ async function run(id, p) {
       // Temperatura de la superficie durante la misión (Diviner): para cada hora, la hora
       // local de la celda (12 h = Sol en su meridiano) indica el punto de su curva día-noche.
       if (withTemp) {
-        const lon = grid.lon0 + (j + 0.5) * grid.stepDeg;
+        // Longitud del centro: directa en la malla global; en la polar, del propio píxel.
+        const lon = grid.type === "latlon" ? grid.lon0 + (j + 0.5) * grid.stepDeg
+          : Math.atan2((j + 0.5) * grid.pxM - grid.halfM, grid.halfM - (i + 0.5) * grid.pxM) * DEG;
         const tb = local * tBins;
         let sum = 0, lo = Infinity, hi = -Infinity, cnt = 0, fit = 0;
         for (let t = bestC; t < bestC + D; t++) {
