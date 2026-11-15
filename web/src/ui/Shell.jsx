@@ -41,17 +41,14 @@ export function Rail({ screen, go, siteName, canAnalyze, onMission, onExport }) 
   };
   return (
     <nav aria-label="Main" className="rail">
-      {/* Marca: vuelve a la portada (la de la Luna) sin perder la configuración. */}
-      <button type="button" className="rail__brand" title="Mare Hackematis · home" aria-label="Mare Hackematis, home" onClick={() => go("home")}>
-        MH<small>Home</small>
-      </button>
       {item("explore", "orbit", canAnalyze ? "Explore" : "Plan", canAnalyze ? "explore" : "home")}
       {item("site", "map-pin", "Mare")}
       {item("compare", "compare", "Compare")}
       <div className="grow rail__gap" />
-      <button type="button" className="rail__item rail__item--tool" onClick={onMission} title={siteName ? undefined : "Mission settings"}>
-        <span className="rail__dot rail__dot--tool"><Icon name="sliders" size={18} /></span>
-        <span className="rail__label">Mission</span>
+      {/* Vuelve a la portada sin perder la configuración. Los ajustes de misión se abren desde el chip de fechas de cada pantalla. */}
+      <button type="button" className="rail__item rail__item--tool" onClick={() => go("home")} title="Back to the start">
+        <span className="rail__dot rail__dot--tool"><Icon name="home" size={18} /></span>
+        <span className="rail__label">Home</span>
       </button>
       <button type="button" className="rail__item rail__item--tool" onClick={onExport} disabled={!onExport}>
         <span className="rail__dot rail__dot--tool"><Icon name="share" size={18} /></span>
