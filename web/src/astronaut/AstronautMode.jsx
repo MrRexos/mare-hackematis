@@ -119,9 +119,10 @@ export default function AstronautMode({ app, onClose }) {
   return <div ref={dialog} role="dialog" aria-modal="true" aria-label="Astronaut Mode" tabIndex={-1} className="astronaut" data-theme="dark" data-active={!!hud.active} data-locked={!!hud.locked}>
     <div ref={wrap} className="astronaut__world" />
     <header className="astronaut__header">
-      <div className="astronaut__identity"><Icon name="astronaut-helmet" size={25} /><div><h1>Astronaut Mode</h1><span>{center.name}</span></div></div>
+      <div className="astronaut__identity"><div><h1>Astronaut Mode</h1><span>{center.name}</span></div></div>
       <div className="astronaut__compass" aria-label={`Heading ${Math.round(heading)} degrees ${directions[Math.round(heading / 45) % 8]}`}><span>N</span><i />{String(Math.round(heading) % 360).padStart(3, "0")}°<b>{directions[Math.round(heading / 45) % 8]}</b></div>
       <div className="astronaut__actions">
+        {ready ? <IconBtn icon="flashlight" label={settings.headlamp ? "Helmet light on" : "Helmet light off"} variant="overlay" className="astronaut__lamp-toggle" aria-pressed={settings.headlamp} onClick={() => setOption("headlamp", !settings.headlamp)} /> : null}
         <IconBtn icon="calendar" label="Date and time" variant="overlay" aria-expanded={panel === "time"} onClick={() => togglePanel("time")} />
         <IconBtn icon="sliders" label="Astronaut settings" variant="overlay" aria-expanded={panel === "settings"} onClick={() => togglePanel("settings")} />
         <button type="button" className="astronaut__exit" onClick={close}><Icon name="x" size={16} />Exit</button>
@@ -129,11 +130,14 @@ export default function AstronautMode({ app, onClose }) {
     </header>
 
     {!ready ? <div className="astronaut__loading" role={error ? "alert" : "status"}>
-      <Icon name={error ? "alert" : "astronaut-helmet"} size={38} />
-      <span className="astronaut__eyebrow">Lunar surface · 1 km × 1 km</span>
-      <h2>{error ? "Terrain unavailable" : stage}</h2>
-      <p>{error || `${position} · Scientific elevations, real scale`}</p>
-      {!error ? <span className="astronaut__loading-line" /> : <div className="row-8 wrap"><Btn onClick={() => setRetry((n) => n + 1)} icon="refresh">Retry</Btn><Btn onClick={useDemo}>Explore NASA 5 m demo</Btn></div>}
+      {error ? <>
+        <h2>Terrain unavailable</h2>
+        <p>{error}</p>
+        <div className="row-8 wrap"><Btn onClick={() => setRetry((n) => n + 1)} icon="refresh">Retry</Btn><Btn onClick={useDemo}>Explore NASA 5 m demo</Btn></div>
+      </> : <>
+        <span className="astronaut__loading-line" />
+        <span className="astronaut__loading-stage">{stage}</span>
+      </>}
     </div> : <>
       <div className="astronaut__reticle" aria-hidden="true"><i /><i /></div>
       <div className="astronaut__location" aria-live="off"><span className="astronaut__eyebrow">Lunar coordinates</span><strong>{position}</strong><span>{reading?.altitude.toFixed(1)} m above reference sphere</span></div>
@@ -146,8 +150,6 @@ export default function AstronautMode({ app, onClose }) {
             <span className="astronaut__visibility">{key === "earth" ? body?.visible ? "Direct view" : "No direct view" : body?.visible ? "In view" : "Hidden"}</span>
           </div>;
         })}
-        <button type="button" className={`astronaut__lamp ${settings.headlamp ? "is-on" : ""}`} aria-pressed={settings.headlamp} onClick={() => setOption("headlamp", !settings.headlamp)}><Icon name="zap" size={13} />Helmet light {settings.headlamp ? "on" : "off"}</button>
-        {!reading?.sun.visible ? <button type="button" className="astronaut__lamp" disabled={searching} onClick={findSunlight}><Icon name="sun" size={13} />{searching ? "Searching…" : "Find sunlight"}</button> : null}
       </div>
       <footer className="astronaut__footer">
         <button type="button" className="astronaut__source" onClick={() => togglePanel("data")}><span className="astronaut__source-dot" /><b>Scientific terrain</b><span>{bundle.metadata.resolutionM} m samples · 1:1 scale</span><Icon name="info" size={13} /></button>

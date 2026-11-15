@@ -7,6 +7,10 @@ export default defineConfig({
   base: "./",
   plugins: [react()],
   worker: { format: "es" },
+  // Dependencies that only Astronaut Mode imports (some from its worker). Without this, the dev
+  // server finds them the first time the mode opens, re-optimises and reloads the page, which
+  // throws the user back to Home.
+  optimizeDeps: { include: ["geotiff", "@dimforge/rapier3d-compat"] },
   server: {
     proxy: {
       // Only this public NASA host is reachable; preserves HTTP Range for GeoTIFF windows.
