@@ -2,49 +2,96 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import * as THREE from "three";
-import { createSurfaceGeology } from "./SurfaceGeology.js";
-import { addRocks, rockPlacements } from "./ProceduralRocks.js";
+import { createSurfaceGeology, ejectaDensity } from "./SurfaceGeology.js";
+import { addGravel, addRocks, gravelCell, rockPlacements } from "./ProceduralRocks.js";
 import { buildTerrain } from "./coordinates.js";
 
-test("Scree remains visible but breaks into gradual wisps instead of a solid spot", () => {
+const flatTerrain = () => buildTerrain({ origin: [-2000, 2000], pixelSize: [10, -10], width: 401, height: 401, noData: -9999, values: new Float32Array(401 * 401).fill(100) }, -90, 0, { spacing: 10 });
+
+test("Gravelly soil follows the young craters and thins out in wisps, with sand everywhere else", () => {
   for (const [lat, lon] of [[-90, 0], [-86.8562, 338.1428], [-86.17733, 51.30161], [-87.18438, 340.50414]]) {
-    const geology = createSurfaceGeology(lat, lon);
-    const nearby = [];
-    for (let along = 6; along <= 28; along += 2) for (let across = -2; across <= 14; across += 2) {
-      const x = along * 0.6 + across * 0.8, z = -along * 0.8 + across * 0.6;
-      const cover = geology.surfaceRockiness(x, z); nearby.push(cover);
+    const geology = createSurfaceGeology(lat, lon), crater = geology.landmark;
+    assert.ok(crater && crater.blocky >= 0.7 && Math.hypot(crater.x, crater.z) < 46, "A blocky young crater near the arrival point");
+    const rim = [];
+    for (let angle = 0; angle < Math.PI * 2; angle += 0.05) for (const q of [0.9, 1.05, 1.3]) {
+      const x = crater.x + Math.cos(angle) * q * crater.r, z = crater.z + Math.sin(angle) * q * crater.r, cover = geology.surfaceRockiness(x, z);
+      rim.push(cover);
       assert.ok(Math.abs(cover - geology.surfaceRockiness(x + 0.1, z)) < 0.04, "Material edges must change gradually while walking");
     }
-    assert.ok(Math.max(...nearby) > 0.45, "Gravel should remain visible nearby");
-    assert.ok(Math.min(...nearby) < 0.2, "Sand should run through the nearby scree instead of forming a filled oval");
-    let sand = 0, total = 0, scree = 0;
+    assert.ok(Math.max(...rim) > 0.4, "Gravel should show on the rim of the young crater");
+    assert.ok(Math.min(...rim) < 0.15, "Sand should run through it instead of forming a filled ring");
+    let sand = 0, total = 0;
     for (let z = -490; z < 500; z += 20) for (let x = -490; x < 500; x += 20) {
       const cover = geology.surfaceRockiness(x, z);
       assert.ok(Number.isFinite(cover) && cover >= 0 && cover <= 1);
-      total++; if (cover < 0.15) sand++; if (cover > 0.45) scree++;
+      total++; if (cover < 0.15) sand++;
     }
     assert.ok(sand / total > 0.75, "Grey sand should still dominate the landscape");
-    assert.ok(scree > 10, "There should be multiple recognisable scree regions");
+    assert.ok(geology.fields.length >= 5 && geology.fields.every((f) => f.blocky >= 0.2 && f.d >= 5), "Several rock-strewn craters, all young");
   }
+  assert.ok(ejectaDensity(1) === 1 && ejectaDensity(0.2) < 0.5 && ejectaDensity(2) < ejectaDensity(1.3) && ejectaDensity(4.3) === 0);
 });
 
-test("Rock fields are reproducible, concentrated in patches and leave open plains", () => {
-  const geology = createSurfaceGeology(-90, 0);
-  const terrain = buildTerrain({ origin: [-2000, 2000], pixelSize: [10, -10], width: 401, height: 401, noData: -9999, values: new Float32Array(401 * 401).fill(100) }, -90, 0, { spacing: 10 });
+test("Rocks gather around young craters and in groups of fragments instead of lying alone", () => {
+  const geology = createSurfaceGeology(-90, 0), terrain = flatTerrain();
   const rocks = rockPlacements(terrain, 1.4, geology, 20);
   assert.deepEqual(rocks, rockPlacements(terrain, 1.4, geology, 20));
-  assert.ok(rocks.length > 6000, "Denser regional fragment fields should be present");
-  const fine = rocks.filter((r) => r.fine), original = rocks.filter((r) => !r.fine);
-  assert.ok(fine.length > original.filter((r) => r.radius < 0.3).length * 2, "Additions should mainly be small gravel");
-  assert.ok(fine.every((r) => r.radius >= 0.018 && r.radius <= 0.09), "Extra gravel stays centimetre-scale without collision bodies");
-  assert.equal(original.filter((r) => r.radius >= 0.3).length, 803, "Existing boulders should not multiply when adding fine gravel");
+  assert.ok(rocks.length > 6000 && rocks.length < 40000, `${rocks.length} rocks`);
+  assert.ok(rocks.every((r) => r.radius >= 0.1 && r.radius <= 2.4 && !r.fine), "Stones under 20 cm belong to the gravel around the walker");
+  const boulders = rocks.filter((r) => r.radius >= 0.3);
+  assert.ok(boulders.length > 250 && boulders.length < 2500, `${boulders.length} boulders with collision`);
+  assert.ok(boulders.length < rocks.length * 0.2, "Each halving of size brings several times more pieces");
   let area = 0, occupied = 0;
-  for (let z = -490; z < 500; z += 20) for (let x = -490; x < 500; x += 20) { area++; if (geology.sample(x, z).rocky > 0.15) occupied++; }
-  const clustered = rocks.filter((r) => geology.sample(r.x, r.z).rocky > 0.15).length;
+  for (let z = -490; z < 500; z += 10) for (let x = -490; x < 500; x += 10) { area++; if (geology.sample(x, z).rocky > 0.15) occupied++; }
+  const inFields = rocks.filter((r) => geology.sample(r.x, r.z).rocky > 0.15).length;
   assert.ok(occupied / area < 0.22, "Broad plains should remain open");
-  assert.ok(clustered / rocks.length > occupied / area * 5, "Rock density must follow the shared geological field");
+  assert.ok(inFields / rocks.length > occupied / area * 4, "Rock density must follow the crater ejecta");
+  // Clustering: far more rocks have a close neighbour than an even scatter of the same density would give.
+  const cells = new Map(), key = (x, z) => `${Math.floor(x / 4)},${Math.floor(z / 4)}`;
+  for (const r of rocks) { const k = key(r.x, r.z); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(r); }
+  let close = 0;
+  for (const r of rocks) {
+    let found = false;
+    for (let a = -1; a <= 1 && !found; a++) for (let b = -1; b <= 1 && !found; b++) {
+      found = (cells.get(`${Math.floor(r.x / 4) + b},${Math.floor(r.z / 4) + a}`) || []).some((o) => o !== r && (o.x - r.x) ** 2 + (o.z - r.z) ** 2 < 9);
+    }
+    if (found) close++;
+  }
+  const uniform = 1 - Math.exp(-rocks.length / 1e6 * Math.PI * 9);
+  assert.ok(close / rocks.length > uniform * 2 && close / rocks.length > 0.5, `${close / rocks.length} with a neighbour within 3 m; an even scatter gives ${uniform}`);
   assert.equal(new Set(rocks.map((r) => r.variant)).size, 20);
-  assert.ok(rocks.every((r) => Number.isFinite(r.y) && Math.abs(r.x) < 500 && Math.abs(r.z) < 500 && Math.hypot(r.x, r.z) >= (r.fine ? 1.1 : 4)));
+  assert.ok(rocks.every((r) => Number.isFinite(r.y) && Math.abs(r.x) < 500 && Math.abs(r.z) < 500 && Math.hypot(r.x, r.z) >= 4));
+  assert.ok(rocks.every((r) => r.sink >= 0.06 && r.sink <= 0.48 && r.scale.every((v) => v > 0.5 && v < 1.35)), "Partly buried, each with its own proportions");
+});
+
+test("Gravel is generated cell by cell around the walker and never uploaded while standing still", () => {
+  const geology = createSurfaceGeology(-90, 0), terrain = flatTerrain();
+  const cell = gravelCell(3, -2, terrain, geology, 12345);
+  assert.deepEqual(cell, gravelCell(3, -2, terrain, geology, 12345));
+  assert.notDeepEqual(cell, gravelCell(4, -2, terrain, geology, 12345));
+  assert.equal(cell.length % 21, 0); assert.ok(cell.length / 21 >= 20 && cell.length / 21 <= 190);
+  for (let p = 0; p < cell.length; p += 21) {
+    assert.ok(cell[p + 18] >= 0.02 && cell[p + 18] <= 0.1001, "Stones of 4 to 20 cm");
+    assert.ok(cell[p + 16] > 18 - 4 && cell[p + 16] < 24 + 4 && cell[p + 17] > -12 - 4 && cell[p + 17] < -6 + 4);
+    near(cell[p + 12], cell[p + 16]); near(cell[p + 14], cell[p + 17]);
+  }
+  const scene = new THREE.Scene(), material = new THREE.MeshStandardMaterial(), field = addGravel(scene, terrain, geology, material);
+  try {
+    assert.equal(field.meshes.length, 4, "Four draws for every stone in sight");
+    assert.equal(field.update({ x: 100, y: 1.7, z: 100 }, 38, 1), true);
+    const total = field.count(), versions = field.meshes.map((m) => m.instanceMatrix.version);
+    assert.ok(total > 150 && total < 4 * 3200, `${total} stones in sight`);
+    assert.equal(field.meshes.filter((m) => m.castShadow).reduce((n, m) => n + m.count, 0) < total, true, "Only the nearest stones cast shadows");
+    assert.equal(field.update({ x: 100.4, y: 1.7, z: 100 }, 38, 1), false);
+    assert.deepEqual(field.meshes.map((m) => m.instanceMatrix.version), versions, "Idle frames must not upload instance buffers");
+    field.update({ x: 100, y: 1.7, z: 100 }, 38, 0.4);
+    assert.ok(field.count() < total * 0.6, "The density setting thins the gravel");
+    field.update({ x: 100, y: 1.7, z: 100 }, 18, 1);
+    assert.ok(field.count() < total, "A shorter range draws fewer stones");
+    field.update({ x: 0.2, y: 1.7, z: 0.1 }, 38, 1);
+    assert.ok(field.count() > 100, "Gravel follows the walker");
+  } finally { field.dispose(); material.dispose(); }
+  assert.equal(scene.children.length, 0);
 });
 
 test("All four surface scans and 20 near/far Quixel rock variants are packaged", async () => {
@@ -65,6 +112,8 @@ test("All four surface scans and 20 near/far Quixel rock variants are packaged",
   }
   assert.equal(variants, 20);
   for (const entry of manifest.surfaces) for (const property of ["color", "normal", "orm"]) assert.ok((await readFile(new URL(entry[property], base))).length > 1000);
+  const earth = await readFile(new URL("sky/earth_2k.jpg", base));
+  assert.ok(earth.length > 200000 && earth[0] === 0xff && earth[1] === 0xd8, "Earth texture (NASA Blue Marble) is packaged as a JPEG");
 });
 
 test("Rock LOD reuses stationary GPU buffers and preserves boulders at low gravel density", () => {

@@ -5,6 +5,22 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { installSurfaceLayers } from "./SurfaceMaterials.js";
 
+// Mean linear reflectance of a scanned rock texture, ignoring the empty atlas margins.
+function meanReflectance(texture) {
+  try {
+    const canvas = document.createElement("canvas"); canvas.width = canvas.height = 64;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(texture.image, 0, 0, 64, 64);
+    const pixels = context.getImageData(0, 0, 64, 64).data, linear = (byte) => { const v = byte / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    let total = 0, count = 0;
+    for (let k = 0; k < pixels.length; k += 4) {
+      const value = linear(pixels[k]) * 0.2126 + linear(pixels[k + 1]) * 0.7152 + linear(pixels[k + 2]) * 0.0722;
+      if (value > 0.01) { total += value; count++; }
+    }
+    return count ? total / count : 0.2;
+  } catch { return 0.2; }
+}
+
 // Only reads assets the site owner supplies. No Fab authentication or downloads.
 export async function loadAssetLibrary(renderer, materials, signal, geology) {
   const base = new URL(`${import.meta.env.BASE_URL}assets/astronaut/`, document.baseURI);
@@ -50,8 +66,12 @@ export async function loadAssetLibrary(renderer, materials, signal, geology) {
             if (clones.has(m)) return clones.get(m);
             const material = m.clone(); clones.set(m, material); materials.materials.add(material);
             material.userData.lunarRock = true;
+            // Rock and soil are the same material in different states: give both the same reflectance.
+            const own = (material.map ? meanReflectance(material.map) : 1) * (material.color.r * 0.2126 + material.color.g * 0.7152 + material.color.b * 0.0722);
+            material.userData.lunarRockGain = { value: THREE.MathUtils.clamp(materials.regolithAlbedo / Math.max(0.02, own), 0.3, 4) };
+            // No mirror-like term on the Moon: roughness and metalness maps would be read for nothing.
             material.metalness = 0; material.metalnessMap = null;
-            material.roughness = 1; material.aoMapIntensity = 0.6;
+            material.roughness = 1; material.roughnessMap = null; material.aoMapIntensity = 0.6;
             material.side = THREE.FrontSide;
             for (const value of Object.values(material)) if (value?.isTexture) { value.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); materials.textures.add(value); }
             return material;

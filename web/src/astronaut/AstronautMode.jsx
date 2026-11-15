@@ -37,7 +37,7 @@ export default function AstronautMode({ app, onClose }) {
   const [retry, setRetry] = useState(0), [ready, setReady] = useState(false), [hud, setHud] = useState({});
   const [panel, setPanel] = useState(null), [minimap, setMinimap] = useState(true), [playing, setPlaying] = useState(false);
   const [searching, setSearching] = useState(false), [searchNote, setSearchNote] = useState("");
-  const [settings, setSettings] = useState({ quality: navigator.hardwareConcurrency <= 4 ? "MEDIUM" : "HIGH", fov: 72, sensitivity: 1.7, headlamp: true, density: 1, exposure: 1.2 });
+  const [settings, setSettings] = useState({ quality: navigator.hardwareConcurrency <= 4 ? "MEDIUM" : "HIGH", fov: 64, sensitivity: 1.7, headlamp: true, density: 1, exposure: 1.2 });
   const wrap = useRef(null), dialog = useRef(null), engine = useRef(null), options = useRef(settings), clock = useRef(timeMs);
   const sunlightSearch = useRef(null);
   options.current = settings; clock.current = timeMs;
@@ -75,6 +75,7 @@ export default function AstronautMode({ app, onClose }) {
         }, setStage, abort.signal);
         if (abort.signal.aborted) { scene.dispose(); return; }
         engine.current = scene; setReady(true);
+        if (import.meta.env.DEV) window.__astronaut = scene;
       } catch (failure) { if (!abort.signal.aborted) setError(failure.message); }
     })();
     return () => { abort.abort(); sunlightSearch.current?.abort(); scene?.dispose(); engine.current = null; };
@@ -150,7 +151,7 @@ export default function AstronautMode({ app, onClose }) {
       </div>
       <footer className="astronaut__footer">
         <button type="button" className="astronaut__source" onClick={() => togglePanel("data")}><span className="astronaut__source-dot" /><b>Scientific terrain</b><span>{bundle.metadata.resolutionM} m samples · 1:1 scale</span><Icon name="info" size={13} /></button>
-        <span className="astronaut__detail">Quixel surface detail</span>
+        <span className="astronaut__detail">Craters under {bundle.metadata.relief?.maxD ?? 20} m and rocks: generated, not measured</span>
         <span className="astronaut__performance">{hud.adapted ? "Adaptive · " : ""}{settings.quality} · {hud.fps || "–"} fps</span>
       </footer>
 
@@ -164,7 +165,7 @@ export default function AstronautMode({ app, onClose }) {
       {!hud.active && !panel ? <div className="astronaut__entry">
         <span className="astronaut__eyebrow">One small step</span><h2>Walk the Moon.</h2><p>Real lunar terrain. Your place, your time.</p>
         <Btn variant="primary" icon="astronaut-helmet" onClick={() => engine.current?.start()}>Start exploring</Btn>
-        <div className="astronaut__keyguide"><span><kbd>W A S D</kbd> Walk</span><span>Mouse Look</span><span><kbd>Space</kbd> Jump</span><span><kbd>Shift</kbd> Faster</span><span><kbd>R</kbd> Reset</span><span><kbd>Esc</kbd> Time & settings</span></div>
+        <div className="astronaut__keyguide"><span><kbd>W A S D</kbd> Walk</span><span>Mouse Look</span><span><kbd>Space</kbd> Jump</span><span><kbd>Shift</kbd> Faster</span><span><kbd>Z</kbd> Zoom</span><span><kbd>R</kbd> Reset</span><span><kbd>Esc</kbd> Time & settings</span></div>
       </div> : null}
       {hud.error ? <div className="astronaut__notice" role="status">{hud.error}</div> : null}
 
@@ -196,13 +197,15 @@ export default function AstronautMode({ app, onClose }) {
         <label>Exposure <b>{settings.exposure.toFixed(1)}</b><input aria-label="Exposure" type="range" min="0.7" max="2" step="0.1" value={settings.exposure} onChange={(e) => setOption("exposure", Number(e.target.value))} /></label>
         <label className="astronaut__checkbox"><input type="checkbox" checked={minimap} onChange={(e) => setMinimap(e.target.checked)} />Show minimap</label>
         <Btn size="sm" icon="locate" onClick={() => engine.current?.reset()}>Reset position</Btn><Btn size="sm" onClick={useDemo}>Explore NASA 5 m demo</Btn>
-        <p>WASD walk · Shift faster · Space jump · R reset.<br />Esc pauses to change the time or settings.<br />Drag to look on touchscreens. Gravity: 1.62 m/s².</p>
+        <p>WASD walk · Shift faster · Space jump · R reset.<br />Hold Z or the right mouse button for a 4× long lens.<br />Esc pauses to change the time or settings.<br />Drag to look on touchscreens. Gravity: 1.62 m/s².</p>
       </> : <>
         <span className="astronaut__eyebrow">Scientific terrain</span><b>{bundle.metadata.name}</b><p>{bundle.metadata.provider} · {bundle.metadata.resolutionM} m sample spacing. Horizontal and vertical scale 1:1. Lunar reference sphere: 1,737,400 m.</p>
-        <p>{bundle.metadata.interpolation || bundle.metadata.uncertainty}</p><p>DEM sample spacing is not a statement of measurement accuracy. No subpixel topography is added.</p>
+        <p>{bundle.metadata.interpolation || bundle.metadata.uncertainty}</p><p>DEM sample spacing is not a statement of measurement accuracy.</p>
+        <span className="astronaut__eyebrow">Relief below the DEM</span><p>The DEM cannot show craters under about {bundle.metadata.relief?.maxD ?? 20} m. Those are generated: {bundle.metadata.relief?.craters?.toLocaleString("en-US") ?? "thousands of"} craters from {bundle.metadata.relief?.minD ?? 2} m up, with lunar size statistics and mostly worn, soft shapes, plus gentle hummocks. They are plausible, not measured, and they fade out at the edge of the kilometre so the surface meets the DEM exactly.</p>
         <a href={bundle.metadata.productUrl} target="_blank" rel="noreferrer">View original NASA product <Icon name="external-link" size={12} /></a>
-        <span className="astronaut__eyebrow">Surface appearance</span><p>{hud.assetLabel}. Rock clusters, gravel and surface materials are visual representations inspired by Apollo photographs. Rock positions are not measured data.</p>
+        <span className="astronaut__eyebrow">Surface appearance</span><p>{hud.assetLabel}. Rocks lie where they would on the Moon: thrown out around the young craters and in loose groups of fragments. Their positions, like the gravel and surface materials, are a representation guided by Apollo photographs, not measured data.</p>
         <span className="astronaut__eyebrow">Visibility & light</span><p>SPICE vectors rotated into MOON_ME_DE421. Topocentric Earth and Sun. Distant horizons: 1 km grid, 5° azimuth bins, approximately 2 m observer; local terrain is sampled from the loaded DEM. Rendered shadows approximate visibility across the region.</p>
+        <p>The ground reflects light as lunar soil does (Hapke model with published whole-Moon values), not as a matte surface: brighter with the Sun behind you, darker against it. The sky is black and the only fill light is sunlight thrown back by the ground. The Earth is NASA Blue Marble imagery at its true size, turned and lit for the selected instant; its clouds are synthetic.</p>
         <p>The helmet light is an artificial light. Earth communication status is geometric line of sight.</p>
         {bundle.warnings.length || hud.warnings?.length ? <p>Some higher resolution data or optional assets were unavailable; the loaded source is identified above.</p> : null}
       </>}

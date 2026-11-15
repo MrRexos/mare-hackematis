@@ -51,6 +51,29 @@ export function visibleDisc(elevation, horizon, angularRadius) {
   return q >= 1 ? 1 : q <= -1 ? 0 : 1 - (Math.acos(q) - q * Math.sqrt(1 - q * q)) / Math.PI;
 }
 
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+/**
+ * Which way the Earth is turned, in the same Moon-fixed frame as the ephemeris:
+ * its north pole, the point where the Greenwich meridian crosses the equator,
+ * and the direction of the Sun as seen from the Earth (for its day side).
+ * The ecliptic is taken as the plane through the Sun closest to the lunar
+ * equator, which is right to within the Moon's 1.5° tilt.
+ */
+export function earthOrientation(vectors, timeMs) {
+  const days = timeMs / 86400000 - 10957.5;                       // days from J2000.0
+  const anomaly = (357.528 + 0.9856003 * days) * RAD;
+  const sunLongitude = (280.460 + 0.9856474 * days + 1.915 * Math.sin(anomaly) + 0.020 * Math.sin(2 * anomaly)) * RAD;
+  const toSun = normalize(vectors.sun.map((v, k) => v - vectors.earth[k]));
+  const tilt = dot([0, 0, 1], toSun), eclipticNorth = normalize([0, 0, 1].map((v, k) => v - tilt * toSun[k])), ahead = cross(eclipticNorth, toSun);
+  const along = (longitude) => toSun.map((v, k) => v * Math.cos(longitude - sunLongitude) + ahead[k] * Math.sin(longitude - sunLongitude));
+  const obliquity = 23.4393 * RAD, equinox = along(0), quarter = along(Math.PI / 2);
+  const north = quarter.map((v, k) => v * Math.sin(obliquity) + eclipticNorth[k] * Math.cos(obliquity));
+  const sidereal = (280.46061837 + 360.98564736629 * days) * RAD, east = cross(north, equinox);
+  const greenwich = equinox.map((v, k) => v * Math.cos(sidereal) + east[k] * Math.sin(sidereal));
+  return { north, greenwich, toSun };
+}
+
 export function celestialAt(data, skyData, terrain, eye, timeMs) {
   const point = localToLunar(terrain.frame, eye.x, eye.z);
   const observer = terrain.frame.up.map((u, k) => u * (MOON_RADIUS + terrain.anchorHeight + eye.y) + terrain.frame.east[k] * eye.x - terrain.frame.north[k] * eye.z);
@@ -66,6 +89,11 @@ export function celestialAt(data, skyData, terrain, eye, timeMs) {
     body.remoteHorizonAvailable = far != null;
     result[key] = body;
   }
+  // The Earth's attitude, turned into the local east / up / south frame of the scene.
+  const frame = terrain.frame, local = (v) => [dot(v, frame.east), dot(v, frame.up), -dot(v, frame.north)];
+  const attitude = earthOrientation(vectors, timeMs);
+  result.earth.north = local(attitude.north); result.earth.greenwich = local(attitude.greenwich); result.earth.toSun = local(attitude.toSun);
+  result.earth.litFraction = (1 + dot(attitude.toSun, normalize(result.earth.vector.map((v) => -v)))) / 2;
   return result;
 }
 

@@ -1,5 +1,6 @@
 import { fromUrl } from "geotiff";
-import { buildTerrain, localToLunar, makeFrame } from "./coordinates.js";
+import { buildTerrain, localToLunar, makeFrame, seedAt } from "./coordinates.js";
+import { buildSurface } from "./SurfaceRelief.js";
 import { buildTerrainContext } from "./TerrainContext.js";
 
 const rasters = new Map();
@@ -70,8 +71,12 @@ self.onmessage = async ({ data: request }) => {
     if (!terrain) throw new Error("No complete scientific elevation coverage at this location.");
     const metadata = { ...raster }; delete metadata.values;
     const context = buildTerrainContext(regional, terrain);
+    stage("Shaping craters and regolith");
+    // Relief the DEM cannot resolve: statistical, never presented as measured.
+    terrain.surface = buildSurface(raster, terrain, { seed: seedAt(request.lat, request.lon), resolutionM: raster.resolutionM });
+    metadata.relief = { ...terrain.surface.options, craters: terrain.surface.craters.length, sampleM: terrain.surface.cell };
     const result = { terrain, context, metadata, demo: catalog.demo, warnings: errors };
     self.postMessage({ result }, [terrain.positions.buffer, terrain.indices.buffer, terrain.uv.buffer, terrain.heights.buffer,
-      context.positions.buffer, context.indices.buffer, context.uv.buffer]);
+      context.positions.buffer, context.indices.buffer, context.uv.buffer, ...terrain.surface.levels.map((level) => level.buffer)]);
   } catch (error) { self.postMessage({ error: error.message }); }
 };

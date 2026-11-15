@@ -36,6 +36,24 @@ export function sampleRaster(raster, x, y) {
   return scale * ((1 - fy) * ((1 - fx) * samples[0] + fx * samples[1]) + fy * ((1 - fx) * samples[2] + fx * samples[3]));
 }
 
+// Catmull-Rom interpolation through the measured samples, in pixel coordinates.
+// It passes through every sample; between them it is interpolation, not data.
+export function sampleRasterSmooth(raster, col, row) {
+  const { width, height, values, noData, scale = 1 } = raster;
+  const j = Math.floor(col), i = Math.floor(row);
+  if (!(j >= 1 && i >= 1 && j <= width - 3 && i <= height - 3)) return NaN;
+  const x = col - j, y = row - i;
+  const x0 = ((2 - x) * x - 1) * x / 2, x1 = ((3 * x - 5) * x * x + 2) / 2, x2 = ((4 - 3 * x) * x + 1) * x / 2, x3 = (x - 1) * x * x / 2;
+  const y0 = ((2 - y) * y - 1) * y / 2, y1 = ((3 * y - 5) * y * y + 2) / 2, y2 = ((4 - 3 * y) * y + 1) * y / 2, y3 = (y - 1) * y * y / 2;
+  let total = 0;
+  for (let a = 0; a < 4; a++) {
+    const p = (i - 1 + a) * width + j - 1, v0 = values[p], v1 = values[p + 1], v2 = values[p + 2], v3 = values[p + 3];
+    if (v0 === noData || v1 === noData || v2 === noData || v3 === noData) return NaN;
+    total += (v0 * x0 + v1 * x1 + v2 * x2 + v3 * x3) * (a === 0 ? y0 : a === 1 ? y1 : a === 2 ? y2 : y3);
+  }
+  return Number.isFinite(total) ? total * scale : NaN;
+}
+
 // Samples the same two triangles used by the render mesh and Rapier collider.
 export function surfaceAt(terrain, x, z) {
   const { segments, size = PATCH_SIZE, heights } = terrain;

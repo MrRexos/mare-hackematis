@@ -35,9 +35,9 @@ Abre http://localhost:5173.
 
 ## Astronaut Mode
 
-En **Mare → Lander's View**, pulsa el casco **Astronaut Mode** para caminar por una región de 1 km × 1 km alrededor del punto seleccionado. Incluye terreno NASA real a escala 1:1, física lunar, Sol/Tierra según SPICE, controles temporales, cuatro superficies y 13 variantes de roca Quixel, agrupadas en campos de fragmentos.
+En **Mare → Lander's View**, pulsa el casco **Astronaut Mode** para caminar por una región de 1 km × 1 km alrededor del punto seleccionado. Incluye terreno NASA real a escala 1:1, física lunar, Sol/Tierra según SPICE, controles temporales, cuatro superficies y 20 variantes de roca Quixel. Los cráteres menores que la resolución del DEM y las rocas se generan con estadística lunar: son verosímiles, no datos medidos. El suelo refleja la luz con un modelo fotométrico lunar (Hapke) y la Tierra se ve a su tamaño real, girada e iluminada para el instante elegido.
 
-Controles: WASD, ratón capturado, Shift, Espacio y R. Escape pausa y abre los ajustes; Resume exploring vuelve a capturar el ratón. Los datos de demo y el fallback regional están incluidos. Consulta [ejecución, fuentes, preparación de DEM, assets, pruebas y límites científicos](docs/ASTRONAUT_MODE.md).
+Controles: WASD, ratón capturado, Shift, Espacio, R y Z (o botón derecho) para un teleobjetivo de 4 aumentos. Escape pausa y abre los ajustes; Resume exploring vuelve a capturar el ratón. Los datos de demo y el fallback regional están incluidos. Consulta [ejecución, fuentes, preparación de DEM, assets, pruebas y límites científicos](docs/ASTRONAUT_MODE.md).
 
 ## Regenerar los datos (pipeline)
 

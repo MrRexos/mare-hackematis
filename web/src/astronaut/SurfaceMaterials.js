@@ -1,11 +1,78 @@
 import * as THREE from "three";
 import { randomSeed } from "./coordinates.js";
+import { microCraterTile } from "./SurfaceRelief.js";
 
 const REGOLITH_REFLECTANCE = 0.82;
 
+// Lunar soil is not a matte (Lambert) surface. It throws light back towards the
+// Sun, brightens sharply around the observer's own shadow and keeps its
+// brightness under grazing light, which is why the full Moon shows no darker
+// rim. Hapke's model reproduces all three; these are the whole-Moon values of
+// Helfenstein & Veverka (1987): particle albedo, opposition surge amplitude
+// and width, and the two terms of the particle phase function. Their table
+// gives the surge as S(0) = 0.71, which is b0 = S(0) / (w · p(0)) = 2.01.
+export const HAPKE = { w: 0.21, b0: 2.01, h: 0.07, b: 0.29, c: 0.39 };
+// Hapke adds a large-scale roughness term; this stands in for it where the mesh is too coarse to cast those shadows itself.
+const ROUGH_SHADE = 0.6;
+const hapkeH = (x) => (1 + 2 * x) / (1 + 2 * x * Math.sqrt(1 - HAPKE.w));
+function hapkeRaw(mu0, mu, cosPhase) {
+  if (mu0 <= 0) return 0;
+  const view = Math.max(mu, 0.12), surge = HAPKE.b0 / (1 + Math.sqrt((1 - cosPhase) / (1 + cosPhase + 1e-4)) / HAPKE.h);
+  const phase = 1 + HAPKE.b * cosPhase + HAPKE.c * (1.5 * cosPhase * cosPhase - 0.5);
+  const step = (lo, hi, v) => { const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo))); return t * t * (3 - 2 * t); };
+  return mu0 / (mu0 + view) * ((1 + surge) * phase + hapkeH(mu0) * hapkeH(view) - 1) * (1 - ROUGH_SHADE * (1 - step(0, 0.5, mu0)) * step(0.3, -0.9, cosPhase));
+}
+// Scaled to match a matte surface in the standard geometry (Sun 30° from the
+// vertical, seen from straight above), so material albedos keep their meaning.
+const HAPKE_NORM = Math.cos(Math.PI / 6) / hapkeRaw(Math.cos(Math.PI / 6), 1, Math.cos(Math.PI / 6));
+/** Brightness relative to a matte surface lit head-on; replaces the cosine of Lambert's law. */
+export const lunarReflectance = (mu0, mu, cosPhase) => HAPKE_NORM * hapkeRaw(mu0, mu, cosPhase);
+
+const glsl = (n) => Number(n).toFixed(6);
+const LUNAR_BRDF = `
+  float lunarH(float x) { return (1.0 + 2.0 * x) / (1.0 + 2.0 * x * ${glsl(Math.sqrt(1 - HAPKE.w))}); }
+  float lunarReflectance(vec3 L, vec3 V, vec3 N) {
+    float mu0 = dot(N, L);
+    if (mu0 <= 0.0) return 0.0;
+    float mu = max(dot(N, V), 0.12), cg = clamp(dot(L, V), -1.0, 1.0);
+    float surge = ${glsl(HAPKE.b0)} / (1.0 + sqrt((1.0 - cg) / (1.0 + cg + 1e-4)) / ${glsl(HAPKE.h)});
+    float phase = 1.0 + ${glsl(HAPKE.b)} * cg + ${glsl(HAPKE.c)} * (1.5 * cg * cg - 0.5);
+    float soil = ${glsl(HAPKE_NORM)} * mu0 / (mu0 + mu) * ((1.0 + surge) * phase + lunarH(mu0) * lunarH(mu) - 1.0);
+    // Rough ground seen against a low Sun shows mostly the unlit backs of its lumps.
+    soil *= 1.0 - ${glsl(ROUGH_SHADE)} * (1.0 - smoothstep(0.0, 0.5, mu0)) * smoothstep(0.3, -0.9, cg);
+    #ifdef LUNAR_ROCK
+      // Solid rock under a dust coat: halfway between the soil and a matte face.
+      return mix(mu0 * (0.62 + 0.38 * (1.0 + surge) * phase / 2.3), soil, 0.5) * 0.88;
+    #else
+      return soil;
+    #endif
+  }
+`;
+// No mirror-like term at all: regolith has none, and at grazing angles the
+// standard one adds a sheen towards the Sun that the Moon does not show.
+export function lunarLighting() {
+  const source = THREE.ShaderChunk.lights_physical_pars_fragment;
+  const patched = source.replace(/reflectedLight\.directSpecular \+= irradiance \* BRDF_GGX\([^;]*;\s*reflectedLight\.directDiffuse \+= irradiance \* BRDF_Lambert\( material\.diffuseColor \);/,
+    "reflectedLight.directDiffuse += directLight.color * lunarReflectance( directLight.direction, geometryViewDir, geometryNormal ) * BRDF_Lambert( material.diffuseColor );");
+  if (patched === source) throw new Error("The lunar photometric model no longer matches this version of three.js.");
+  return `${LUNAR_BRDF}\n${patched}`;
+}
+
+/** Slopes of the small-crater field packed for the shader: red east, green south, blue hollows. */
+export function microCraterTexture(seed) {
+  const { heights, n, cell } = microCraterTile(seed), bytes = new Uint8Array(n * n * 4), wrap = (v) => (v + n) % n;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const sx = (heights[i * n + wrap(j + 1)] - heights[i * n + wrap(j - 1)]) / (2 * cell), sz = (heights[wrap(i + 1) * n + j] - heights[wrap(i - 1) * n + j]) / (2 * cell);
+    bytes.set([127.5 + sx * 212.5, 127.5 + sz * 212.5, 127.5 + heights[i * n + j] * 850, 255].map((v) => Math.max(0, Math.min(255, Math.round(v)))), (i * n + j) * 4);
+  }
+  return { bytes, n };
+}
+
 // Three smoothly blended, decorrelated copies of each dominant scan break the
-// metre-wide repeat. All PBR maps share the same transform and explicit mip
-// gradients; normals rotate back into the original surface tangent frame.
+// metre-wide repeat. Colour and normal share the same transform and explicit
+// mip gradients; normals rotate back into the original surface tangent frame.
+// The scans' roughness and occlusion maps are not read: without a mirror-like
+// term roughness changes nothing, and the Sun leaves no ambient light to occlude.
 const STOCHASTIC_SAND = `
   uniform vec2 lunarSurfaceSeed;
   uniform vec4 lunarLayerGain;
@@ -15,7 +82,7 @@ const STOCHASTIC_SAND = `
     h += dot(h, h.yzx + 19.19);
     return fract(vec2(h.x * h.y, h.y * h.z));
   }
-  void lunarReadSand(vec2 uv, float layer, vec2 cell, vec2 dx, vec2 dy, out vec3 color, out vec3 n, out vec3 orm) {
+  void lunarReadSand(vec2 uv, float layer, vec2 cell, vec2 dx, vec2 dy, out vec3 color, out vec3 n) {
     vec2 offset = lunarCellHash(cell);
     float angle = mix(floor(offset.x * 4.0) * 1.57079632679, offset.x * 6.28318530718, layer);
     float c = cos(angle), s = sin(angle);
@@ -25,10 +92,8 @@ const STOCHASTIC_SAND = `
     color = textureGrad(lunarColors, vec3(sampleUV, layer), rotation * dx * scanScale, rotation * dy * scanScale).rgb;
     n = textureGrad(lunarNormals, vec3(sampleUV, layer), rotation * dx * scanScale, rotation * dy * scanScale).xyz * 2.0 - 1.0;
     n.xy = transpose(rotation) * n.xy;
-    orm = textureGrad(lunarOrm, vec3(sampleUV, layer), rotation * dx * scanScale, rotation * dy * scanScale).rgb;
   }
-  void lunarSand(vec2 uv, float layer, out vec3 color, out vec3 n, out vec3 orm) {
-    vec2 dx = dFdx(uv), dy = dFdy(uv);
+  void lunarSand(vec2 uv, vec2 dx, vec2 dy, float layer, out vec3 color, out vec3 n) {
     vec2 grid = vec2(uv.x - uv.y * 0.57735026919, uv.y * 1.15470053838) / mix(1.8, 0.72, layer);
     vec2 cell = floor(grid), f = fract(grid), a, b, d;
     vec3 w;
@@ -40,19 +105,18 @@ const STOCHASTIC_SAND = `
       w = vec3(f.x + f.y - 1.0, 1.0 - f.x, 1.0 - f.y);
     }
     w *= w; w *= mix(w, vec3(1.0), layer); w /= dot(w, vec3(1.0));
-    vec3 ca, cb, cd, na, nb, nd, oa, ob, od;
-    lunarReadSand(uv, layer, a, dx, dy, ca, na, oa);
-    lunarReadSand(uv, layer, b, dx, dy, cb, nb, ob);
-    lunarReadSand(uv, layer, d, dx, dy, cd, nd, od);
+    vec3 ca, cb, cd, na, nb, nd;
+    lunarReadSand(uv, layer, a, dx, dy, ca, na);
+    lunarReadSand(uv, layer, b, dx, dy, cb, nb);
+    lunarReadSand(uv, layer, d, dx, dy, cd, nd);
     color = ca * w.x + cb * w.y + cd * w.z;
     n = na * w.x + nb * w.y + nd * w.z;
     n.xy /= mix(sqrt(dot(w, w)), 1.0, layer);
     n = normalize(n);
-    orm = oa * w.x + ob * w.y + od * w.z;
   }
 `;
 
-export function makeSurfaceMaterials() {
+export function makeSurfaceMaterials(seed = 1) {
   const size = 512, random = randomSeed(0x1a7f3), height = new Float32Array(size * size);
   const color = new Uint8Array(size * size * 4), normal = new Uint8Array(color.length), roughness = new Uint8Array(color.length), ao = new Uint8Array(color.length);
   for (let i = 0; i < height.length; i++) height[i] = random();
@@ -79,32 +143,49 @@ export function makeSurfaceMaterials() {
     return map;
   };
   const maps = { map: texture(color, true), normalMap: texture(normal), roughnessMap: texture(roughness), aoMap: texture(ao) };
+  const craters = microCraterTexture(seed), micro = new THREE.DataTexture(craters.bytes, craters.n, craters.n, THREE.RGBAFormat);
+  micro.wrapS = micro.wrapT = THREE.RepeatWrapping; micro.magFilter = THREE.LinearFilter; micro.minFilter = THREE.LinearMipmapLinearFilter;
+  micro.generateMipmaps = true; micro.anisotropy = 8; micro.needsUpdate = true;
   const terrain = new THREE.MeshStandardMaterial({ ...maps, color: 0x9e9b96, roughness: 0.94, metalness: 0, normalScale: new THREE.Vector2(0.55, 0.55), aoMapIntensity: 0.45 });
   terrain.color.multiplyScalar(REGOLITH_REFLECTANCE);
   const rock = new THREE.MeshStandardMaterial({ ...maps, color: 0x8b8b89, roughness: 0.91, metalness: 0, normalScale: new THREE.Vector2(0.8, 0.8), aoMapIntensity: 0.6 });
-  return { terrain, rock, maps, materials: new Set([terrain, rock]), textures: new Set(Object.values(maps)), geometries: new Set() };
+  terrain.userData.lunarMicro = { value: micro };
+  return { terrain, rock, maps, micro, regolithAlbedo: 0.2, materials: new Set([terrain, rock]), textures: new Set([...Object.values(maps), micro]), geometries: new Set() };
 }
 
-// This changes surface reflectance only. It never displaces measured vertices.
+// Shading only: reflectance, grain and the craters too small for the mesh.
 export function setupLunarMaterial(material, csm) {
   csm.setupMaterial(material);
-  const shadowCompile = material.onBeforeCompile;
+  const shadowCompile = material.onBeforeCompile, rock = !!material.userData.lunarRock, layers = material.userData.lunarLayers;
   material.onBeforeCompile = (shader, renderer) => {
     shadowCompile(shader, renderer);
-    shader.vertexShader = `varying vec3 vLunarPosition; varying vec3 vLunarNormal;\n${shader.vertexShader}`.replace("#include <worldpos_vertex>", `#include <worldpos_vertex>
+    shader.vertexShader = `attribute float lunarSkirt; varying vec3 vLunarPosition; varying vec3 vLunarNormal;\n${shader.vertexShader}`
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\n      transformed.y -= lunarSkirt;")
+      .replace("#include <worldpos_vertex>", `#include <worldpos_vertex>
       vec4 lunarPosition = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
         lunarPosition = instanceMatrix * lunarPosition;
       #endif
       vLunarPosition = (modelMatrix * lunarPosition).xyz;
       vLunarNormal = inverseTransformDirection(transformedNormal, viewMatrix);`);
-    shader.fragmentShader = `varying vec3 vLunarPosition; varying vec3 vLunarNormal;\n${shader.fragmentShader}`;
-    if (material.userData.lunarLayers) {
-      Object.assign(shader.uniforms, material.userData.lunarLayers);
+    shader.fragmentShader = `${rock ? "#define LUNAR_ROCK\n" : ""}varying vec3 vLunarPosition; varying vec3 vLunarNormal;\n${shader.fragmentShader}`
+      .replace("#include <lights_physical_pars_fragment>", lunarLighting());
+    if (material.userData.lunarMicro) shader.uniforms.lunarMicro = material.userData.lunarMicro;
+    // Two overlapping copies of the small-crater field at different scales and
+    // angles never line up, so no repeat shows. Returns the ground slope they add.
+    const microCraters = material.userData.lunarMicro ? `
+        mat2 lunarMicroTurn = mat2(0.8, 0.6, -0.6, 0.8);
+        vec3 lunarMicroA = texture2D(lunarMicro, vLunarPosition.xz / 24.0).rgb - 0.5;
+        vec3 lunarMicroB = texture2D(lunarMicro, lunarMicroTurn * vLunarPosition.xz / 37.0 + 0.37).rgb - 0.5;
+        vec2 lunarSlope = (lunarMicroA.rg + transpose(lunarMicroTurn) * lunarMicroB.rg) * 1.2;
+        float lunarHollow = lunarMicroA.b + lunarMicroB.b;` : `
+        vec2 lunarSlope = vec2(0.0); float lunarHollow = 0.0;`;
+    if (layers) {
+      Object.assign(shader.uniforms, layers);
       shader.fragmentShader = `
         precision highp sampler2DArray;
-        uniform sampler2DArray lunarColors, lunarNormals, lunarOrm;
-        uniform sampler2D lunarGeology;
+        uniform sampler2DArray lunarColors, lunarNormals;
+        uniform sampler2D lunarGeology, lunarMicro;
         uniform vec4 lunarTileMeters;
         ${STOCHASTIC_SAND}
         ${shader.fragmentShader}`;
@@ -113,6 +194,7 @@ export function setupLunarMaterial(material, csm) {
         vec3 field = texture2D(lunarGeology, clamp(localUV, 0.0, 1.0)).rgb;
         float inPatch = step(0.0, localUV.x) * step(localUV.x, 1.0) * step(0.0, localUV.y) * step(localUV.y, 1.0);
         field.r *= inPatch;
+        ${microCraters}
         // Keep visible gravel detail, with sand woven through it at the peaks.
         float soilWeight = 0.025 + field.r * 0.62;
         float dustWeight = (0.04 + (1.0 - field.g) * 0.10) * (1.0 - field.r * 0.65);
@@ -127,56 +209,79 @@ export function setupLunarMaterial(material, csm) {
         vec2 uv1 = turn1 * worldUV / lunarTileMeters.y + vec2(0.31, 0.17) + warp;
         vec2 uv2 = turn2 * worldUV / lunarTileMeters.z + vec2(0.73, 0.48) - warp;
         vec2 uv3 = turn3 * worldUV / lunarTileMeters.w + vec2(0.19, 0.62) + warp;
-        vec3 sandColor, sandNormal, sandOrm, soilColor, soilNormal, soilOrm;
-        lunarSand(uv0, 0.0, sandColor, sandNormal, sandOrm);
-        lunarSand(uv1, 1.0, soilColor, soilNormal, soilOrm);
-        vec3 scannedColor = sandColor * weights.x
-          + soilColor * weights.y * lunarLayerGain.y
-          + texture(lunarColors, vec3(uv2, 2.0)).rgb * weights.z * lunarLayerGain.z
-          + texture(lunarColors, vec3(uv3, 3.0)).rgb * weights.w * lunarLayerGain.w;
-        vec3 surfaceOrm = sandOrm * weights.x
-          + soilOrm * weights.y
-          + texture(lunarOrm, vec3(uv2, 2.0)).rgb * weights.z
-          + texture(lunarOrm, vec3(uv3, 3.0)).rgb * weights.w;
-        vec3 n1 = soilNormal;
-        vec3 n2 = texture(lunarNormals, vec3(uv2, 2.0)).xyz * 2.0 - 1.0;
-        vec3 n3 = texture(lunarNormals, vec3(uv3, 3.0)).xyz * 2.0 - 1.0;
-        n1.xy = transpose(turn1) * n1.xy; n2.xy = transpose(turn2) * n2.xy; n3.xy = transpose(turn3) * n3.xy;
-        vec3 scannedNormal = sandNormal * weights.x + n1 * weights.y + n2 * weights.z + n3 * weights.w;
+        vec2 dx0 = dFdx(uv0), dy0 = dFdy(uv0), dx1 = dFdx(uv1), dy1 = dFdy(uv1), dx2 = dFdx(uv2), dy2 = dFdy(uv2), dx3 = dFdx(uv3), dy3 = dFdy(uv3);
+        // From eye height, ground a few tens of metres away is so foreshortened
+        // that a one-metre scan is a blur of a few texels: one plain read gives
+        // the same result as the full blend of four layers.
+        float lunarFar = smoothstep(22.0, 36.0, length(vViewPosition));
+        vec3 scannedColor = vec3(0.0), scannedNormal = vec3(0.0, 0.0, 1.0);
+        if (lunarFar < 1.0) {
+          vec3 sandColor, sandNormal, soilColor = vec3(0.0), soilNormal = vec3(0.0, 0.0, 1.0);
+          lunarSand(uv0, dx0, dy0, 0.0, sandColor, sandNormal);
+          // Away from rock the gravelly soil is a few percent of the mix: skip its six reads.
+          if (weights.y > 0.05) lunarSand(uv1, dx1, dy1, 1.0, soilColor, soilNormal);
+          else { weights.x += weights.y; weights.y = 0.0; }
+          // The coarse scan only matters beside rock; elsewhere it is 3 % of the mix.
+          vec3 coarseColor = vec3(0.0), n3 = vec3(0.0, 0.0, 1.0);
+          if (weights.w > 0.035) {
+            coarseColor = textureGrad(lunarColors, vec3(uv3, 3.0), dx3, dy3).rgb;
+            n3 = textureGrad(lunarNormals, vec3(uv3, 3.0), dx3, dy3).xyz * 2.0 - 1.0;
+          } else { weights.x += weights.w; weights.w = 0.0; }
+          scannedColor = sandColor * weights.x
+            + soilColor * weights.y * lunarLayerGain.y
+            + textureGrad(lunarColors, vec3(uv2, 2.0), dx2, dy2).rgb * weights.z * lunarLayerGain.z
+            + coarseColor * weights.w * lunarLayerGain.w;
+          vec3 n1 = soilNormal;
+          vec3 n2 = textureGrad(lunarNormals, vec3(uv2, 2.0), dx2, dy2).xyz * 2.0 - 1.0;
+          n1.xy = transpose(turn1) * n1.xy; n2.xy = transpose(turn2) * n2.xy; n3.xy = transpose(turn3) * n3.xy;
+          scannedNormal = sandNormal * weights.x + n1 * weights.y + n2 * weights.z + n3 * weights.w;
+        }
+        if (lunarFar > 0.0) {
+          scannedColor = mix(scannedColor, textureGrad(lunarColors, vec3(uv0, 0.0), dx0, dy0).rgb, lunarFar);
+          scannedNormal = mix(scannedNormal, textureGrad(lunarNormals, vec3(uv0, 0.0), dx0, dy0).xyz * 2.0 - 1.0, lunarFar);
+        }
         float luminance = dot(scannedColor, vec3(0.2126, 0.7152, 0.0722));
         // Neutral ash with a restrained warm cast, preserving scanned grain.
         vec3 regolith = mix(vec3(luminance), scannedColor, 0.025) * vec3(1.015, 1.0, 0.978);
-        diffuseColor.rgb *= regolith * mix(0.97, 1.015, field.g);
+        // Hollows hold a little less light.
+        diffuseColor.rgb *= regolith * mix(0.97, 1.015, field.g) * (1.0 + clamp(lunarHollow, -0.25, 0.1) * 0.5);
       `).replace("#include <roughnessmap_fragment>", `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(surfaceOrm.g, 0.88, 1.0);
+        roughnessFactor = 1.0;
       `).replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
         vec3 n = normalize(scannedNormal);
         vec3 worldN = normalize(vLunarNormal);
         vec3 worldT = normalize(vec3(1.0, 0.0, 0.0) - worldN * worldN.x);
         vec3 worldB = cross(worldN, worldT);
         float grainStrength = mix(mix(0.62, 0.88, field.r), mix(0.16, 0.28, field.r), smoothstep(18.0, 100.0, length(vViewPosition)));
-        normal = normalize(mat3(viewMatrix) * (worldT * n.x * grainStrength + worldB * n.y * grainStrength + worldN * n.z));
-      `).replace("#include <aomap_fragment>", `#include <aomap_fragment>
-        reflectedLight.indirectDiffuse *= mix(1.0, surfaceOrm.r, mix(0.5, 0.65, field.r));
+        normal = normalize(mat3(viewMatrix) * (worldT * (n.x * grainStrength - lunarSlope.x) + worldB * (n.y * grainStrength + lunarSlope.y) + worldN * n.z));
+      `);
+    } else if (!rock && material.userData.lunarMicro) {
+      shader.fragmentShader = `uniform sampler2D lunarMicro;\n${shader.fragmentShader}`.replace("#include <color_fragment>", `#include <color_fragment>
+        ${microCraters}
+        float lunarValue = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        diffuseColor.rgb = mix(vec3(lunarValue), diffuseColor.rgb, 0.035) * vec3(1.015, 1.0, 0.978) * (1.0 + clamp(lunarHollow, -0.25, 0.1) * 0.5);
+      `).replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
+        vec3 worldN = normalize(inverseTransformDirection(normal, viewMatrix));
+        normal = normalize(mat3(viewMatrix) * (worldN + vec3(-lunarSlope.x, 0.0, -lunarSlope.y)));
       `);
     } else {
-      shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+      shader.uniforms.lunarRockGain = material.userData.lunarRockGain ||= { value: 1 };
+      shader.fragmentShader = `uniform float lunarRockGain;\n${shader.fragmentShader}`.replace("#include <color_fragment>", `#include <color_fragment>
         float lunarValue = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-        ${material.userData.lunarRock ? "lunarValue = min(lunarValue, 0.32) * 0.85;" : ""}
-        diffuseColor.rgb = mix(vec3(lunarValue), diffuseColor.rgb, 0.035) * vec3(1.015, 1.0, 0.978);
+        // Same reflectance as the soil the rock lies on; the scan keeps its own grain.
+        diffuseColor.rgb = mix(vec3(lunarValue), diffuseColor.rgb, 0.035) * vec3(1.015, 1.0, 0.978) * lunarRockGain;
       `);
     }
   };
-  material.customProgramCacheKey = () => `lunar-pbr-dispersed-soil-csm-${csm.cascades}-${!!material.userData.lunarLayers}-${!!material.userData.lunarRock}`;
+  material.customProgramCacheKey = () => `lunar-hapke-csm-${csm.cascades}-${!!layers}-${rock}-${!!material.userData.lunarMicro}`;
   material.needsUpdate = true;
 }
 
-// WebGL2 array textures keep all four scans inside three sampler slots, also
-// with four solar cascades + the helmet shadow. No measured vertex is altered.
+// WebGL2 array textures keep all four scans inside two sampler slots.
 export async function installSurfaceLayers(entries, base, renderer, materials, geology, signal) {
   if (entries.length !== 4) throw new Error("Four Quixel surface layers are required.");
   const size = 1024, loader = new THREE.ImageLoader(), arrays = {}, luminance = [];
-  for (const property of ["color", "normal", "orm"]) {
+  for (const property of ["color", "normal"]) {
     const images = await Promise.all(entries.map((entry) => loader.loadAsync(new URL(entry[property], base).href)));
     if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
     const canvas = document.createElement("canvas"); canvas.width = canvas.height = size;
@@ -214,7 +319,8 @@ export async function installSurfaceLayers(entries, base, renderer, materials, g
   for (const property of ["map", "normalMap", "roughnessMap", "aoMap"]) terrain[property] = null;
   terrain.color.setRGB(REGOLITH_REFLECTANCE, REGOLITH_REFLECTANCE, REGOLITH_REFLECTANCE); terrain.roughness = 0.96;
   const gains = luminance.map((value) => THREE.MathUtils.clamp(luminance[0] / Math.max(0.001, value), 0.75, 1.5));
-  terrain.userData.lunarLayers = { lunarColors: { value: arrays.color }, lunarNormals: { value: arrays.normal }, lunarOrm: { value: arrays.orm }, lunarGeology: { value: mask },
+  materials.regolithAlbedo = REGOLITH_REFLECTANCE * luminance[0];
+  terrain.userData.lunarLayers = { lunarColors: { value: arrays.color }, lunarNormals: { value: arrays.normal }, lunarGeology: { value: mask },
     lunarTileMeters: { value: new THREE.Vector4(...entries.map((entry) => entry.tileMeters || 1)) }, lunarLayerGain: { value: new THREE.Vector4(...gains) },
     lunarSurfaceSeed: { value: new THREE.Vector2((geology.seed >>> 0) % 8191, (geology.seed >>> 8) % 8191) } };
   terrain.needsUpdate = true;

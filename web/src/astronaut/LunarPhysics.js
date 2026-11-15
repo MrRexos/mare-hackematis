@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import { surfaceAt } from "./coordinates.js";
+import { groundAt } from "./SurfaceRelief.js";
 
 let initialized;
 export function initPhysics() { return initialized ||= RAPIER.init(); }
@@ -13,13 +13,19 @@ export class LunarPhysics {
     this.terrain = terrain;
     this.world = new RAPIER.World({ x: 0, y: -LUNAR_GRAVITY, z: 0 });
     this.world.timestep = FIXED_STEP;
-    this.world.createCollider(RAPIER.ColliderDesc.trimesh(terrain.positions, terrain.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES));
+    const surface = terrain.surface;
+    if (surface) {
+      // The same half-metre samples that are drawn. Rapier reads the matrix column by column.
+      const n = surface.n, columns = new Float32Array(n * n);
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) columns[j * n + i] = surface.heights[i * n + j];
+      this.world.createCollider(RAPIER.ColliderDesc.heightfield(n - 1, n - 1, columns, { x: surface.size, y: 1, z: surface.size }, RAPIER.HeightFieldFlags.FIX_INTERNAL_EDGES));
+    } else this.world.createCollider(RAPIER.ColliderDesc.trimesh(terrain.positions, terrain.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES));
     // Solid boundaries supplement the movement clamp, including while airborne.
     for (const [x, z, hx, hz] of [[-501, 0, 1, 502], [501, 0, 1, 502], [0, -501, 502, 1], [0, 501, 502, 1]]) {
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(hx, 4000, hz).setTranslation(x, 0, z));
     }
     for (const rock of rocks) if (rock.radius >= 0.3) {
-      this.world.createCollider(RAPIER.ColliderDesc.ball(rock.radius).setTranslation(rock.x, rock.y + rock.radius * 0.45, rock.z));
+      this.world.createCollider(RAPIER.ColliderDesc.ball(rock.radius * 0.85).setTranslation(rock.x, rock.y + rock.radius * (0.45 - (rock.sink ?? 0.1)), rock.z));
     }
     this.body = this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
     this.collider = this.world.createCollider(RAPIER.ColliderDesc.capsule(HALF_HEIGHT, RADIUS), this.body);
@@ -34,13 +40,15 @@ export class LunarPhysics {
     this.world.step();
   }
 
-  reset() {
-    const y = surfaceAt(this.terrain, 0, 0) + CENTER_HEIGHT + 0.04;
-    this.body.setTranslation({ x: 0, y, z: 0 }, true);
-    this.body.setNextKinematicTranslation({ x: 0, y, z: 0 });
+  reset() { this.teleport(0, 0); }
+
+  teleport(x, z) {
+    const y = groundAt(this.terrain, x, z) + CENTER_HEIGHT + 0.04;
+    this.body.setTranslation({ x, y, z }, true);
+    this.body.setNextKinematicTranslation({ x, y, z });
     this.velocity = { x: 0, y: 0, z: 0 };
     this.grounded = false;
-    this.previous = { x: 0, y, z: 0 };
+    this.previous = { x, y, z };
     this.world.propagateModifiedBodyPositionsToColliders();
   }
 
@@ -69,7 +77,7 @@ export class LunarPhysics {
     if (movement.y < this.velocity.y * dt - 0.001 && this.velocity.y > 0) this.velocity.y = 0;
     this.body.setNextKinematicTranslation({ x: position.x + movement.x, y: position.y + movement.y, z: position.z + movement.z });
     this.world.step();
-    const next = this.body.translation(), floor = surfaceAt(this.terrain, next.x, next.z);
+    const next = this.body.translation(), floor = groundAt(this.terrain, next.x, next.z);
     if (!Number.isFinite(next.y) || next.y < floor - 2) this.reset();
   }
 
