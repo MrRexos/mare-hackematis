@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { Icon, cx } from "./kit.jsx";
 import { FACTORS, PRESETS, presetOf, rebalance } from "../engine/score.js";
 import MissionOptions from "./MissionOptions.jsx";
@@ -40,7 +40,7 @@ function WeightRow({ f, value, onChange }) {
       >
         <div className="wslider__rail" />
         <div className="wslider__fill" style={{ width: `${value}%`, background: f.color }} />
-        {!off ? <div className="wslider__thumb" style={{ left: `calc(${value}% - 10px)` }} /> : null}
+        {!off ? <div className="wslider__thumb" style={{ left: `${value}%` }} /> : null}
       </div>
       <span className={cx("wrow__val", !value && "is-zero")}>{value}%</span>
     </div>
@@ -48,14 +48,17 @@ function WeightRow({ f, value, onChange }) {
 }
 
 export default function MissionWeights({ weights, setWeights, compact = false }) {
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
+  const className = cx("mission-weights", compact && "mission-weights--compact");
   const profiles = <MissionOptions label="Scoring profile" value={weights ? presetOf(weights) : null} options={PROFILES}
     onChange={(profile) => setWeights({ ...PRESETS[profile] })} />;
-  if (!weights) return <div className="mission-weights">{profiles}</div>;
+  if (!weights) return <div className={className}>{compact ? <div className="mission-weights__profiles">{profiles}</div> : profiles}</div>;
 
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const match = presetOf(weights);
   const details = (
-    <div className="wrows">
+    <div id={detailsId} className="wrows" hidden={compact && !expanded}>
       <p className="muted-12">The site score is a weighted average. The weights add up to {total}%.</p>
       {FACTORS.map((f) => (
         <WeightRow key={f.key} f={f} value={weights[f.key] || 0} onChange={(v) => setWeights((w) => rebalance(w, f.key, v))} />
@@ -63,8 +66,8 @@ export default function MissionWeights({ weights, setWeights, compact = false })
     </div>
   );
 
-  return (
-    <div className="mission-weights">
+  const controls = (
+    <>
       {profiles}
       {!match && !compact && <p className="muted-12">Custom weights active</p>}
       <div
@@ -77,11 +80,18 @@ export default function MissionWeights({ weights, setWeights, compact = false })
         ))}
       </div>
       {compact ? (
-        <details className="mission-details">
-          <summary>Adjust weights</summary>
-          {details}
-        </details>
-      ) : details}
+        <button type="button" className="mission-details-toggle" aria-expanded={expanded} aria-controls={detailsId}
+          onClick={() => setExpanded(!expanded)}>
+          <Icon name={expanded ? "chevron-down" : "chevron-right"} size={12} />Adjust weights
+        </button>
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className={className}>
+      {compact ? <div className="mission-weights__profiles">{controls}</div> : controls}
+      {details}
     </div>
   );
 }

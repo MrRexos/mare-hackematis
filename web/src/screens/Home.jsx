@@ -105,7 +105,7 @@ export default function Home({ app }) {
                 ))}
               </nav>
             ) : (
-              <section className="setup__editor" aria-label={`${STEPS[step].label} settings`}>
+              <section className={cx("setup__editor", step === 2 && "setup__editor--weights")} aria-label={`${STEPS[step].label} settings`}>
                 <div className="setup__editor-head"><span>0{step + 1}</span><h2>{STEPS[step].label}</h2></div>
                 {step === 0 && <MissionOptions label="Lunar destination" value={destination} onChange={chooseDestination} options={destinations({ north: app.northReady, moon: app.globalReady })} />}
                 {step === 1 && <MissionTiming {...app} fixedOnly={destination === "moon"} />}

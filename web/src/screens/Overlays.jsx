@@ -157,9 +157,7 @@ export function SettingsDrawer({ initialSection, rulesOnly, region, fixedOnly, i
           </div>
         ))}
         <footer className="drawer__foot">
-          <p className={cx("drawer__status", invalid && "mission-error")} role="status">
-            {invalid || (changed ? "Unsaved changes" : "Settings up to date")}
-          </p>
+          {invalid && <p className="drawer__status mission-error" role="status">{invalid}</p>}
           <div className="drawer__actions">
             <Btn variant="ghost" onClick={dismiss}>Cancel</Btn>
             <Btn type="submit" variant="primary" disabled={!changed || !!invalid}>Apply changes</Btn>

@@ -1,12 +1,12 @@
 import { useId } from "react";
 import { Icon, cx } from "./kit.jsx";
 
-export default function MissionOptions({ label, value, onChange, options }) {
+export default function MissionOptions({ label, hideLabel = false, value, onChange, options }) {
   const id = useId();
 
   return (
     <fieldset className="mission-options">
-      <legend className="lbl">{label}</legend>
+      <legend className={hideLabel ? "sr-only" : "lbl"}>{label}</legend>
       <div className="mission-options__list">
         {options.map((option) => {
           const optionId = `${id}-${option.value}`;

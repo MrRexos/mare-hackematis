@@ -5,6 +5,7 @@ import iceDetections from "../data/iceDetections.json";
 import { formatLatLon, pixelXY, xyToLatLon } from "../engine/geometry.js";
 import { Icon, IconBtn, Shape, cx } from "../ui/kit.jsx";
 import LayerScale from "./LayerScale.jsx";
+import MapLayerBar from "./MapLayerBar.jsx";
 
 function SourceLink({ href, children }) {
   return <a href={href} target="_blank" rel="noreferrer">{children}<Icon name="external-link" size={12} /></a>;
@@ -58,16 +59,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
     <>
       <div className="map-controls">
         <div className="map-controls__row">
-          <div className="overlay layerbar" role="group" aria-label="Map layer">
-            <Icon name="layers" size={16} />
-            {layerKeys.map((key) => (
-              <button key={key} type="button" className={cx("layerbar__b", activeLayer === key && "is-on")}
-                aria-label={layers[key].label} title={layers[key].label} aria-pressed={activeLayer === key} onClick={() => onLayer(key)}>
-                <span className="layerbar__check">{activeLayer === key && <Icon name="check" size={12} />}</span>
-                {layers[key].short}
-              </button>
-            ))}
-          </div>
+          <MapLayerBar layers={layers} layerKeys={layerKeys} activeLayer={activeLayer} onLayer={onLayer} />
           <div className="overlay map-controls__extras">
             {iceObs && <IconBtn icon="droplet" label="Ice observations" variant="ghost" size={32} aria-pressed={showIceEvidence} onClick={() => onIceEvidence(!showIceEvidence)} />}
             <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
@@ -75,23 +67,25 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
         </div>
         {children}
       </div>
-      <LayerScale layer={layer} ends={legendEnds} note={layer.ramp === "shadow" ? "Hatched: over 50% permanent shadow" : null} />
-      <details className="overlay map-legend">
-        <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
-        <div className="overlay legend__pop">
-          <div className="legend__row"><Shape kind="circle" />{refLabels?.legendLabel || "Artemis III reference"}</div>
-          <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
-          <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
-          {layer.ramp === "shadow" && <div className="legend__row"><i className="legend__hatch" />Over 50% permanent shadow</div>}
-          {showIceEvidence && (
-            <>
-              <div className="legend__row"><i className="ice-detection-key" />M³ surface ice detection</div>
-              <div className="legend__row"><i className="ice-region-key" />Shadow region with M³ detections</div>
-              <div className="legend__row"><i className="ice-impact-key" />LCROSS impact</div>
-            </>
-          )}
-        </div>
-      </details>
+      <div className="map-key">
+        <details className="overlay map-legend">
+          <summary aria-label="Map legend" title="Map legend"><Icon name="info" size={17} /></summary>
+          <div className="overlay legend__pop">
+            <div className="legend__row"><Shape kind="circle" />{refLabels?.legendLabel || "Artemis III reference"}</div>
+            <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
+            <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
+            {layer.ramp === "shadow" && <div className="legend__row"><i className="legend__hatch" />Over 50% permanent shadow</div>}
+            {showIceEvidence && (
+              <>
+                <div className="legend__row"><i className="ice-detection-key" />M³ surface ice detection</div>
+                <div className="legend__row"><i className="ice-region-key" />Shadow region with M³ detections</div>
+                <div className="legend__row"><i className="ice-impact-key" />LCROSS impact</div>
+              </>
+            )}
+          </div>
+        </details>
+        <LayerScale layer={layer} ends={legendEnds} note={layer.ramp === "shadow" ? "Hatched: over 50% permanent shadow" : null} />
+      </div>
       {createPortal(<dialog className="layer-info" ref={sources} aria-labelledby="map-layer-info-title">
         <div className="layer-info__head">
           <h2 id="map-layer-info-title" className="h-lg">Map layers and sources</h2>

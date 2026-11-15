@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { CSM } from "three/examples/jsm/csm/CSM.js";
 import { celestialAt, findSunlitTime } from "./CelestialPosition.js";
+import { createEarthVisual, createSunVisual } from "./CelestialVisuals.js";
 import { initPhysics, LunarPhysics, FIXED_STEP } from "./LunarPhysics.js";
 import { lunarReflectance, makeSurfaceMaterials, setupLunarMaterial } from "./SurfaceMaterials.js";
 import { addGravel, addRocks, rockPlacements } from "./ProceduralRocks.js";
@@ -44,20 +45,6 @@ function meshFrom(data) {
   geometry.setAttribute("uv", new THREE.BufferAttribute(data.uv, 2));
   geometry.computeVertexNormals(); geometry.computeBoundingSphere();
   return geometry;
-}
-
-// What a bright point does to an eye or a lens: a tight core and a wide, faint veil.
-function glareTexture() {
-  const size = 256, canvas = document.createElement("canvas"); canvas.width = canvas.height = size;
-  const context = canvas.getContext("2d"), image = context.createImageData(size, size);
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const r = Math.hypot(x - size / 2 + 0.5, y - size / 2 + 0.5) / (size / 2);
-    const value = r >= 1 ? 0 : (Math.exp(-((r / 0.05) ** 2)) + 0.62 / (1 + (r / 0.045) ** 2) ** 0.85) * (1 - r) ** 2;
-    image.data.set([255, 250, 240, Math.min(255, value * 255)], (y * size + x) * 4);
-  }
-  context.putImageData(image, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
 }
 
 export async function createAstronautScene(wrap, bundle, data, skyData, initial, onUpdate, onStage, signal) {
@@ -111,35 +98,15 @@ export async function createAstronautScene(wrap, bundle, data, skyData, initial,
     const gravel = addGravel(scene, bundle.terrain, geology, materials.rock);
     cleanups.push(() => gravel.dispose());
     physics = new LunarPhysics(bundle.terrain, rocks);
-    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xfffaf0, toneMapped: false }); extraMaterials.add(sunMaterial);
-    const sunGeometry = new THREE.SphereGeometry(1, 32, 24); geoms.add(sunGeometry);
-    const sun = new THREE.Mesh(sunGeometry, sunMaterial); sun.frustumCulled = false; scene.add(sun);
-    const glareMap = glareTexture(); materials.textures.add(glareMap);
-    const glareMaterial = new THREE.SpriteMaterial({ map: glareMap, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true, toneMapped: false });
-    extraMaterials.add(glareMaterial);
-    const glare = new THREE.Sprite(glareMaterial); glare.frustumCulled = false; glare.renderOrder = 10; scene.add(glare);
+    const sunVisual = createSunVisual(), { sun, glare } = sunVisual;
+    const sunMaterial = sun.material, glareMaterial = glare.material;
+    cleanups.push(() => sunVisual.dispose()); scene.add(sun, glare);
     // NASA Blue Marble with a synthetic cloud layer; turned and lit for the chosen instant.
     const earthMap = await new THREE.TextureLoader().loadAsync(new URL(`${import.meta.env.BASE_URL}assets/astronaut/sky/earth_2k.jpg`, document.baseURI).href);
     if (signal.aborted) { earthMap.dispose(); throw new DOMException("Cancelled", "AbortError"); }
-    earthMap.colorSpace = THREE.SRGBColorSpace; earthMap.anisotropy = 4; materials.textures.add(earthMap);
-    const earthMaterial = new THREE.MeshBasicMaterial({ map: earthMap, color: 0xffffff, toneMapped: false }); extraMaterials.add(earthMaterial);
-    const earthGeometry = new THREE.SphereGeometry(1, 64, 48); geoms.add(earthGeometry);
-    const earth = new THREE.Mesh(earthGeometry, earthMaterial); earth.frustumCulled = false; scene.add(earth);
-    const phaseSun = { value: new THREE.Vector3() };
-    earthMaterial.onBeforeCompile = (shader) => {
-      shader.uniforms.earthSunDirection = phaseSun;
-      shader.vertexShader = `varying vec3 vEarthNormal; varying vec3 vEarthView;\n${shader.vertexShader}`.replace("#include <begin_vertex>", `#include <begin_vertex>
-        vEarthNormal = normalize(mat3(modelMatrix) * normal);
-        vEarthView = normalize(cameraPosition - (modelMatrix * vec4(position, 1.0)).xyz);`);
-      shader.fragmentShader = `uniform vec3 earthSunDirection; varying vec3 vEarthNormal; varying vec3 vEarthView;\n${shader.fragmentShader}`.replace("#include <opaque_fragment>", `
-        vec3 earthN = normalize(vEarthNormal);
-        float earthDay = dot(earthN, earthSunDirection), earthRim = pow(1.0 - max(dot(earthN, normalize(vEarthView)), 0.0), 2.4);
-        // The air softens the terminator and lays a blue haze over the sunlit limb.
-        float earthLit = smoothstep(-0.07, 0.2, earthDay);
-        outgoingLight = outgoingLight * earthLit * mix(0.5, 1.12, clamp(earthDay, 0.0, 1.0)) + vec3(0.28, 0.5, 1.0) * earthRim * earthLit * 0.55;
-        outgoingLight = max(outgoingLight, vec3(0.0015, 0.002, 0.004));
-        #include <opaque_fragment>`);
-    };
+    const earthVisual = createEarthVisual(earthMap), { earth, phaseSun } = earthVisual;
+    const earthMaterial = earth.material;
+    cleanups.push(() => earthVisual.dispose()); scene.add(earth);
     const sunClip = new THREE.Plane(), earthClip = new THREE.Plane();
     sunMaterial.clippingPlanes = [sunClip]; earthMaterial.clippingPlanes = [earthClip];
     // A lamp at the eye throws its shadows straight behind what it lights, where

@@ -97,12 +97,12 @@ export default function MissionTiming({ mission, setPeriod, updateMission, perio
             <input type="date" value={toInput(mission.fromMs)} min={min} max={toInput(periods.range[1] - (mission.durationDays ?? 1) * DAY_MS)}
               onChange={(e) => updateMission({ fromMs: fromInput(e.target.value) })} aria-describedby={problem ? statusId : undefined} />
           </label>
-          <p className="muted-12">All sites share the same dates.{mission.toMs != null && ` Mission ends ${fmtDay(mission.toMs)}.`}</p>
+          {mission.toMs != null && <p className="muted-12">Mission ends {fmtDay(mission.toMs)}.</p>}
         </div>
       )}
       {searching && (
         <div className="mission-timing__fields">
-          <MissionOptions label="Search range" value={mission.period} onChange={setPeriod} options={SEARCH_RANGES} />
+          <MissionOptions label="Search range" hideLabel value={mission.period} onChange={setPeriod} options={SEARCH_RANGES} />
           {mission.period === "custom" ? (
             <div className="mission-timing__dates">
               <label className="mission-field">

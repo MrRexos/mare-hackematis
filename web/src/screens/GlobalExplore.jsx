@@ -17,6 +17,7 @@ import { ROUGH_MAX_M, presetOf } from "../engine/score.js";
 const MoonGlobe = lazy(() => import("../components/MoonGlobe.jsx"));
 
 import LayerScale from "../components/LayerScale.jsx";
+import MapLayerBar from "../components/MapLayerBar.jsx";
 import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 const PDS = "https://pds-geosciences.wustl.edu/lro/";
@@ -161,29 +162,16 @@ export default function GlobalExplore({ app }) {
   /** Barra de capas (la misma en 2D y en 3D). */
   const layerBar = (keys, active, pick) => (
     <div className="map-controls__row">
-      <div className="overlay layerbar" role="group" aria-label="Map layer">
-        <Icon name="layers" size={16} />
-        {keys.map((key) => {
-          const ly = LAYERS[key] || PHOTO;
-          return (
-            <button key={key} type="button" className={cx("layerbar__b", active === key && "is-on")}
-              aria-label={ly.label} title={ly.label} aria-pressed={active === key} onClick={() => pick(key)}>
-              <span className="layerbar__check">{active === key && <Icon name="check" size={12} />}</span>
-              {ly.short}
-            </button>
-          );
-        })}
-      </div>
+      <MapLayerBar layers={{ ...LAYERS, photo: PHOTO }} layerKeys={keys} activeLayer={active} onLayer={pick} />
       <div className="overlay map-controls__extras">
         <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
       </div>
     </div>
   );
   /** Leyenda desplegable de una capa. */
-  const legend = (ly, ends, isScore) => (<>
-    <LayerScale layer={ly} ends={ends} note={isScore ? "No colour: left out by your limits" : null} />
+  const legend = (ly, ends, isScore) => (<div className="map-key">
     <details className="overlay map-legend">
-      <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
+      <summary aria-label="Map legend" title="Map legend"><Icon name="info" size={17} /></summary>
       <div className="overlay legend__pop">
         {refs.length ? <div className="legend__row"><Shape kind="circle" />{refGroup?.kind || "Reference site"}</div> : null}
         <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
@@ -191,7 +179,8 @@ export default function GlobalExplore({ app }) {
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
       </div>
     </details>
-  </>
+    <LayerScale layer={ly} ends={ends} note={isScore ? "No colour: left out by your limits" : null} />
+  </div>
   );
 
   const places = spots.map((s) => G.placeOf(s.p));

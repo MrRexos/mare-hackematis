@@ -123,7 +123,7 @@ export default function Explore({ app }) {
                 </div>
               ) : dim === "3D" ? (
                 <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                  <Moon3D key={pole} data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} selectionKey={selectionKey} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
+                  <Moon3D key={pole} data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} selectionKey={selectionKey} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} onPick={(p) => setSelRef({ type: "pick", p })} />
                   {sel ? (
                     // Sitio pulsado en 3D: las mismas acciones que el popup del mapa 2D.
                     <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${sel.name}`}>

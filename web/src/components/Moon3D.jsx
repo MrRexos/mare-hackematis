@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { L, cssColor } from "../ds.js";
 import { DEG, formatUtc, latLonToXY, localFrame, pixelXY, xyToPixel, xyToUnit } from "../engine/geometry.js";
+import { earthOrientation } from "../astronaut/CelestialPosition.js";
+import { createEarthVisual, createSunVisual } from "../astronaut/CelestialVisuals.js";
 
 // Vista 3D del polo activo (sur o norte, según data.manifest.grid.pole).
 // - Relieve: elevación LOLA de la malla de 1 km, sobre la esfera lunar real
@@ -31,7 +33,7 @@ function srgbToLinear(c) {
   return (c / 255) ** 2.2;
 }
 
-export default function Moon3D({ data, mission, result, sites, spots, selected, selectionKey = selected?.key, viewSwitch, toolbarActions, timeMs: extTime, onTimeChange, onSelect }) {
+export default function Moon3D({ data, mission, result, sites, spots, selected, selectionKey = selected?.key, viewSwitch, toolbarActions, timeMs: extTime, onTimeChange, onSelect, onPick }) {
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
@@ -45,8 +47,8 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
   const three = useRef(null);
   const cameraFocus = useRef(null);
   const [mode, setMode] = useState("sun");
-  const [exag, setExag] = useState(3);
-  const [aid, setAid] = useState(true);
+  const [exag, setExag] = useState(1);
+  const [aid, setAid] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [labels, setLabels] = useState([]);
 
@@ -129,20 +131,17 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     const terrain = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     scene.add(terrain);
 
-    // Sol y Tierra (agrandados, ver aviso en pantalla).
-    const sunC = cssColor(wrap, "--sun"), earthC = cssColor(wrap, "--earth");
+    // Los mismos modelos del modo astronauta, ampliados para la vista orbital.
     const sunR = SKY_DIST_KM * Math.tan((0.267 * Math.PI) / 180) * SUN_ENLARGE;
     const earthR = SKY_DIST_KM * Math.tan((0.95 * Math.PI) / 180) * EARTH_ENLARGE;
-    const mkBody = (r, c) => {
-      const g = new THREE.Group();
-      const solid = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(`rgb(${c.join(",")})`) }));
-      const ring = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(`rgb(${c.join(",")})`), wireframe: true }));
-      g.add(solid, ring);
-      scene.add(g);
-      return { g, solid, ring };
-    };
-    const sun = mkBody(sunR, sunC);
-    const earth = mkBody(earthR, earthC);
+    const sunVisual = createSunVisual();
+    const earthMap = new THREE.TextureLoader().load(new URL(`${import.meta.env.BASE_URL}assets/astronaut/sky/earth_2k.jpg`, document.baseURI).href);
+    const earthVisual = createEarthVisual(earthMap);
+    const sun = { g: sunVisual.sun }, earth = { g: earthVisual.earth };
+    sun.g.scale.setScalar(sunR); earth.g.scale.setScalar(earthR);
+    sunVisual.glare.scale.setScalar(SKY_DIST_KM * 2 * Math.tan(24 * Math.PI / 180));
+    sunVisual.glare.material.depthTest = true;
+    scene.add(sun.g, earth.g, sunVisual.glare);
 
     // Línea del horizonte "matemático" del polo (círculo a la altura del suelo), como referencia.
     const ringPts = [];
@@ -166,6 +165,39 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     ro.observe(wrap);
     resize();
 
+    // Elegir una celda del relieve con un clic; arrastrar o pellizcar solo mueve la cámara.
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), vertex = new THREE.Vector3();
+    let down = null;
+    const onDown = (e) => {
+      down = e.isPrimary && e.button === 0 ? { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false } : null;
+    };
+    const onMove = (e) => {
+      if (down?.id === e.pointerId && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) down.moved = true;
+    };
+    const onUp = (e) => {
+      const gesture = down; down = null;
+      if (!three.current?.onPick || !gesture || gesture.id !== e.pointerId || gesture.moved || Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 5) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      ndc.set((e.clientX - rect.left) / rect.width * 2 - 1, 1 - (e.clientY - rect.top) / rect.height * 2);
+      camera.updateMatrixWorld(); terrain.updateMatrixWorld();
+      ray.setFromCamera(ndc, camera);
+      const hit = ray.intersectObject(terrain, false)[0];
+      if (!hit?.face) return;
+      const point = terrain.worldToLocal(hit.point.clone());
+      let pixel = null, nearest = Infinity;
+      for (const p of [hit.face.a, hit.face.b, hit.face.c]) {
+        const distance = vertex.fromBufferAttribute(geom.attributes.position, p).distanceToSquared(point);
+        if (distance < nearest) { nearest = distance; pixel = p; }
+      }
+      if (pixel != null) three.current.onPick(pixel);
+    };
+    const onCancel = () => { down = null; };
+    const canvas = renderer.domElement;
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onCancel);
+
     let raf = 0;
     const loop = () => {
       raf = requestAnimationFrame(loop);
@@ -175,17 +207,25 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     };
     loop();
 
-    three.current = { renderer, scene, camera, controls, geom, pos, col, terrain, sun, earth, pin, onFrame: null };
+    three.current = { renderer, scene, camera, controls, geom, pos, col, terrain, sun, earth, sunVisual, earthVisual, pin, onFrame: null, onPick: null };
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointercancel", onCancel);
       controls.dispose();
+      sunVisual.dispose(); earthVisual.dispose();
+      terrain.material.dispose(); horizonRing.geometry.dispose(); horizonRing.material.dispose(); pin.geometry.dispose(); pin.material.dispose();
       renderer.dispose();
       geom.dispose();
       renderer.domElement.remove();
       three.current = null;
     };
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { if (three.current) three.current.onPick = onPick; }, [onPick, data]);
 
   // --- Posiciones (cambian con la exageración) + normales reales -------------
   const normals = useRef(null);
@@ -218,7 +258,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     const S = [v(0), v(1), v(2)];
     const E = [v(3), v(4), v(5)];
     const sd = Math.hypot(...S);
-    return { sun: S.map((x) => x / sd), sunDist: sd, earth: E };
+    return { sun: S.map((x) => x / sd), sunDist: sd, earth: E, attitude: earthOrientation({ sun: S, earth: E }, timeMs) };
   }, [timeMs, ephem, em]);
 
   const horizonAt = (p, azDeg) => {
@@ -275,19 +315,22 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     }
     t.geom.attributes.color.needsUpdate = true;
 
-    // Sol y Tierra en el cielo; sólidos si se ven desde el punto de referencia.
-    const place = (body, dir, visible) => {
+    // Modelos en sus direcciones reales; el panel indica si el punto elegido los ve.
+    const place = (body, dir) => {
       const d = toScene(dir[0], dir[1], dir[2], 0);
       const l = Math.hypot(...d);
       body.g.position.set((d[0] / l) * SKY_DIST_KM, (d[1] / l) * SKY_DIST_KM, (d[2] / l) * SKY_DIST_KM);
-      body.solid.visible = visible;
-      body.ring.visible = !visible;
     };
     const [saz, sel] = azEl(refPixel, S);
-    const [eaz, eel] = azEl(refPixel, earthVec(refPixel));
-    place(t.sun, S, sel + sunRad > horizonAt(refPixel, saz));
-    place(t.earth, earthVec(refPixel), eel > horizonAt(refPixel, eaz));
-  }, [sky, mode, aid, exag, pre]); // eslint-disable-line react-hooks/exhaustive-deps
+    place(t.sun, S);
+    place(t.earth, earthVec(refPixel));
+    const axes = [sky.attitude.greenwich, sky.attitude.north].map((v) => new THREE.Vector3(...toScene(...v, 0)));
+    const east = new THREE.Vector3().crossVectors(axes[0], axes[1]);
+    t.earth.g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(axes[0], axes[1], east));
+    t.earthVisual.phaseSun.value.fromArray(toScene(...sky.attitude.toSun, 0));
+    t.sunVisual.glare.position.copy(t.sun.g.position);
+    t.sunVisual.glare.visible = sel + sunRad > horizonAt(refPixel, saz);
+  }, [sky, mode, aid, exag, pre, refPixel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Coloca la cámara detrás del punto de referencia, mirando hacia un astro
   // (el Sol y la Tierra van casi a ras de horizonte en el polo).
@@ -373,7 +416,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
   const where = selected ? selected.name : north ? "North pole" : "South pole";
 
   return (
-    <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label={`3D view of the lunar ${north ? "north" : "south"} pole with the Sun and Earth. Drag to rotate, scroll to zoom, right-drag to pan.`}>
+    <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label={`3D view of the lunar ${north ? "north" : "south"} pole with the Sun and Earth. Drag to rotate, scroll to zoom, right-drag to pan.${onPick ? " Click terrain to choose your spot." : ""}`}>
       {labels.map((l) => {
         const cls = `label3d label3d--${l.kind} ${selected?.key === l.key ? "is-selected" : ""}`;
         const style = { transform: `translate(${l.xy[0]}px, ${l.xy[1]}px)` };
@@ -417,19 +460,16 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
         <div className="readout-sm">{where}</div>
         <div className="caption lh-muted">{formatUtc(timeMs)}</div>
         <div className="hover-grid hover-grid--2">
-          <L.Readout size="sm" label="Sun elevation" kind="sun" value={reading.sel.toFixed(2)} unit="°" hint={`skyline ${reading.sh.toFixed(1)}°`} />
-          <L.Readout size="sm" label="Earth elevation" kind="earth" value={reading.eel.toFixed(2)} unit="°" hint={`skyline ${reading.eh.toFixed(1)}°`} />
+          <div className="polar-reading">
+            <L.Readout size="sm" label="Sun elevation" kind="sun" value={reading.sel.toFixed(2)} unit="°" hint={`skyline ${reading.sh.toFixed(1)}°`} />
+            <span className={`caption polar-reading__visibility${reading.sunUp ? " is-visible" : ""}`}>{reading.sunUp ? "visible" : "hidden"}</span>
+          </div>
+          <div className="polar-reading">
+            <L.Readout size="sm" label="Earth elevation" kind="earth" value={reading.eel.toFixed(2)} unit="°" hint={`skyline ${reading.eh.toFixed(1)}°`} />
+            <span className={`caption polar-reading__visibility${reading.earthUp ? " is-visible" : ""}`}>{reading.earthUp ? "visible" : "hidden"}</span>
+          </div>
         </div>
-        <div className="tag-row">
-          <L.VisibilityTag kind="sun" state={reading.sunUp ? "visible" : "blocked"}>{reading.sunUp ? "Sun in view" : "Sun hidden"}</L.VisibilityTag>
-          <L.VisibilityTag kind="earth" state={reading.earthUp ? "visible" : "blocked"}>{reading.earthUp ? "Earth in view" : "Earth hidden"}</L.VisibilityTag>
-        </div>
-        <div className="tag-row">
-          <L.Button size="sm" icon="sun" onClick={() => face(sky.sun)}>Face the Sun</L.Button>
-          <L.Button size="sm" icon="earth" onClick={() => face(earthVec(refPixel))}>Face Earth</L.Button>
-        </div>
-        <L.Switch label="Relief shading" description="Relief shading is a visual aid, not sunlight." checked={aid} onChange={setAid} />
-        <L.FidelityBadge level="approximate" detail={`Not to scale: Sun ×${SUN_ENLARGE}, Earth ×${EARTH_ENLARGE}, relief ×${exag}. Light uses 1 km terrain horizons.`}>Not to scale</L.FidelityBadge>
+        <L.Switch label="Relief shading" checked={aid} onChange={setAid} />
       </L.Panel>
       {external ? null : <div className="hud hud--timebar">
         <L.TimeBar
