@@ -120,8 +120,8 @@ solo del polo sur. La puntuación usa los factores con datos globales: luz, Tier
 **Vista 3D.** Como en el polo sur, Explore tiene 2D y 3D. El 3D es un globo de la Luna que se
 gira y se acerca con el ratón: fotografía real (mosaico LROC WAC de 100 m) con relieve de LOLA,
 y encima las mejores celdas y la elegida. Por defecto se ve la foto sola; la barra de capas
-permite poner encima la puntuación, el Sol, la Tierra, la temperatura o el agua (la misma imagen
-que colorea el mapa 2D, siguiendo el relieve). Pendiente, rugosidad y elevación quedan en el 2D.
+permite poner encima cualquiera de las capas del mapa 2D (la misma imagen que lo colorea,
+siguiendo el relieve).
 Las texturas van en `web/public/data/global/globe/` (14 MB) y solo se descargan al abrir el 3D:
 primero la foto de 4k (2,7 MB) y, si el equipo lo admite, la de 8k. Para regenerarlas:
 `python -m moonsite.globe_textures` (baja el mosaico de 6 GB a `.cache`).

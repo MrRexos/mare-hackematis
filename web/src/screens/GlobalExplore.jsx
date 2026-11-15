@@ -68,10 +68,8 @@ const LAYERS = {
   },
 };
 const MAP_LAYERS = Object.keys(LAYERS);
-/** Capas que tiene el globo 3D además de la foto: las que cambian a gran escala y se leen bien
- *  sobre una esfera. Pendiente, rugosidad y elevación quedan para el mapa 2D (el globo ya
- *  enseña el relieve real, y a 15 km por celda no aportan). */
-const GLOBE_LAYERS = ["score", "sun", "earth", "temp", "water"];
+/** El globo 3D lleva las mismas capas que el mapa 2D, además de la foto sola. */
+const GLOBE_LAYERS = MAP_LAYERS;
 const PHOTO = { label: "Photograph of the Moon", short: "Photo" };
 
 /** Lecturas extra de la ficha del punto (no son capas de mapa). */
@@ -328,8 +326,7 @@ export default function GlobalExplore({ app }) {
                     <h3>3D globe</h3>
                     <p>
                       Photograph: LROC Wide Angle Camera global mosaic, 100 m per pixel (NASA/GSFC/Arizona State University). Relief: LOLA, exaggerated six times.
-                      Above 80° latitude the mosaic has no usable data and the globe shows shaded LOLA relief instead. The globe can also carry the score, Sun, Earth,
-                      temperature and water layers; slope, roughness and elevation stay on the 2D map.
+                      Above 80° latitude the mosaic has no usable data and the globe shows shaded LOLA relief instead. The globe can also carry any of the map layers, with the same colours as the 2D map.
                     </p>
                   </section>
                   <section className="layer-info__item">
