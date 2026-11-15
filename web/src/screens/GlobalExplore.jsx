@@ -14,7 +14,7 @@ import { ROUGH_MAX_M, presetOf } from "../engine/score.js";
 // El globo 3D (three.js y sus texturas) solo se descarga si se abre la vista 3D.
 const MoonGlobe = lazy(() => import("../components/MoonGlobe.jsx"));
 
-import { GLOBAL_RAMPS, rampCss } from "../engine/globalRamps.js";
+import { paletteOf, rampCss } from "../engine/globalRamps.js";
 import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 const PDS = "https://pds-geosciences.wustl.edu/lro/";
@@ -179,7 +179,7 @@ export default function GlobalExplore({ app }) {
         <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
         <div className="legend__ramp">
           <span className="legend__name">{ly.label}</span>
-          <div className={cx("ramp", !ly.palette && `ramp--${ly.ramp}`)} style={ly.palette ? { background: rampCss(GLOBAL_RAMPS[ly.palette]) } : undefined} />
+          <div className={cx("ramp", !paletteOf(ly) && `ramp--${ly.ramp}`)} style={paletteOf(ly) ? { background: rampCss(paletteOf(ly)) } : undefined} />
           <div className="legend__ends"><span>{ends[0]}</span><span>{ends[1]}</span></div>
         </div>
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}

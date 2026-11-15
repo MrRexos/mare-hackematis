@@ -3,6 +3,7 @@ import { L, cssColor } from "../ds.js";
 import { IconBtn } from "../ui/kit.jsx";
 import { formatLatLon, latLonToXY, xyToPixel } from "../engine/geometry.js";
 import { ROUGH_MAX_M } from "../engine/score.js";
+import { paletteOf, rampFunction } from "../engine/globalRamps.js";
 import iceDetections from "../data/iceDetections.json";
 
 // Visor del mapa del polo sur (siempre en tema oscuro, como pide el design system).
@@ -24,6 +25,23 @@ const NICE_KM = [1, 2, 5, 10, 20, 50, 100, 200];
 /** Rampa de color de cada capa: (valor) -> [r, g, b, a 0-255] o null. */
 export function makeRamp(layer, colors, extent) {
   const { both, sun, earth, ink, lineStrong, relief, temp } = colors;
+  // Cada propiedad tiene su propia escala de color (engine/globalRamps.js), la misma en el polo
+  // sur y en la Luna entera. La Tierra no tiene escala propia y sigue con la del design system.
+  const palette = paletteOf(layer);
+  if (palette) {
+    if (layer.ramp === "shadow") {
+      // valor codificado: <0 = sombra permanente (trama), 0..1 = cercanía al hielo
+      const near = rampFunction(palette, [0, 1]);
+      return (v, i, j) => {
+        if (!Number.isFinite(v)) return null;
+        if (v < 0) return (i + j) % 3 === 0 ? [...lineStrong, 255] : [0, 0, 0, 120];
+        return near(v);
+      };
+    }
+    // Rango de la escala: el de la capa si lo declara; si no, el habitual de cada propiedad.
+    const range = layer.range || { sun: [0, extent[1] > 0 ? extent[1] : 1], slope: [0, 30], rough: [0, ROUGH_MAX_M] }[layer.ramp] || extent;
+    return rampFunction(palette, range);
+  }
   switch (layer.ramp) {
     case "score": {
       const [lo, hi] = extent;

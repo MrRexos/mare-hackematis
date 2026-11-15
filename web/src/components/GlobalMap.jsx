@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { L, cssColor } from "../ds.js";
 import { makeRamp } from "./MapView.jsx";
-import { GLOBAL_RAMPS, rampFunction } from "../engine/globalRamps.js";
 import { IconBtn } from "../ui/kit.jsx";
 import { cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
@@ -11,16 +10,6 @@ import { cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 //   rueda: zoom en el cursor · arrastrar: mover · clic: elegir celda · 0: vista completa
 
 const MAX_ZOOM = 12;
-
-/**
- * Rampa de la capa. Las capas de la Luna entera llevan su propia escala (`palette`, ver
- * engine/globalRamps.js) y el rango que cubre (`range`; sin él, el de los datos). La Tierra
- * conserva la rampa del design system, la misma del polo sur.
- */
-function rampFor(layer, colors, extent) {
-  const palette = GLOBAL_RAMPS[layer.palette];
-  return palette ? rampFunction(palette, layer.range || extent) : makeRamp(layer, colors, extent);
-}
 
 /**
  * Imagen de una capa (una celda = un píxel, transparente donde no hay dato o la celda está
@@ -35,7 +24,7 @@ export function layerCanvas(el, layer, values, cols, rows) {
   };
   let lo = Infinity, hi = -Infinity;
   for (const v of values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const ramp = rampFor(layer, colors, [lo, hi]);
+  const ramp = makeRamp(layer, colors, [lo, hi]);
   const c = document.createElement("canvas");
   c.width = cols; c.height = rows;
   const ctx = c.getContext("2d");

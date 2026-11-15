@@ -1,4 +1,4 @@
-// Escalas de color de las capas de la Luna entera (mapa 2D y globo 3D).
+// Escalas de color de las capas del mapa: polo sur y Luna entera (mapa 2D y globo 3D).
 // Cada propiedad tiene su propia gama, para que no se confundan entre sí:
 //
 //   score      lila → rojo → verde → azul (azul = la mejor puntuación)
@@ -8,7 +8,8 @@
 //   slope      verde (llano) → amarillo → rojo (demasiada pendiente): lectura de seguridad
 //   rough      crema → rosa → magenta → morado oscuro
 //   temp       lila → azul (frío) → amarillo → naranja → rojo (caliente)
-//   water      de transparente (sin agua) a azul claro y azul intenso
+//   water      de transparente (sin agua) a azul claro y azul intenso; en el polo sur es la
+//              cercanía al hielo (capa «shadow»), con la misma gama
 //
 // Una escala es una lista de paradas [posición 0-1, [r, g, b]]. `alpha` es la opacidad de las
 // celdas con dato (de 0 a 255); con `fade`, la opacidad además crece con el valor, de modo que
@@ -26,6 +27,11 @@ export const GLOBAL_RAMPS = {
   temp: { alpha: 215, stops: stops([0, "#7048e8"], [0.25, "#339af0"], [0.5, "#ffd43b"], [0.75, "#fd7e14"], [1, "#e03131"]) },
   water: { alpha: 235, fade: true, stops: stops([0, "#a5d8ff"], [0.5, "#339af0"], [1, "#1864ab"]) },
 };
+
+/** Escala de una capa: por su `palette` o, si no, por su `ramp` (la Tierra no tiene: usa la del design system). */
+export function paletteOf(layer) {
+  return GLOBAL_RAMPS[layer.palette || (layer.ramp === "shadow" ? "water" : layer.ramp)] || null;
+}
 
 /** Color [r, g, b] de una escala en la posición t (0-1). */
 export function rampColor(ramp, t) {

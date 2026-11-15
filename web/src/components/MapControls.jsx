@@ -4,6 +4,7 @@ import { LAYERS, layerReading } from "../data/mapLayers.js";
 import iceDetections from "../data/iceDetections.json";
 import { formatLatLon, pixelXY, xyToLatLon } from "../engine/geometry.js";
 import { Icon, IconBtn, Shape, cx } from "../ui/kit.jsx";
+import { paletteOf, rampCss } from "../engine/globalRamps.js";
 
 function SourceLink({ href, children }) {
   return <a href={href} target="_blank" rel="noreferrer">{children}<Icon name="external-link" size={12} /></a>;
@@ -76,7 +77,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
           <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
           <div className="legend__ramp">
             <span className="legend__name">{layer.label}</span>
-            <div className={cx("ramp", `ramp--${layer.ramp}`)} />
+            <div className={cx("ramp", !paletteOf(layer) && `ramp--${layer.ramp}`)} style={paletteOf(layer) ? { background: rampCss(paletteOf(layer)) } : undefined} />
             <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
           </div>
           {layer.ramp === "shadow" && <div className="legend__row"><i className="legend__hatch" />Over 50% permanent shadow</div>}
