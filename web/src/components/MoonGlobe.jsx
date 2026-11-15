@@ -6,9 +6,10 @@ import { IconBtn } from "../ui/kit.jsx";
 import { layerCanvas } from "./GlobalMap.jsx";
 
 // Globo 3D de la Luna entera: fotografía real (mosaico LROC WAC) y relieve real de LOLA.
-// Encima van los marcadores de las mejores celdas y de la celda elegida y, si se pide, una
-// capa de datos (`overlay`): la misma imagen que colorea el mapa 2D, como una segunda piel
-// semitransparente que sigue el relieve. Con capa, la foto se oscurece para que el color se lea.
+// Encima van los marcadores de las mejores celdas, de los sitios de referencia (alunizajes
+// Apollo) y de la celda elegida y, si se pide, una capa de datos (`overlay`): la misma imagen
+// que colorea el mapa 2D, como una segunda piel semitransparente que sigue el relieve. Con
+// capa, la foto se oscurece para que el color se lea.
 //   arrastrar: girar · rueda / pellizco: zoom · clic: elegir la celda de ese punto
 //
 // Calidad sin sacrificar velocidad:
@@ -151,14 +152,16 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, ove
       c.copy(camera.position);
       const out = [];
       for (const p of items) {
-        onSphere(p.lat, p.lon, 1.012, v);
+        const [lat, lon] = p.centre || [p.lat, p.lon]; // un sitio de referencia va en su punto exacto
+        onSphere(lat, lon, 1.012, v);
         if (v.dot(c) < 1.03) continue;                // detrás del horizonte del globo
         v.project(camera);
         out.push({ place: p, x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h });
       }
       setLabels(out);
       if (sel) {
-        onSphere(sel.lat, sel.lon, 1.02, ring.position);
+        const [lat, lon] = sel.centre || [sel.lat, sel.lon];
+        onSphere(lat, lon, 1.02, ring.position);
         ring.lookAt(0, 0, 0);
         // Tamaño constante en pantalla: de cerca el anillo encoge con la distancia.
         ring.scale.setScalar(Math.max(0.1, Math.min(1.4, (camera.position.length() - 1) / 2.4)));
@@ -286,9 +289,9 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, ove
       aria-label="3D globe of the Moon. Drag to rotate, scroll to zoom, click a point to pick its cell.">
       {labels.map(({ place, x, y }, k) => (
         <L.MapMarker
-          key={place.key}
+          key={`${place.key}-${place.shape}`}
           label={`${place.name}${Number.isFinite(place.score) ? ` · ${Math.round(place.score)}` : ""}`}
-          shape={place.shape === "square" ? "square" : "custom"}
+          shape={place.shape === "diamond" ? "custom" : place.shape}
           rank={place.rank || undefined}
           category={place.kindLabel}
           state={selected?.key === place.key ? "selected" : "default"}

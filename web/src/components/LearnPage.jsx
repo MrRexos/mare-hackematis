@@ -41,6 +41,7 @@ export default function LearnPage({ data }) {
             <li><b>Ice observations:</b> Lemelin et al. (2021) mapped permanently shadowed regions associated with M³ detections. The LCROSS marker uses NASA’s Centaur impact coordinates and the water detection reported by Colaprete et al. (2010).</li>
             <li><b>Sun and Earth:</b> NASA/JPL NAIF SPICE, DE440 ephemeris, MOON_ME frame, light time and aberration.</li>
             <li><b>Artemis III regions:</b> NASA (2024-10-28), approximate centres.</li>
+            <li><b>Apollo landing sites (Whole Moon):</b> NASA NSSDCA, lunar module positions measured on LROC images.</li>
             <li><b>Checks:</b> JPL Horizons API and LOLA AVGVISIB (Sun and Earth).</li>
           </ul>
         </L.Panel>

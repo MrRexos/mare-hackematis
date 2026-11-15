@@ -171,5 +171,68 @@
     },
     "source": "LROC WAC global mosaic 100 m (NASA/GSFC/Arizona State University, USGS Astrogeology) · LOLA LDEM_64 (NASA PDS)",
     "projection": "equirectangular, column 0 at −180°E, row 0 at +90°"
+  },
+  "sites": {
+    "groups": [
+      {
+        "id": "apollo",
+        "label": "Apollo references",
+        "kind": "Apollo landing site",
+        "shape": "circle",
+        "fidelity": "approximate",
+        "note": "The six crewed Apollo landings (1969–1972). Each one is scored as the 0.5° cell that contains the lunar module, so the score describes about 15 km of terrain, not the exact spot.",
+        "source": "NASA NSSDCA, lunar module positions measured on LROC images"
+      }
+    ],
+    "sites": [
+      {
+        "id": "apollo-11",
+        "name": "Apollo 11",
+        "short": "A11",
+        "lat": 0.67416,
+        "lon": 23.47314,
+        "group": "apollo"
+      },
+      {
+        "id": "apollo-12",
+        "name": "Apollo 12",
+        "short": "A12",
+        "lat": -3.01239,
+        "lon": -23.42157,
+        "group": "apollo"
+      },
+      {
+        "id": "apollo-14",
+        "name": "Apollo 14",
+        "short": "A14",
+        "lat": -3.6453,
+        "lon": -17.47136,
+        "group": "apollo"
+      },
+      {
+        "id": "apollo-15",
+        "name": "Apollo 15",
+        "short": "A15",
+        "lat": 26.13222,
+        "lon": 3.63386,
+        "group": "apollo"
+      },
+      {
+        "id": "apollo-16",
+        "name": "Apollo 16",
+        "short": "A16",
+        "lat": -8.97301,
+        "lon": 15.50019,
+        "group": "apollo"
+      },
+      {
+        "id": "apollo-17",
+        "name": "Apollo 17",
+        "short": "A17",
+        "lat": 20.1908,
+        "lon": 30.77168,
+        "group": "apollo"
+      }
+    ]
   }
 }

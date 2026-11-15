@@ -30,6 +30,7 @@ import numpy as np
 
 from . import config as C
 from . import horizon_global as HG
+from . import sites
 from . import surface_global as SG
 from . import thermal_global as TG
 
@@ -163,6 +164,8 @@ def main(argv=None) -> None:
     hs = _sombreado()
     if hs:
         manifest["hillshade"] = hs
+    # Referencias sobre el mapa (alunizajes Apollo), como las regiones Artemis III del polo sur.
+    manifest["sites"] = sites.catalog_global()
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"Listo: {OUT / 'manifest.json'} ({', '.join(manifest['layers']) or 'sin capas'})")
 

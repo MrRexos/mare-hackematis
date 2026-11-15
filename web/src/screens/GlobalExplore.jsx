@@ -3,6 +3,8 @@
 // derecha, objetivo, mejor lugar y ranking. Cambian los datos: malla global de 0,5°, con la
 // luz, la Tierra y la temperatura calculadas al momento para las fechas de la misión
 // (useGlobalMission). De momento solo con fecha fija de aterrizaje.
+// El ranking tiene dos listas, como el polo sur con Artemis III: las mejores celdas calculadas
+// y los alunizajes Apollo (referencias del manifest global), que también van sobre el mapa.
 
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -115,15 +117,17 @@ export default function GlobalExplore({ app }) {
   const {
     globalManifest: gm, G, mission, problem, weights, openSettings, openWeights, go, Rail,
     regionId: region, setRegion, gSel: sel, setGSel: setSel, inCmp, toggleCmp, cmpPlaces, dim, setDim,
+    gGroup, setGGroup, gPlace,
   } = app;
   const is3D = dim === "3D" && !!gm.globe; // globo de la Luna, sin capas de datos
   const grid = gm.grid;
-  const { L, score, keys, spots, error, runError, loading, progress, ready, result } = G;
+  const { L, score, keys, spots, refs, error, runError, loading, progress, ready, result } = G;
   const [layerKey, setLayerKey] = useState("score");
   const [globeKey, setGlobeKey] = useState("photo"); // capa del globo 3D; "photo" = la Luna tal cual
   const [hoverP, setHoverP] = useState(null);
   const [hillshade, setHillshade] = useState(null);
   const sources = useRef(null);
+  const refGroup = gm.sites?.groups?.[0] || null; // grupo de referencias (alunizajes Apollo)
   const hillshadeUrl = gm.hillshade ? `${import.meta.env.BASE_URL}data/${gm.hillshade}` : null;
 
   useEffect(() => {
@@ -176,6 +180,7 @@ export default function GlobalExplore({ app }) {
     <details className="overlay map-legend">
       <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
       <div className="overlay legend__pop">
+        {refs.length ? <div className="legend__row"><Shape kind="circle" />{refGroup?.kind || "Reference site"}</div> : null}
         <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
         <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
@@ -185,9 +190,14 @@ export default function GlobalExplore({ app }) {
   );
 
   const places = spots.map((s) => G.placeOf(s.p));
-  const best = places[0] || null;
-  const rest = places.slice(1);
-  const selected = sel != null ? G.placeOf(sel) : null;
+  // Listas del ranking: las celdas calculadas y, si el manifest las trae, las referencias Apollo.
+  const groups = { spots: { label: "Calculated candidates", list: places }, ...(refs.length ? { apollo: { label: refGroup?.label || "Apollo references", list: refs } } : {}) };
+  const groupId = groups[gGroup] ? gGroup : "spots";
+  const list = groups[groupId].list;
+  const ranked = list.filter((p) => Number.isFinite(p.score));
+  const best = ranked[0] || null;
+  const rest = best ? ranked.slice(1) : list;
+  const selected = sel != null ? gPlace(sel) : null;
   const goal = presetOf(weights);
   const dates = result ? `${fmtShort(mission.fromMs)} → ${fmtShort(mission.toMs)}` : null;
   const openSite = (place) => { setSel(place.p); app.setTab("overview"); go("site"); };
@@ -247,7 +257,7 @@ export default function GlobalExplore({ app }) {
             <section aria-label="Moon map" className="mapsec" data-theme="dark">
               {is3D ? (
                 <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                  <MoonGlobe globe={gm.globe} grid={grid} places={places} selected={selected} onSelect={setSel}
+                  <MoonGlobe globe={gm.globe} grid={grid} places={[...refs, ...places]} selected={selected} onSelect={setSel}
                     overlay={globeLayer && globeValues ? { layer: globeLayer, values: globeValues } : null}>
                     <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
                   </MoonGlobe>
@@ -280,7 +290,7 @@ export default function GlobalExplore({ app }) {
                 </Suspense>
               ) : (
                 <>
-                <GlobalMap grid={grid} hillshade={hillshade} layer={layer} values={values} spots={spots} selectedP={sel}
+                <GlobalMap grid={grid} hillshade={hillshade} layer={layer} values={values} spots={spots} sites={refs} selectedP={sel}
                   onSelect={setSel} onHover={(p) => setHoverP(p ?? null)}>
                   <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
                   {error ? (
@@ -327,6 +337,12 @@ export default function GlobalExplore({ app }) {
                       Above 80° latitude the mosaic has no usable data and the globe shows shaded LOLA relief instead. The globe can also carry any of the map layers, with the same colours as the 2D map.
                     </p>
                   </section>
+                  {refGroup ? (
+                    <section className="layer-info__item">
+                      <h3>{refGroup.label}</h3>
+                      <p>{refGroup.note} Source: {refGroup.source}.</p>
+                    </section>
+                  ) : null}
                   <section className="layer-info__item">
                     <h3>Whole-Moon grid</h3>
                     <p>
@@ -378,7 +394,7 @@ export default function GlobalExplore({ app }) {
                     {ready && <div className="progress" role="progressbar" aria-label="Mission calculation" aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></div>}
                   </div>
                 ) : !best ? (
-                  <p className="muted-12">{result ? "No cell passes the current limits." : "Mission results unavailable."}</p>
+                  <p className="muted-12">{!result ? "Mission results unavailable." : groupId === "apollo" ? "No Apollo landing site passes the current limits." : "No cell passes the current limits."}</p>
                 ) : (
                   <>
                     <button type="button" className="best" onClick={() => setSel(best.p)}>
@@ -414,13 +430,23 @@ export default function GlobalExplore({ app }) {
               <div className="stack-10">
                 <div className="row-8 px-4"><h2 className="h-sm">Ranking/</h2></div>
                 <div className="row-6 px-4 wrap">
-                  <span className="chip is-on">Calculated candidates<span className="chip__n">{places.length}</span></span>
+                  {Object.entries(groups).map(([id, g]) => (
+                    <button key={id} type="button" className={cx("chip", groupId === id && "is-on")} aria-pressed={groupId === id} onClick={() => {
+                      // Como en el polo sur: al cambiar de ranking, la selección pasa al primero de
+                      // la nueva lista si la celda seleccionada no pertenece a ella.
+                      setGGroup(id);
+                      const first = g.list.find((p) => Number.isFinite(p.score));
+                      if (first && !g.list.some((p) => p.p === sel)) setSel(first.p);
+                    }}>
+                      {g.label}<span className="chip__n">{g.list.length}</span>
+                    </button>
+                  ))}
                 </div>
                 <div className="rows">
-                  {rest.length === 0 && !loading ? <p className="muted-12 px-4">Nothing to rank yet.</p> : null}
+                  {list.length === 0 && !loading ? <p className="muted-12 px-4">Nothing to rank yet.</p> : null}
                   {rest.map((p, k) => (
                     <div key={p.key} className={cx("rrow", sel === p.p && "is-sel")}>
-                      <span className="rrow__rank">{String(k + 2).padStart(2, "0")}</span>
+                      <span className="rrow__rank">{String(k + (best ? 2 : 1)).padStart(2, "0")}</span>
                       <button type="button" className="rrow__main" onClick={() => setSel(p.p)}>
                         <GlobalThumb place={p} hillshadeUrl={hillshadeUrl} />
                         <span className="rrow__text">

@@ -6,6 +6,7 @@ import { IconBtn } from "../ui/kit.jsx";
 // Mapa de toda la Luna (equirectangular, malla global de 0,5°). Mismo aspecto que el visor
 // del polo sur (MapView): relieve LOLA de fondo y la capa elegida encima, cada propiedad con
 // su propia escala de color (engine/globalRamps.js); las celdas descartadas quedan sin color.
+// Marcadores: cuadrado = celda calculada; círculo = sitio de referencia (alunizajes Apollo).
 //   rueda: zoom en el cursor · arrastrar: mover · clic: elegir celda · 0: vista completa
 
 const MAX_ZOOM = 12;
@@ -36,7 +37,7 @@ export function layerCanvas(el, layer, values, cols, rows) {
   return c;
 }
 
-export default function GlobalMap({ grid, hillshade, layer, values, spots, selectedP, onSelect, onHover, children }) {
+export default function GlobalMap({ grid, hillshade, layer, values, spots, sites = [], selectedP, onSelect, onHover, children }) {
   const { cols, rows } = grid;
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -168,6 +169,11 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
     const [sx, sy] = toScreen(j + 0.5, i + 0.5);
     return { position: "absolute", left: sx - 14, top: sy - 14, zIndex: 2 };
   };
+  /** Marcador en un punto exacto (latitud y longitud), no en el centro de su celda. */
+  const pointStyle = (lat, lon) => {
+    const [sx, sy] = toScreen((lon - grid.lon0) / grid.stepDeg, (grid.lat0 - lat) / grid.stepDeg);
+    return { position: "absolute", left: sx - 14, top: sy - 14, zIndex: 2 };
+  };
 
   return (
     <div
@@ -185,6 +191,18 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
       onKeyDown={onKeyDown}
     >
       <canvas ref={canvasRef} className="viewer__canvas" />
+      {sites.map((s) => (
+        <L.MapMarker
+          key={`ref-${s.site.id}`}
+          label={Number.isFinite(s.score) ? `${s.name} · ${Math.round(s.score)}` : s.name}
+          shape="circle"
+          category={s.kindLabel}
+          state={selectedP === s.p ? "selected" : "default"}
+          showLabel={selectedP === s.p || view.zoom >= 3}
+          style={pointStyle(...s.centre)}
+          onClick={() => onSelect?.(s.p)}
+        />
+      ))}
       {spots.map((s, k) => (
         <L.MapMarker
           key={`g-${s.p}`}
@@ -198,7 +216,7 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
           onClick={() => onSelect?.(s.p)}
         />
       ))}
-      {selectedP != null && !spots.some((s) => s.p === selectedP) ? (
+      {selectedP != null && !spots.some((s) => s.p === selectedP) && !sites.some((s) => s.p === selectedP) ? (
         <L.MapMarker label="Your spot" shape="custom" state="selected" category="Your spot" style={markerStyle(selectedP)} />
       ) : null}
       <div className="viewer__zoom">

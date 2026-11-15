@@ -48,6 +48,7 @@ GitHub Pages.
 | Sun and Earth | SPICE: `de440s.bsp`, `moon_pa_de440_200625.bpc`, `moon_de440_250416.tf` | NASA/JPL NAIF |
 | Check | Horizons API | NASA/JPL |
 | Artemis III regions | NASA announcement (2024-10-28), approximate centres | NASA |
+| Apollo landing sites (Whole Moon) | Lunar module positions measured on LROC images | NASA NSSDCA |
 
 ## Grid
 

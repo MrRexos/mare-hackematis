@@ -153,6 +153,13 @@ export function cellLatLon(grid, p) {
   return [grid.lat0 - (i + 0.5) * grid.stepDeg, grid.lon0 + (j + 0.5) * grid.stepDeg];
 }
 
+/** Celda de la malla que contiene un punto (latitud y longitud en grados). */
+export function cellAt(grid, lat, lon) {
+  const i = Math.min(grid.rows - 1, Math.max(0, Math.floor((grid.lat0 - lat) / grid.stepDeg)));
+  const j = Math.min(grid.cols - 1, Math.max(0, Math.floor((lon - grid.lon0) / grid.stepDeg)));
+  return i * grid.cols + j;
+}
+
 function angDeg(a1, o1, a2, o2) {
   const r = Math.PI / 180;
   const s = Math.sin((a2 - a1) * r / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin((o2 - o1) * r / 2) ** 2;
