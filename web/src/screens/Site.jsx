@@ -193,7 +193,7 @@ function GlobalGround({ app, pixel }) {
   );
 }
 
-function Header({ app, place, idx }) {
+function Header({ app, place, idx, onAstronaut }) {
   // El Mare analiza un solo sitio: para cambiarlo se vuelve a Explore (sin flechas ‹ ›).
   const { setTab, mission, weights, openSettings, openWeights, go, inCmp, toggleCmp, rankInfo, result } = app;
   const tab = siteTab(app);
@@ -222,11 +222,12 @@ function Header({ app, place, idx }) {
         <Tabs
           label="Site sections"
           value={tab}
-          onChange={setTab}
+          // Astronaut Mode ocupa toda la pantalla: se abre encima, sin cambiar de pestaña.
+          onChange={(value) => (value === "astronaut" ? onAstronaut() : setTab(value))}
           options={[
             { value: "overview", label: "Overview" },
             { value: "sky", label: "Sky & Time" },
-            ...(app.moon ? [] : [{ value: "terrain", label: "Terrain" }, { value: "lander", label: "Lander's View" }]),
+            ...(app.moon ? [] : [{ value: "terrain", label: "Terrain" }, { value: "lander", label: "Lander's View" }, { value: "astronaut", label: "Astronaut Mode" }]),
           ]}
         />
         <div className="grow" />
@@ -639,7 +640,7 @@ export default function Site({ app }) {
     <div className="shell">
       {Rail}
       <main className="shell__main">
-        <Header app={app} place={place} idx={idx} />
+        <Header app={app} place={place} idx={idx} onAstronaut={() => setAstronaut(true)} />
         {tab === "overview" ? <Overview app={app} place={place} /> : null}
         {tab === "sky" ? <SkyTime app={app} /> : null}
         {tab === "terrain" ? <Terrain app={app} place={place} /> : null}
