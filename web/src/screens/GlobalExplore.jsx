@@ -14,6 +14,7 @@ import { ROUGH_MAX_M, presetOf } from "../engine/score.js";
 // El globo 3D (three.js y sus texturas) solo se descarga si se abre la vista 3D.
 const MoonGlobe = lazy(() => import("../components/MoonGlobe.jsx"));
 
+import { GLOBAL_RAMPS, rampCss } from "../engine/globalRamps.js";
 import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 const PDS = "https://pds-geosciences.wustl.edu/lro/";
@@ -25,12 +26,12 @@ const percent = (v) => `${Math.round(v * 100)}%`;
 /** Capas del mapa, con el mismo formato que las del polo sur (data/mapLayers.js). `key` = dato en G.L. */
 const LAYERS = {
   score: {
-    label: "Mission score", short: "Score", ramp: "score", legend: ["Lower", "Higher"], format: (v) => `${Math.round(v)}/100`,
+    label: "Mission score", short: "Score", ramp: "score", palette: "score", legend: ["Lower", "Higher"], format: (v) => `${Math.round(v)}/100`,
     description: "Suitability from 0 to 100, computed from the six weighted mission factors. The active limits can exclude a cell from the map.",
     sources: [],
   },
   sun: {
-    label: "Sun visibility", short: "Sun", ramp: "sun", legend: ["0%", "100%"], format: percent,
+    label: "Sun visibility", short: "Sun", ramp: "sun", palette: "sun", range: [0, 1], legend: ["0%", "100%"], format: percent,
     description: "Share of the surface stay when the Sun clears the terrain horizon of the cell, computed in your browser for the mission dates. One horizon per 0.5° cell; four above 60° latitude.",
     sources: [["NASA PDS · LOLA LDEM_64", `${LOLA}ldem_64.lbl`], ["JPL DE440 ephemerides", DE440]],
   },
@@ -40,29 +41,29 @@ const LAYERS = {
     sources: [["NASA PDS · LOLA LDEM_64", `${LOLA}ldem_64.lbl`], ["JPL DE440 ephemerides", DE440]],
   },
   elev: {
-    label: "Terrain elevation", short: "Elevation", ramp: "elevation", format: (v) => `${Math.round(v).toLocaleString("en-US")} m`,
+    label: "Terrain elevation", short: "Elevation", ramp: "elevation", palette: "elevation", format: (v) => `${Math.round(v).toLocaleString("en-US")} m`,
     legendOf: (lo, hi) => [`${(lo / 1000).toFixed(1)} km`, `${(hi / 1000).toFixed(1)} km`],
     description: "Height at the centre of the 0.5° cell, relative to the Moon’s 1,737.4 km reference sphere.",
     sources: [["NASA PDS · LOLA LDEM_64", `${LOLA}ldem_64.lbl`]],
   },
   slope: {
-    label: "Terrain slope", short: "Slope", ramp: "slope", legend: ["0°", "30°+"], format: (v) => `${v.toFixed(1)}°`,
+    label: "Terrain slope", short: "Slope", ramp: "slope", palette: "slope", range: [0, 30], legend: ["0°", "30°+"], format: (v) => `${v.toFixed(1)}°`,
     description: "Mean slope of the 1 km cells inside each 0.5° cell (about 15 km at the equator). Small steep areas are averaged out at this scale.",
     sources: [["USGS · LOLA global DEM 118 m", "https://astrogeology.usgs.gov/search/map/moon_lro_lola_dem_118m"]],
   },
   rough: {
-    label: "Terrain roughness", short: "Roughness", ramp: "rough", legend: ["0 m", `${ROUGH_MAX_M} m+`], format: (v) => `${v.toFixed(2)} m`,
+    label: "Terrain roughness", short: "Roughness", ramp: "rough", palette: "rough", range: [0, ROUGH_MAX_M], legend: ["0 m", `${ROUGH_MAX_M} m+`], format: (v) => `${v.toFixed(2)} m`,
     description: "Typical variation in height after fitting a local plane to the laser measurements. Median of the LOLA global roughness samples inside the cell; the same quantity and scoring rule as the south pole.",
     sources: [["NASA PDS · LOLA LDRM_16", `${LOLA}ldrm_16.lbl`]],
   },
   temp: {
-    label: "Mean surface temperature", short: "Surface temp.", ramp: "temp", format: (v) => `${Math.round(v)} K`,
+    label: "Mean surface temperature", short: "Surface temp.", ramp: "temp", palette: "temp", format: (v) => `${Math.round(v)} K`,
     legendOf: (lo, hi) => [`${Math.round(lo)} K`, `${Math.round(hi)} K`],
     description: `Mean surface temperature during the mission, from LRO Diviner measurements read at each cell's local time, hour by hour. The score is the share of hours in a workable range: full marks from ${TEMP_BAND.mildK} to ${TEMP_BAND.hotOkK} K, none below ${TEMP_BAND.coldK} K or above ${TEMP_BAND.hotMaxK} K.`,
     sources: [["NASA PDS · Diviner Global Cumulative Products", DIVINER]],
   },
   water: {
-    label: "Water equivalent", short: "Water", ramp: "water", max: WATER_FULL_WT_PCT, legend: ["0 wt%", `${WATER_FULL_WT_PCT} wt%+`], format: (v) => `${v.toFixed(3)} wt%`,
+    label: "Water equivalent", short: "Water", ramp: "water", palette: "water", range: [0, WATER_FULL_WT_PCT], legend: ["0 wt%", `${WATER_FULL_WT_PCT} wt%+`], format: (v) => `${v.toFixed(3)} wt%`,
     description: `Water-equivalent hydrogen from Lunar Prospector, only attributed to ice above 70° latitude. True footprint 60–150 km, so crater-scale deposits look diluted. Full marks at ${WATER_FULL_WT_PCT} wt%.`,
     sources: [["NASA PDS · Lunar Prospector special products", "https://pds-geosciences.wustl.edu/missions/lunarp/reduced_special.html"]],
   },
@@ -178,7 +179,7 @@ export default function GlobalExplore({ app }) {
         <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
         <div className="legend__ramp">
           <span className="legend__name">{ly.label}</span>
-          <div className={cx("ramp", `ramp--${ly.ramp === "water" ? "earth" : ly.ramp}`)} style={ly.ramp === "water" ? { background: "linear-gradient(90deg, transparent, #4fd1c5)" } : undefined} />
+          <div className={cx("ramp", !ly.palette && `ramp--${ly.ramp}`)} style={ly.palette ? { background: rampCss(GLOBAL_RAMPS[ly.palette]) } : undefined} />
           <div className="legend__ends"><span>{ends[0]}</span><span>{ends[1]}</span></div>
         </div>
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}

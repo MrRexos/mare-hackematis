@@ -126,6 +126,14 @@ Las texturas van en `web/public/data/global/globe/` (14 MB) y solo se descargan 
 primero la foto de 4k (2,7 MB) y, si el equipo lo admite, la de 8k. Para regenerarlas:
 `python -m moonsite.globe_textures` (baja el mosaico de 6 GB a `.cache`).
 
+**Colores.** En la Luna entera cada propiedad tiene su propia escala, para no confundirlas:
+puntuación de lila a rojo, verde y azul (azul = mejor); Sol de naranja a amarillo y blanco;
+elevación de verde azulado a arena, marrón y blanco; pendiente de verde a amarillo y rojo;
+rugosidad de crema a magenta y morado; temperatura de lila y azul (frío) a amarillo, naranja y
+rojo (caliente); agua en azul, transparente donde no hay. La Tierra conserva el azul del design
+system. Están en `web/src/engine/globalRamps.js` y valen para el mapa 2D y el globo 3D. El polo
+sur no cambia.
+
 **Mare y Compare** también funcionan con la Luna entera: en el mapa, una celda tiene los
 botones «Open site» y «Compare». La ficha (Mare) muestra Overview y Sky & Time con la serie
 hora a hora de esa celda; Terrain y Lander's View son del mapa polar de 1 km y solo existen

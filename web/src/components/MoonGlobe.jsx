@@ -220,7 +220,7 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, ove
       invalidate,
       wrap,
       /** Pone (o quita, con null) la capa de datos: un canvas equirectangular con alfa. */
-      setOverlay: (canvas, ramp) => {
+      setOverlay: (canvas) => {
         skinMat.map?.dispose();
         if (!canvas) {
           skinMat.map = skinMat.emissiveMap = null;
@@ -234,11 +234,8 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, ove
           t.minFilter = t.magFilter = THREE.LinearFilter;
           skinMat.map = skinMat.emissiveMap = t;   // map da la transparencia; emissiveMap, el color
           skin.visible = true;
-          // La foto hace de fondo, a media luz. La puntuación se pinta en claro (como en el 2D):
-          // sobre una foto en grises necesita un fondo más oscuro para que «más claro = mejor» se lea.
-          material.color.setScalar(ramp === "score" ? 0.28 : 0.5);
-          // Nunca del todo opaca: debajo se sigue viendo el relieve de la foto.
-          skinMat.opacity = ramp === "score" ? 0.9 : 0.8;
+          material.color.setScalar(0.5);           // la foto, a media luz, hace de fondo
+          skinMat.opacity = 0.85;                  // nunca del todo opaca: debajo se sigue viendo el relieve
         }
         skinMat.needsUpdate = true;
         invalidate();
@@ -279,7 +276,7 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, ove
   useEffect(() => {
     const t = three.current;
     if (!t) return;
-    t.setOverlay(oLayer && oValues ? layerCanvas(t.wrap, oLayer, oValues, grid.cols, grid.rows) : null, oLayer?.ramp);
+    t.setOverlay(oLayer && oValues ? layerCanvas(t.wrap, oLayer, oValues, grid.cols, grid.rows) : null);
   }, [oLayer, oValues, grid]);
   // Al elegir un lugar (en el ranking o en el globo), el globo gira hasta ponerlo delante.
   useEffect(() => { if (selected) three.current?.flyTo(selected.lat, selected.lon); }, [selected?.key]); // eslint-disable-line react-hooks/exhaustive-deps

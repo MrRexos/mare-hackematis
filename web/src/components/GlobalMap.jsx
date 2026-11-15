@@ -1,24 +1,25 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { L, cssColor } from "../ds.js";
 import { makeRamp } from "./MapView.jsx";
+import { GLOBAL_RAMPS, rampFunction } from "../engine/globalRamps.js";
 import { IconBtn } from "../ui/kit.jsx";
 import { cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 // Mapa de toda la Luna (equirectangular, malla global de 0,5°). Mismo aspecto que el visor
-// del polo sur (MapView): relieve LOLA de fondo y la capa elegida encima con las mismas
-// rampas de color del design system; las celdas descartadas quedan sin color.
+// del polo sur (MapView): relieve LOLA de fondo y la capa elegida encima, cada propiedad con
+// su propia escala de color (engine/globalRamps.js); las celdas descartadas quedan sin color.
 //   rueda: zoom en el cursor · arrastrar: mover · clic: elegir celda · 0: vista completa
 
 const MAX_ZOOM = 12;
-const WATER_RGB = [79, 209, 197]; // el color del factor de hielo/agua
 
-/** Rampa de la capa: las del polo sur, más la de agua (solo existe aquí). */
+/**
+ * Rampa de la capa. Las capas de la Luna entera llevan su propia escala (`palette`, ver
+ * engine/globalRamps.js) y el rango que cubre (`range`; sin él, el de los datos). La Tierra
+ * conserva la rampa del design system, la misma del polo sur.
+ */
 function rampFor(layer, colors, extent) {
-  if (layer.ramp === "water") {
-    const hi = layer.max || extent[1] || 1;
-    return (v) => (Number.isFinite(v) && v > 0 ? [...WATER_RGB, 40 + 205 * Math.min(1, v / hi) ** 0.8] : null);
-  }
-  return makeRamp(layer, colors, extent);
+  const palette = GLOBAL_RAMPS[layer.palette];
+  return palette ? rampFunction(palette, layer.range || extent) : makeRamp(layer, colors, extent);
 }
 
 /**
