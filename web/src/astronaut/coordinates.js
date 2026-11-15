@@ -25,6 +25,17 @@ export function lunarToLocal(frame, lat, lon) {
   return [MOON_RADIUS * dot(u, frame.east) / denominator, -MOON_RADIUS * dot(u, frame.north) / denominator];
 }
 
+/**
+ * Where a lunar point falls in a raster's own map coordinates. The polar DEMs use south polar
+ * stereographic metres; the whole-Moon DEM uses longitude and latitude in degrees, with the
+ * longitude wrapped into the raster's own 360°.
+ */
+export function rasterPoint(raster, point) {
+  if (raster.projection !== "cylindrical") return [point.px, point.py];
+  const west = raster.origin[0] + 2 * raster.pixelSize[0];
+  return [((point.lon - west) % 360 + 360) % 360 + west, point.lat];
+}
+
 export function sampleRaster(raster, x, y) {
   const { origin, pixelSize, width, height, values, noData, scale = 1 } = raster;
   const col = (x - origin[0]) / pixelSize[0], row = (y - origin[1]) / pixelSize[1];
@@ -67,7 +78,7 @@ export function surfaceAt(terrain, x, z) {
 
 export function buildTerrain(raster, lat, lon, { size = PATCH_SIZE, spacing = 5, anchorHeight } = {}) {
   const frame = makeFrame(lat, lon), center = localToLunar(frame, 0, 0);
-  const baseHeight = anchorHeight ?? sampleRaster(raster, center.px, center.py);
+  const baseHeight = anchorHeight ?? sampleRaster(raster, ...rasterPoint(raster, center));
   if (!Number.isFinite(baseHeight)) throw new Error("No valid elevation data at this location.");
   const segments = Math.ceil(size / spacing), n = segments + 1;
   const positions = new Float32Array(n * n * 3), heights = new Float32Array(n * n), uv = new Float32Array(n * n * 2);
@@ -75,7 +86,7 @@ export function buildTerrain(raster, lat, lon, { size = PATCH_SIZE, spacing = 5,
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
     const x = (j / segments - 0.5) * size, z = (i / segments - 0.5) * size, p = i * n + j;
     const point = localToLunar(frame, x, z);
-    const elevation = sampleRaster(raster, point.px, point.py);
+    const elevation = sampleRaster(raster, ...rasterPoint(raster, point));
     if (!Number.isFinite(elevation)) throw new Error("The complete 1 km region includes missing elevation data. Choose a point inside the DEM coverage.");
     const y = (MOON_RADIUS + elevation) * dot(point.unit, frame.up) - MOON_RADIUS - baseHeight;
     positions.set([x, y, z], p * 3); heights[p] = y; uv.set([j / segments, 1 - i / segments], p * 2);

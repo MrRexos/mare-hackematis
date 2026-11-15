@@ -888,5 +888,33 @@
     "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +R=1737400 +units=m +no_defs",
     "verticalDatum": "Height above the 1737400 m reference sphere",
     "uncertainty": "Not supplied per sample; regional fallback. Interpolation does not add measured detail."
+  },
+  "global": {
+    "id": "LOLA-LDEM-64-16PPD",
+    "file": "global-16ppd.i16",
+    "dtype": "int16",
+    "scale": 0.5,
+    "width": 5764,
+    "height": 2884,
+    "projection": "cylindrical",
+    "origin": [
+      -180.09375,
+      90.09375
+    ],
+    "pixelSize": [
+      0.0625,
+      -0.0625
+    ],
+    "resolutionM": 1895.2,
+    "noData": -32768,
+    "name": "LOLA LDEM_64, reduced to 16 px/deg",
+    "provider": "NASA PDS / LRO LOLA",
+    "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/ldem_64.img",
+    "productUrl": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/ldem_64.lbl",
+    "frame": "MOON_ME",
+    "verticalDatum": "Height above the 1737400 m reference sphere",
+    "uncertainty": "Block mean of 4 × 4 LDEM_64 samples. Nothing smaller than about 4 km is resolved.",
+    "interpolation": "Whole-Moon fallback at about 1.9 km per sample: the walkable kilometre is close to a plane and its small relief is generated, not measured.",
+    "sha256": "150d77e61915c273b8a065d25acfe61380ab4ee20910651dd386cd7863165410"
   }
 }

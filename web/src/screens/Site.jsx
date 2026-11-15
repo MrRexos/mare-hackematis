@@ -227,7 +227,7 @@ function Header({ app, place, idx, onAstronaut }) {
           options={[
             { value: "overview", label: "Overview" },
             { value: "sky", label: "Sky & Time" },
-            ...(app.moon ? [] : [{ value: "terrain", label: "Terrain" }, { value: "lander", label: "Lander's View" }, { value: "astronaut", label: "Astronaut Mode" }]),
+            ...(app.moon ? [{ value: "astronaut", label: "Astronaut Mode" }] : [{ value: "terrain", label: "Terrain" }, { value: "lander", label: "Lander's View" }, { value: "astronaut", label: "Astronaut Mode" }]),
           ]}
         />
         <div className="grow" />

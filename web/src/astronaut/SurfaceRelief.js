@@ -1,4 +1,4 @@
-import { MOON_RADIUS, PATCH_SIZE, dot, localToLunar, randomSeed, sampleRaster, sampleRasterSmooth, surfaceAt } from "./coordinates.js";
+import { MOON_RADIUS, PATCH_SIZE, dot, localToLunar, randomSeed, rasterPoint, sampleRaster, sampleRasterSmooth, surfaceAt } from "./coordinates.js";
 
 // Relief below the resolution of the elevation model. The measured DEM fixes
 // every hill and every crater it can resolve; what it cannot resolve is filled
@@ -166,16 +166,27 @@ export function buildSurface(raster, terrain, { cells = FINE_CELLS, seed = 1, re
   if (raster) {
     // The map projection is smooth: solve it on a coarse lattice and interpolate.
     const step = 16, m = cells / step + 1, cols = new Float64Array(m * m), rows = new Float64Array(m * m), tilt = new Float64Array(m * m);
+    // A DEM far coarser than the lattice (the whole-Moon one, 1.9 km per sample) is read at the
+    // lattice nodes only. That is exact enough, and it avoids interpolating longitudes, which
+    // jump at ±180° and spin around the poles.
+    const coarse = raster.projection === "cylindrical", nodes = coarse ? new Float64Array(m * m) : null;
     for (let a = 0; a < m; a++) for (let b = 0; b < m; b++) {
       const point = localToLunar(frame, b * step * cell - half, a * step * cell - half), p = a * m + b;
-      cols[p] = (point.px - raster.origin[0]) / raster.pixelSize[0]; rows[p] = (point.py - raster.origin[1]) / raster.pixelSize[1];
+      const [rx, ry] = rasterPoint(raster, point);
+      cols[p] = (rx - raster.origin[0]) / raster.pixelSize[0]; rows[p] = (ry - raster.origin[1]) / raster.pixelSize[1];
       tilt[p] = dot(point.unit, frame.up);
+      if (coarse) {
+        let elevation = sampleRasterSmooth(raster, cols[p], rows[p]);
+        if (!Number.isFinite(elevation)) elevation = sampleRaster(raster, rx, ry);
+        nodes[p] = (MOON_RADIUS + elevation) * tilt[p] - MOON_RADIUS - terrain.anchorHeight;
+      }
     }
     for (let i = 0; i < n; i++) {
       const a = Math.min(m - 2, Math.floor(i / step)), fa = i / step - a;
       for (let j = 0; j < n; j++) {
         const b = Math.min(m - 2, Math.floor(j / step)), fb = j / step - b, p = a * m + b;
         const lerp = (field) => (1 - fa) * ((1 - fb) * field[p] + fb * field[p + 1]) + fa * ((1 - fb) * field[p + m] + fb * field[p + m + 1]);
+        if (coarse) { heights[i * n + j] = lerp(nodes); continue; }
         const col = lerp(cols), row = lerp(rows);
         let elevation = sampleRasterSmooth(raster, col, row);
         if (!Number.isFinite(elevation)) elevation = sampleRaster(raster, raster.origin[0] + col * raster.pixelSize[0], raster.origin[1] + row * raster.pixelSize[1]);

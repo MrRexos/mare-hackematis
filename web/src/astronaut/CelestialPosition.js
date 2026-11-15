@@ -24,9 +24,18 @@ export function azimuthElevation(vector, unitUp) {
 export function regionalHorizon(data, lat, lon, az) {
   if (!data.horizon || !data.manifest.horizon) return null;
   const grid = data.manifest.grid, meta = data.manifest.horizon;
-  const [x, y] = latLonToXY(grid, lat, lon), [row, col] = xyToPixel(grid, x, y);
-  const r = Math.max(0, Math.min(grid.n - 1, Math.round(row))), c = Math.max(0, Math.min(grid.n - 1, Math.round(col)));
-  const a = (((az % 360) + 360) % 360) / (360 / meta.bins), k = Math.floor(a), w = a - k, p = (r * grid.n + c) * meta.bins;
+  let r, c, cols;
+  if (grid.type === "latlon") {
+    // Whole-Moon grid: rows from the north pole, columns eastwards from lon0, longitude periodic.
+    cols = grid.cols;
+    r = Math.max(0, Math.min(grid.rows - 1, Math.floor((grid.lat0 - lat) / grid.stepDeg)));
+    c = Math.floor((((lon - grid.lon0) % 360 + 360) % 360) / grid.stepDeg) % cols;
+  } else {
+    const [x, y] = latLonToXY(grid, lat, lon), [row, col] = xyToPixel(grid, x, y);
+    cols = grid.n;
+    r = Math.max(0, Math.min(grid.n - 1, Math.round(row))); c = Math.max(0, Math.min(grid.n - 1, Math.round(col)));
+  }
+  const a = (((az % 360) + 360) % 360) / (360 / meta.bins), k = Math.floor(a), w = a - k, p = (r * cols + c) * meta.bins;
   return (data.horizon[p + k] * (1 - w) + data.horizon[p + (k + 1) % meta.bins] * w) * meta.scaleDeg + meta.offsetDeg;
 }
 

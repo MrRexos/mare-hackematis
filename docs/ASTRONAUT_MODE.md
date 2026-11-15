@@ -16,6 +16,16 @@ Controls: **Start exploring**, WASD or arrow keys to walk, mouse to look, Shift 
 
 The calendar panel changes the UTC date/time and offers a time lapse of 6 real hours per second. **Find sunlight** searches for an hour with the solar disc visible from the current position within the mission period; it changes the date only when pressed and warns if it finds no light. A positive solar elevation does not imply visibility if there is relief in front. No Earth day is simulated. Settings: LOW, MEDIUM, HIGH, ULTRA, field of view, sensitivity, visual gravel density and minimap. The helmet has an artificial light, identified as such, that can be switched off; it allows exploring places without sunlight.
 
+## Whole Moon
+
+Astronaut Mode also opens from Mare in the Whole Moon map (tab **Astronaut Mode**). Outside the south polar DEMs it uses `global-16ppd.i16`: NASA LOLA LDEM_64 reduced by block mean to 16 samples per degree, about 1.9 km at the equator, 33 MB, downloaded only when the mode opens there. Rebuild it with `python -m moonsite.astronaut_global` from `pipeline/`.
+
+At that sampling the walkable kilometre is close to a tilted plane. The hills and large craters out to 16 km are real. Craters from 140 m to about 4 km are neither in the DEM nor generated, so a known place will not show the medium craters it really has. Everything under 140 m is generated, as at the South Pole. The footer shows the 1,895 m sampling.
+
+The far horizon for the Sun and the Earth comes from the whole-Moon grid (0.5° cells, 72 directions). The Sun reaches 15° to 90° of elevation away from the poles, so the exposure now follows it: it is unchanged at 2.5° and falls to 0.3 of that with the Sun overhead.
+
+A whole-Moon cell is about 15 km wide. If it contains a landmark from `web/src/data/landmarks.js`, the walk starts at the landmark instead of the cell centre. The only one so far is Apollo 11 (0.67416°N, 23.47314°E), marked on the map, where a United States flag stands a few steps from the arrival point. The flag is a marker: its exact position and the terrain around it are not those of the real site.
+
 ## Scientific data included
 
 | Product | Use | Spacing | Source |

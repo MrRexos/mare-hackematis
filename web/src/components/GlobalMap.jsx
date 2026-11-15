@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { L, cssColor } from "../ds.js";
 import { makeRamp } from "./MapView.jsx";
 import { IconBtn } from "../ui/kit.jsx";
+import { LANDMARKS } from "../data/landmarks.js";
 
 // Mapa de toda la Luna (equirectangular, malla global de 0,5°). Mismo aspecto que el visor
 // del polo sur (MapView): relieve LOLA de fondo y la capa elegida encima, cada propiedad con
@@ -198,6 +199,11 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
           onClick={() => onSelect?.(s.p)}
         />
       ))}
+      {LANDMARKS.map((l) => {
+        const p = Math.floor((grid.lat0 - l.lat) / grid.stepDeg) * cols + Math.floor((((l.lon - grid.lon0) % 360 + 360) % 360) / grid.stepDeg);
+        return <L.MapMarker key={l.id} label={l.name.split(" · ")[0]} shape="circle" category="Apollo landing site" state={selectedP === p ? "selected" : "default"}
+          showLabel style={markerStyle(p)} onClick={() => onSelect?.(p)} />;
+      })}
       {selectedP != null && !spots.some((s) => s.p === selectedP) ? (
         <L.MapMarker label="Your spot" shape="custom" state="selected" category="Your spot" style={markerStyle(selectedP)} />
       ) : null}
