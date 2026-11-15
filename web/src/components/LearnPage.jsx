@@ -1,7 +1,8 @@
 import { L } from "../ds.js";
 import DataMethods from "./DataMethods.jsx";
 
-// How it works/: cómo funciona, de dónde salen los datos y qué no dice la herramienta.
+// How it works/: resumen corto (qué responde, cómo puntúa, qué fiabilidad tiene y sus
+// límites). El detalle (fuentes, escalas y comprobaciones) está en DataMethods, plegado.
 
 export default function LearnPage({ data }) {
   // Las cifras de comprobación son las del polo cuyos datos están cargados (el del plan en curso).
@@ -18,60 +19,35 @@ export default function LearnPage({ data }) {
       </header>
       <div className="learn__cols">
         <L.Panel eyebrow="01" title="What the map answers">
-          <p className="body-lg">
-            For a landing date and a time on the surface, where on the Moon do you get the most sunlight and Earth
-            contact, on ground gentle enough to land on, at workable temperatures and near water?
-          </p>
-          <p className="body lh-sec">
-            There are three maps. <b>South Pole</b> and <b>North Pole</b> cover 83.5° to 90° of latitude in 1 km cells
-            and can also search a whole window for the best landing dates. <b>Whole Moon</b> covers everything in 0.5°
-            cells, about 15 km at the equator, for fixed dates. Each has a 2D map and a 3D view.
-          </p>
+          <p className="body-lg">Where on the Moon do you get the most sunlight and Earth contact, on safe ground, at workable temperatures and near water?</p>
+          <ul className="body-sm sources">
+            <li><b>South Pole · North Pole:</b> 1 km cells, from 83.5° to the pole. Can search for the best landing dates.</li>
+            <li><b>Whole Moon:</b> 0.5° cells (about 15 km), for a fixed date.</li>
+          </ul>
         </L.Panel>
         <L.Panel eyebrow="02" title="How the score works">
-          <ol className="body steps">
-            <li>Every cell has a terrain horizon in 72 directions, ray-traced over NASA LOLA elevation out to 300 km. Above 60° latitude the whole-Moon map uses four horizons per cell, because there the Sun grazes the ground.</li>
-            <li>For each hour of the mission the app checks the Sun disk and the Earth against that horizon. It runs in your browser, in a few seconds.</li>
-            <li>Score = 100 · Σ weight × factor / Σ weight, with six factors: Sun, Earth, slope, roughness, temperature and water. You choose the weights with a profile or by hand.</li>
-            <li>Limits remove cells from the map: maximum slope, permanent shadow, a night longer than the battery lasts, or too little Earth contact.</li>
-            <li>Hotspots are the best places left. At the poles they are connected groups of the top 3% of cells; on the whole Moon, the best cells at least 5° apart.</li>
+          <ol className="body-sm steps">
+            <li><b>Horizon:</b> how high the terrain rises around each cell, in 72 directions.</li>
+            <li><b>Sun & Earth:</b> each hour of the stay, are they above that horizon?</li>
+            <li><b>Six factors</b> from 0 to 1: Sun, Earth, slope, roughness, temperature, water.</li>
+            <li><b>Score</b> = weighted average, 0 to 100. You choose the weights.</li>
+            <li><b>Limits</b> remove cells; the best ones left are the <b>hotspots</b>.</li>
           </ol>
         </L.Panel>
-        <L.Panel eyebrow="03" title="Why the polar maps and the whole Moon score differently">
+        <L.Panel eyebrow="03" title="Poles and whole Moon score differently">
           <ul className="body-sm sources">
-            <li><b>Cell size:</b> a polar map picks the best single kilometre, such as a sunlit ridge. A whole-Moon cell averages that ridge with the craters around it, so its best scores come out lower.</li>
-            <li><b>Temperature:</b> at the poles it is the annual mean just below the surface, a fixed value. On the whole Moon it is the surface temperature hour by hour during the mission, and both cold nights and hot noons count against a cell.</li>
-            <li><b>Water:</b> at the poles it is the distance to ground where ice could stay stable. On the whole Moon it is hydrogen measured from orbit, which only shows a signal above 70° latitude.</li>
+            <li><b>Cell size:</b> 1 km finds the best ridge; 15 km averages it with the craters around it.</li>
+            <li><b>Temperature:</b> yearly average at the poles; hour by hour on the whole Moon.</li>
+            <li><b>Water:</b> distance to possible ice at the poles; hydrogen from orbit on the whole Moon.</li>
           </ul>
-          <p className="body-sm lh-sec">A 70 at a pole and a 60 on the whole Moon are not the same place measured twice.</p>
         </L.Panel>
         <L.Panel eyebrow="04" title="Mare and Astronaut Mode">
-          <p className="body-sm lh-sec">
-            <b>Mare</b> is the sheet of one place: its score factor by factor, the sky hour by hour, the days with Sun and
-            Earth, and the ground data. <b>Compare</b> puts up to four places side by side.
-          </p>
-          <p className="body-sm lh-sec">
-            <b>Astronaut Mode</b> lets you walk one square kilometre around the place at real scale, with the Sun and
-            the Earth where they would be at that hour. The hills come from the NASA elevation model: 5 m at some South
-            Pole sites, 240 m elsewhere at both poles and about 1.9 km on the rest of the Moon. Craters smaller than the
-            model can show, rocks and gravel are generated with lunar statistics: plausible, not measured. Outside the
-            poles that is almost everything within the kilometre you walk.
-          </p>
-        </L.Panel>
-        <L.Panel eyebrow="05" title="Data sources">
           <ul className="body-sm sources">
-            <li><b>Terrain, slope, roughness, permanent shadow:</b> NASA LOLA, PDS Geosciences Node. Polar products at 120 to 240 m for the two poles; LDEM_64, LDRM_16 and LPSR for the whole Moon.</li>
-            <li><b>Sun and Earth:</b> NASA/JPL NAIF SPICE, DE440 ephemeris, MOON_ME frame, light time and aberration.</li>
-            <li><b>Temperature:</b> LRO Diviner. Poles: Polar Resource Product v2.0 (Paige et al. 2010), a thermal model. Whole Moon: Global Cumulative Products (Williams et al. 2017), measured by local time.</li>
-            <li><b>Water:</b> Diviner ice stability depth at the poles; Lunar Prospector hydrogen on the whole Moon.</li>
-            <li><b>Ice observations:</b> Lemelin et al. (2021) for shadowed regions with M³ detections; LCROSS impact from NASA and Colaprete et al. (2010). South Pole only.</li>
-            <li><b>Imagery:</b> LROC WAC global mosaic (NASA/GSFC/ASU) on the 3D globe; NASA Blue Marble for the Earth in Astronaut Mode.</li>
-            <li><b>Artemis III regions:</b> NASA (2024-10-28), approximate centres. References on the South Pole map.</li>
-            <li><b>Named craters:</b> IAU nomenclature, crater centres checked against the LOLA relief. Landmarks on the North Pole map, not proposed landing sites.</li>
-            <li><b>Apollo landing sites:</b> NASA NSSDCA, lunar module positions measured on LROC images. References on the whole-Moon map.</li>
+            <li><b>Mare:</b> the sheet of one place: score, sky hour by hour, best days. <b>Compare</b> sets up to four side by side.</li>
+            <li><b>Astronaut Mode:</b> walk one kilometre at real scale, with the Sun and the Earth in place. Hills are real NASA terrain; small craters and rocks are generated.</li>
           </ul>
         </L.Panel>
-        <L.Panel eyebrow="06" title="Can I trust these numbers?" actions={<L.FidelityBadge level={hz ? "validated" : "computed"}>{hz ? "Checked" : "Computed"}</L.FidelityBadge>}>
+        <L.Panel eyebrow="05" title="Can I trust these numbers?" actions={<L.FidelityBadge level={hz ? "validated" : "computed"}>{hz ? "Checked" : "Computed"}</L.FidelityBadge>}>
           <div className="readout-grid">
             <L.Readout label="Sun vs Horizons" value={hz ? arcmin(hz.sun) : "–"} unit="′ max" />
             <L.Readout label="Earth vs Horizons" value={hz ? arcmin(hz.earth) : "–"} unit="′ max" />
@@ -79,35 +55,22 @@ export default function LearnPage({ data }) {
             <L.Readout label="Earth view vs LOLA" value={v.avgearth ? v.avgearth.meanAbsDiffPct.toFixed(1) : "–"} unit="pts mean" approx />
           </div>
           <p className="body-sm lh-sec">
-            {avg ? avg.note : "Run the validation step of the pipeline to fill these numbers."}
-          </p>
-          <p className="body-sm lh-sec">
-            These checks are for the {north ? "North Pole; its JPL Horizons comparison has not been run yet" : "South Pole"}. The whole-Moon sunlight was compared with a 1 km reference: for a single
-            day it is off by between 1 and 4.5 points depending on the latitude, most near the poles.
+            {north ? "North Pole" : "South Pole"} compared with NASA's JPL Horizons and with LOLA's own light maps
+            {north ? " (the JPL check has not been run for the north yet)" : ""}. Details in Data & methods.
           </p>
         </L.Panel>
-        <L.Panel eyebrow="07" title="Limitations">
+        <L.Panel eyebrow="06" title="Limits">
           <ul className="body-sm sources">
-            <li>Cells of 1 km or 15 km and 5° horizon bins: good to compare regions, not to certify a landing site.</li>
-            <li>A whole-Moon cell has one value for 15 km of ground; a good spot inside a poor cell does not show.</li>
-            <li>Terrain closer than 300 m is not resolved; boulders and small craters are not in the data.</li>
-            <li>Sunlight is not the same as electrical power. Earth in view does not guarantee a working link.</li>
-            <li>The polar water factor is distance to ground where a thermal model says ice would be stable within 0.5 m: where ice can survive, not measured ice. The whole-Moon hydrogen has a footprint of 60 to 150 km.</li>
-            <li>Diviner temperatures come from a ~0.5 km mesh built on Kaguya altimetry; it may sit a few hundred metres off the LOLA grid.</li>
-            <li>Relief shading is a visual aid, not sunlight.</li>
+            <li>Compares regions; does not certify a landing site.</li>
+            <li>Boulders, small craters and terrain closer than 300 m are not in the data.</li>
+            <li>Sunlight is not electricity; Earth in view is not a radio link.</li>
+            <li>Polar ice is where ice could survive, not ice that was detected.</li>
+            <li>No radiation or impact layer: NASA publishes no such map per site.</li>
           </ul>
         </L.Panel>
-        <L.Panel eyebrow="08" title="Why no radiation or impact layer">
-          <p className="body-sm lh-sec">
-            NASA publishes no surface map of radiation dose or meteoroid impact risk per site at the poles. With no
-            atmosphere or magnetic field, the dose is almost the same everywhere; the terrain only blocks a small part of
-            the sky. Hydrogen maps (LRO LEND) and UV frost maps (LRO LAMP) exist, but their reading as ice is indirect,
-            so they are not scored.
-          </p>
-        </L.Panel>
       </div>
-      {/* Parte II: datos y métodos en detalle (fuentes, cálculos, validación). */}
-      <DataMethods data={data} />
+      {/* Parte II: datos y métodos en detalle (fuentes, escalas y comprobaciones), plegada. */}
+      <DataMethods />
     </div>
   );
 }

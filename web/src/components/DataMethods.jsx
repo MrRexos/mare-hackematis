@@ -4,8 +4,8 @@ import { DEFAULT_LIMITS, ROUGH_MAX_M, TEMP_COLD_K, TEMP_MILD_K } from "../engine
 import { TEMP_BAND, WATER_FULL_WT_PCT } from "../engine/globalScore.js";
 
 // "Data & methods": desplegable de How it works, en forma de esquema. Para cada mapa
-// (polos / Luna entera): dato, fuente, qué representa y detalle. Después, el cálculo en
-// cinco pasos, la escala de cada factor, las comprobaciones y los límites.
+// (polos / Luna entera): dato, fuente, qué representa y detalle. Después, la escala de
+// cada factor y las comprobaciones. El resumen (pasos y límites) está en LearnPage.
 // Umbrales importados del motor (score.js, globalScore.js); validación leída de los
 // validation.json publicados.
 
@@ -21,6 +21,7 @@ const LINK = {
   prospector: "https://pds-geosciences.wustl.edu/missions/lunarp/reduced_special.html",
   naif: "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/",
   horizons: "https://ssd.jpl.nasa.gov/horizons/",
+  m3: "https://doi.org/10.1073/pnas.1802345115",
 };
 
 const A = ({ href, children }) => <a className="lh-link" href={href} target="_blank" rel="noreferrer">{children}</a>;
@@ -40,6 +41,7 @@ const DATA = {
     ["Ice", <A key="s" href={LINK.prp}>Diviner PRP</A>, "Where ice could stay frozen within 0.5 m", "~0.5 km", "mod"],
     SUN_EARTH,
     ["Places", "NASA · IAU", "Artemis III regions (south), named craters (north)", "approx.", "ref"],
+    ["Ice seen from orbit", <A key="s" href={LINK.m3}>M³ · LCROSS</A>, "Ice detections on the South Pole map (shown, not scored)", "–", "m"],
   ],
   moon: [
     ["Height", <A key="s" href={LINK.lolaGlobal}>LOLA LDEM_64</A>, "Shape of the ground; gives the horizons", "~470 m", "m"],
@@ -49,6 +51,7 @@ const DATA = {
     ["Temperature", <A key="s" href={LINK.gcp}>Diviner GCP</A>, "Surface temperature at each hour of the lunar day", "0.5°", "m"],
     ["Water", <A key="s" href={LINK.prospector}>Lunar Prospector</A>, "Hydrogen turned into water; signal only above 70°", "60–150 km", "m"],
     SUN_EARTH,
+    ["Images", "LROC WAC · Blue Marble", "Surface of the 3D globe; the Earth in Astronaut Mode", "–", "m"],
     ["Places", "NASA NSSDCA", "Apollo missions: Apollo 11, 12, 14, 15, 16 and 17 landing sites (Apollo 11 also has its flag in Astronaut Mode)", "LM position", "ref"],
   ],
 };
@@ -58,13 +61,6 @@ const GRID = {
   moon: "Grid: 0.5° cells, about 15 km wide at the equator.",
 };
 
-const STEPS = [
-  ["Horizon", "From each cell, how high the terrain rises in 72 directions, up to 300 km. Done once."],
-  ["Sun & Earth", "Each hour of your stay: is the Sun above that horizon? Is the Earth?"],
-  ["Factors", "Six numbers from 0 (bad) to 1 (good)."],
-  ["Score", "Weighted average of the factors, from 0 to 100. You choose the weights."],
-  ["Filter", "Too steep, permanent shadow or other limits remove the cell. The best ones are the hotspots."],
-];
 
 const fix = (x) => (Number.isFinite(x) ? x.toFixed(1) : "–");
 const arcmin = (x) => (!Number.isFinite(x) ? "–" : x < 0.001 ? "< 0.001′" : `${x.toFixed(4)}′`);
@@ -117,26 +113,21 @@ export default function DataMethods() {
         <span className="dm__toggle-text">
           <span className="eyebrow lh-muted">Part II</span>
           <span id="dm-title" className="title">Data &amp; methods</span>
-          <span className="body-sm lh-sec">Every data source, how the score is built and how we checked it.</span>
+          <span className="body-sm lh-sec">Every data source, the scale of each factor and how we checked it.</span>
         </span>
         <span className="dm__toggle-icon" aria-hidden="true" />
       </button>
 
       {open && (
         <div id="dm-body" className="dm__body dm__stack">
-          <L.Panel eyebrow="09" title="The data"
+          <L.Panel eyebrow="07" title="The data"
             actions={<L.SegmentedControl label="Map" size="sm" value={map} onChange={setMap}
               options={[{ value: "poles", label: "South & North Pole" }, { value: "moon", label: "Whole Moon" }]} />}>
             <Table className="dm-table--stack" head={["Data", "Source", "What it shows", "Detail", "Type"]} rows={dataRows} />
             <p className="caption lh-muted dm-note">{GRID[map]} All sources are official NASA data; the links open the archive.</p>
           </L.Panel>
 
-          <L.Panel eyebrow="10" title="From data to score">
-            <ol className="dm-steps">
-              {STEPS.map(([t, d], k) => (
-                <li key={t}><span className="readout-sm lh-muted">{k + 1}</span><b className="body-sm">{t}</b><span className="body-sm lh-sec">{d}</span></li>
-              ))}
-            </ol>
+          <L.Panel eyebrow="08" title="Score scale">
             <Table head={["Factor", "Scores 0", "Scores 1"]} rows={[
               ["Sun · Earth", "never in view", "always in view"],
               ["Slope", `at your maximum (default ${DEFAULT_LIMITS.maxSlopeDeg}°)`, "flat"],
@@ -148,7 +139,7 @@ export default function DataMethods() {
             ]} />
           </L.Panel>
 
-          <L.Panel eyebrow="11" title="How we checked it">
+          <L.Panel eyebrow="09" title="How we checked it">
             <Table head={["Map", "Positions vs JPL (Sun · Earth)", "Sunlight vs LOLA", "Earth view vs LOLA"]} rows={[
               checkRow("South Pole", checks.south),
               checkRow("North Pole", checks.north),
@@ -159,15 +150,6 @@ export default function DataMethods() {
             </p>
           </L.Panel>
 
-          <L.Panel eyebrow="12" title="Limits">
-            <ul className="body-sm sources">
-              <li>Compares regions; does not certify a landing site.</li>
-              <li>Boulders, small craters and terrain closer than 300 m are not in the data.</li>
-              <li>Sunlight is not electricity; Earth in view is not a radio link.</li>
-              <li>Polar ice is where ice could survive, not ice that was detected.</li>
-              <li>Astronaut Mode: hills are real, small craters and rocks are generated.</li>
-            </ul>
-          </L.Panel>
         </div>
       )}
     </section>

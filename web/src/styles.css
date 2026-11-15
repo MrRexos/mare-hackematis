@@ -599,8 +599,6 @@ button:disabled { cursor: default; }
 .dm-kind--m { border-color: #8bd17c; color: #8bd17c; }
 .dm-kind--mod { border-color: var(--earth); color: var(--earth); }
 .dm-kind--calc { border-color: var(--sun); color: var(--sun); }
-.dm-steps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-.dm-steps li { display: grid; gap: 4px; align-content: start; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-sunken); }
 @media (max-width: 599px) {
   .dm__toggle { padding: 16px; }
   /* Tabla de datos: cada fila pasa a ser una ficha con etiquetas. */
