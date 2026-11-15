@@ -258,25 +258,5 @@
     "fidelity": "approximate",
     "note": "1 km grid, 5° azimuth bins: regional screening, not site certification."
   },
-  "validation": "validation.json",
-  "thermal": {
-    "file": "temp_diurnal.u8",
-    "dtype": "uint8",
-    "bins": 48,
-    "scaleK": 1.6,
-    "nodata": 255,
-    "binCentreHours": "(k + 0.5) * 24 / bins of local solar time (12 = noon)",
-    "localTime": "12 + (pixel longitude − subsolar longitude) / 15, in hours, wrapped to 0–24",
-    "quantity": "bolometric brightness temperature of the surface (K), 2009–2015 mean of nadir observations",
-    "source": "LRO Diviner Global Cumulative Products (Williams et al. 2017), NASA PDS",
-    "resampling": "bilinear from the 0.5° global curves to each 1 km pixel centre; no 1 km detail is added",
-    "sources": [
-      {
-        "name": "LRO Diviner Global Cumulative Products (GCP)",
-        "url": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_gcp/",
-        "citation": "Williams et al. (2017), Icarus 283, 300-325; LRO-L-DLRE-5-GCP-V1.0, NASA PDS Geosciences Node"
-      }
-    ],
-    "fidelity": "measured"
-  }
+  "validation": "validation.json"
 }

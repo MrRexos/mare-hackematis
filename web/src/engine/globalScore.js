@@ -29,9 +29,7 @@
 // Tierra (los dos últimos, si se activan en Mission settings).
 
 import { MissionEngine } from "./missionEngine.js";
-import { ROUGH_MAX_M, TEMP_BAND } from "./score.js";
-
-export { TEMP_BAND };
+import { ROUGH_MAX_M, TEMP_COLD_K, TEMP_MILD_K } from "./score.js";
 
 const BASE = `${import.meta.env.BASE_URL}data/`;
 
@@ -44,6 +42,13 @@ export const GLOBAL_FACTORS = ["sun", "earth", "slope", "rough", "temp", "ice"];
  */
 export const WATER_FULL_WT_PCT = 0.1;
 
+/**
+ * Nota de una hora según la temperatura de la superficie (K):
+ *   ≤ coldK → 0 · sube hasta 1 en mildK · 1 hasta hotOkK · baja hasta 0 en hotMaxK.
+ * El lado frío es el mismo del polo sur (score.js). El lado caliente penaliza el mediodía
+ * lunar: 350 K (77 °C) aún puntúa 1; 400 K (127 °C), por encima del máximo ecuatorial, 0.
+ */
+export const TEMP_BAND = { coldK: TEMP_COLD_K, mildK: TEMP_MILD_K, hotOkK: 350, hotMaxK: 400 };
 
 /** Manifest de los datos globales, o null si todavía no se han generado. */
 export async function loadGlobalManifest() {

@@ -264,10 +264,10 @@ function Overview({ app, place }) {
   const scored = FACTORS.filter((f) => Number.isFinite(place.factors?.[f.key])).sort((a, b) => place.factors[b.key] - place.factors[a.key]);
   const pros = scored.slice(0, 3).filter((f) => place.factors[f.key] >= 50);
   const cons = scored.slice(-3).reverse().filter((f) => place.factors[f.key] < 60);
-  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Workable temperatures", ice: "Close to stable ice",
-    ...(app.moon ? { ice: "Water signal" } : {}) };
-  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Extreme temperatures", ice: "Far from stable ice",
-    ...(app.moon ? { ice: "No water signal" } : {}) };
+  const proText = { sun: "Long daylight", earth: "Earth often in view", slope: "Gentle slope", rough: "Smooth ground", temp: "Milder temperatures", ice: "Close to stable ice",
+    ...(app.moon ? { temp: "Workable temperatures", ice: "Water signal" } : {}) };
+  const conText = { sun: "Little sunlight", earth: "Earth low or hidden", slope: "Steep ground", rough: "Rough ground", temp: "Very cold", ice: "Far from stable ice",
+    ...(app.moon ? { temp: "Extreme temperatures", ice: "No water signal" } : {}) };
 
   // Escala de la mini-barra: cubre todo el tramo "Land between" y la misión, con margen;
   // las posiciones se recortan a 0–100 % para que nada se salga de la tarjeta.
@@ -367,7 +367,7 @@ function Overview({ app, place }) {
         </Card>
         <Card className="f1">
           <CardHead title="Ground data"><span className="muted-12">{app.moon ? `${app.gdata.manifest.grid.stepDeg}° cell` : "1 km cell"}</span></CardHead>
-          {app.moon ? <GlobalGround app={app} pixel={p} /> : <GroundReadout data={data} pixel={p} result={app.result} />}
+          {app.moon ? <GlobalGround app={app} pixel={p} /> : <GroundReadout data={data} pixel={p} />}
           <div className="grid2 mt-12">
             <Stat label="Horizon max" value={Number.isFinite(horMax) ? horMax.toFixed(1) : "–"} unit="°" />
             <Stat label="Observer" value={mission.observerM} unit="m" />
@@ -533,7 +533,7 @@ function SkyTime({ app }) {
 
 const TERRAIN_LAYERS = ["sun", "earth", "elevation", "slope", "rough", "temp", "shadow"];
 
-function GroundReadout({ data, pixel, result }) {
+function GroundReadout({ data, pixel }) {
   const { grid } = data.manifest;
   const [x, y] = pixelXY(grid, Math.floor(pixel / grid.n), pixel % grid.n);
   let nearestSquared = Infinity;
@@ -546,8 +546,8 @@ function GroundReadout({ data, pixel, result }) {
         <section className="ground-group" key={group.label}>
           <h3 className="lbl">{group.label}</h3>
           <dl className="ground-values">
-            {group.fields.map(({ key, label, format, source }) => {
-              const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : (source === "mission" ? result?.[key] : data.layers[key])?.[pixel];
+            {group.fields.map(({ key, label, format }) => {
+              const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : data.layers[key]?.[pixel];
               return (
                 <div key={key}>
                   <dt>{label}</dt>
@@ -594,7 +594,7 @@ function Terrain({ app, place }) {
       <aside className="rank">
         <Card pad="md2">
           <CardHead title="Ground data" size="sm"><span className="muted-12">1 km cell</span></CardHead>
-          <GroundReadout data={data} pixel={place.p} result={app.result} />
+          <GroundReadout data={data} pixel={place.p} />
         </Card>
         <Card pad="md2">
           <CardHead title="Precision" size="sm" />

@@ -29,7 +29,7 @@ export default function LearnPage({ data }) {
             <li>Every 1 km pixel has a terrain horizon in 72 directions, ray-traced over NASA LOLA elevation.</li>
             <li>For each hour of the mission the app checks the Sun disk and Earth against that horizon.</li>
             <li>It samples landing times across the window at a step that depends on its length and keeps the best one per pixel.</li>
-            <li>Score = 100 · Σ weight × factor / Σ weight. Factors include Sun and Earth visibility, slope, roughness, thermal comfort (share of mission hours with a workable surface temperature) and modelled ice proximity. Limits for slope, permanent shadow and night can exclude cells.</li>
+            <li>Score = 100 · Σ weight × factor / Σ weight. Factors include Sun and Earth visibility, slope, roughness, mean ground temperature and modelled ice proximity. Limits for slope, permanent shadow and night can exclude cells.</li>
             <li>Hotspots are connected groups of the top 3% of pixels, ranked by their best pixel.</li>
           </ol>
         </L.Panel>

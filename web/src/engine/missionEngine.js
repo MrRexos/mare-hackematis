@@ -6,7 +6,7 @@ const HOUR_MS = 3600 * 1000;
 export class MissionEngine {
   constructor(data) {
     const { manifest, layers, horizon, ephem, temp, horizonSub } = data;
-    this.tempMeta = temp ? manifest.thermal : null; // curva de temperatura por hora local (LRO Diviner)
+    this.tempMeta = temp ? manifest.thermal : null; // curva de temperatura por hora local (solo Luna entera)
     this.grid = manifest.grid;
     this.ephemMeta = manifest.ephem;
     this.horizonMeta = manifest.horizon;

@@ -157,47 +157,6 @@ def generar_web(c: np.ndarray, info: dict) -> dict:
     }}
 
 
-def generar_polo_sur(log=print) -> dict:
-    """Curvas de temperatura para la malla polar de 1 km del polo sur (temp_diurnal.u8).
-
-    Son las mismas curvas Diviner de 0,5° de la Luna entera, interpoladas de forma bilineal al
-    centro de cada píxel: así el polo sur puntúa la temperatura con la misma regla y el mismo
-    dato. No añaden detalle de 1 km (una sombra permanente y la cresta de al lado comparten
-    casi la misma curva); ese detalle sigue en las capas del modelo polar de Diviner.
-    """
-    mp = C.WEB_DATA / "manifest.json"
-    m = json.loads(mp.read_text(encoding="utf-8"))
-    g = m["grid"]
-    n, px, half = int(g["n"]), float(g["pxM"]), float(g["halfM"])
-    q = np.fromfile(OUT / "temp_diurnal.u8", np.uint8).reshape(ROWS, COLS, WEB_BINS)
-    k = np.where(q == 255, np.nan, q.astype(np.float32) * SCALE_K)
-    c = (np.arange(n) + 0.5) * px - half
-    x, y = np.meshgrid(c, -c)                                   # fila 0 = +y (hacia 0°E)
-    lat = -90.0 + 2.0 * np.degrees(np.arctan(np.hypot(x, y) / (2.0 * float(g["radiusM"]))))
-    lon = np.degrees(np.arctan2(x, y))
-    fi = np.clip((90.0 - lat) / 0.5 - 0.5, 0, ROWS - 1)
-    fj = (lon + 180.0) / 0.5 - 0.5
-    i0 = np.minimum(np.floor(fi).astype(int), ROWS - 2); wi = (fi - i0)[..., None].astype(np.float32)
-    j0 = np.floor(fj).astype(int); wj = (fj - j0)[..., None].astype(np.float32)
-    ja, jb = j0 % COLS, (j0 + 1) % COLS                         # la longitud es periódica
-    out = ((1 - wi) * ((1 - wj) * k[i0, ja] + wj * k[i0, jb]) + wi * ((1 - wj) * k[i0 + 1, ja] + wj * k[i0 + 1, jb]))
-    cerca = k[np.rint(fi).astype(int), np.rint(fj).astype(int) % COLS]
-    out = np.where(np.isfinite(out), out, cerca)                # junto a un hueco: la celda más próxima
-    np.where(np.isfinite(out), np.clip(np.rint(out / SCALE_K), 0, 254), 255).astype(np.uint8).tofile(C.WEB_DATA / "temp_diurnal.u8")
-    m["thermal"] = {
-        "file": "temp_diurnal.u8", "dtype": "uint8", "bins": WEB_BINS, "scaleK": SCALE_K, "nodata": 255,
-        "binCentreHours": "(k + 0.5) * 24 / bins of local solar time (12 = noon)",
-        "localTime": "12 + (pixel longitude − subsolar longitude) / 15, in hours, wrapped to 0–24",
-        "quantity": "bolometric brightness temperature of the surface (K), 2009–2015 mean of nadir observations",
-        "source": "LRO Diviner Global Cumulative Products (Williams et al. 2017), NASA PDS",
-        "resampling": "bilinear from the 0.5° global curves to each 1 km pixel centre; no 1 km detail is added",
-        "sources": FUENTES, "fidelity": "measured",
-    }
-    mp.write_text(json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8")
-    log(f"   polo sur: {n} × {n} × {WEB_BINS} · de {float(np.nanmin(out)):.0f} a {float(np.nanmax(out)):.0f} K · sin dato {float(np.isnan(out).mean()) * 100:.2f} %")
-    return m["thermal"]
-
-
 def _sha(path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -259,9 +218,6 @@ def disponible() -> bool:
 
 def main(argv=None) -> None:
     argv = sys.argv[1:] if argv is None else argv
-    if "--south" in argv:                 # solo recorta al polo sur lo que ya hay en la web
-        generar_polo_sur()
-        return
     print("Temperatura Diviner (GCP)...")
     c, info = curvas()
     entrada = generar_web(c, info)
@@ -270,7 +226,6 @@ def main(argv=None) -> None:
         m = json.loads(mp.read_text(encoding="utf-8"))
         m.update(entrada)
         mp.write_text(json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8")
-    generar_polo_sur()
     if "--web" not in argv:
         generar_contrato(c, info)
     print(f"Listo: {OUT / 'temp_diurnal.u8'}")
