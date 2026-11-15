@@ -355,18 +355,20 @@ export default function MapView({ data, layer, values, sites, spots, selected, s
     }
   };
 
-  // Centrar en lo seleccionado (punto caliente, región o punto elegido).
+  // El mapa no se mueve al seleccionar: empieza entero y se queda donde lo deja el usuario.
+  // Solo si lo seleccionado queda fuera de lo que se ve (con zoom), se desplaza hasta él
+  // sin cambiar el zoom.
   const resolvedKey = selected?.key;
   useEffect(() => {
     if (!selectionKey) centeredKey.current = null;
     if (!resolvedKey || centeredKey.current === resolvedKey) return;
     centeredKey.current = resolvedKey;
     setView((v) => {
-      const zoom = Math.max(v.zoom, 3);
-      const viewport = sizeRef.current;
-      const sc = baseScale(viewport) * zoom;
-      const verticalOffset = viewport.w < 560 && sc > 0 ? 0.12 * viewport.h / sc : 0;
-      return clampView({ zoom, cx: selected.j + 0.5, cy: selected.i + 0.5 - verticalOffset });
+      const viewport = sizeRef.current, sc = baseScale(viewport) * v.zoom;
+      if (!(sc > 0)) return v;
+      const halfW = viewport.w / (2 * sc), halfH = viewport.h / (2 * sc);
+      const inside = Math.abs(selected.j + 0.5 - v.cx) < halfW * 0.9 && Math.abs(selected.i + 0.5 - v.cy) < halfH * 0.9;
+      return inside ? v : clampView({ ...v, cx: selected.j + 0.5, cy: selected.i + 0.5 });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey, resolvedKey]);
