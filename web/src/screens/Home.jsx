@@ -73,13 +73,13 @@ export default function Home({ app }) {
         <button type="button" className="setup__brand" aria-label="Mare Hackematis, home" onClick={() => setStep(null)}>Mare Hackematis</button>
         <div className="setup__menu">
           <IconBtn icon={menu ? "x" : "menu"} variant="ghost" label={menu ? "Close menu" : "Menu"}
-            size={32} iconSize={14} aria-controls={menu ? "home-menu" : undefined} aria-expanded={menu} onClick={() => setMenu(!menu)} />
+            size={48} iconSize={24} aria-controls={menu ? "home-menu" : undefined} aria-expanded={menu} onClick={() => setMenu(!menu)} />
           {menu && (
             <nav id="home-menu" aria-label="Menu" className="popmenu setup__pop">
-              {planReady && cmpPlaces.length > 0 && <button type="button" onClick={() => go("compare")}><Icon name="compare" size={16} />Compare sites</button>}
-              <button type="button" onClick={() => { setMenu(false); openSettings(); }}><Icon name="sliders" size={16} />Advanced settings</button>
-              <button type="button" onClick={() => go("learn")}><Icon name="info" size={16} />How it works</button>
-              {planStarted && <button type="button" onClick={clear}><Icon name="rotate-ccw" size={16} />Reset plan</button>}
+              {planReady && cmpPlaces.length > 0 && <button type="button" onClick={() => go("compare")}><Icon name="compare" size={20} />Compare sites</button>}
+              <button type="button" onClick={() => { setMenu(false); openSettings(); }}><Icon name="sliders" size={20} />Advanced settings</button>
+              <button type="button" onClick={() => go("learn")}><Icon name="info" size={20} />How it works</button>
+              {planStarted && <button type="button" onClick={clear}><Icon name="rotate-ccw" size={20} />Reset plan</button>}
             </nav>
           )}
         </div>

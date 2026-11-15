@@ -749,7 +749,9 @@ button:disabled { cursor: default; }
 .setup__top { min-height: 74px; padding-inline: var(--home-gutter) 32px; display: flex; align-items: center; justify-content: space-between; }
 .setup__brand { font-size: 13px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-tertiary); }
 .setup__menu { position: relative; z-index: 4; }
-.setup__pop { position: absolute; right: 0; top: 40px; width: 220px; }
+.setup__pop { position: absolute; right: 0; top: 56px; width: 280px; padding: 10px; border-radius: 18px; }
+/* Menú de la portada más grande: botón de 48 px y opciones de 52 px, fáciles de ver y de tocar. */
+.setup__pop button { height: 52px; gap: 14px; padding: 0 14px; border-radius: 12px; font-size: 16px; }
 .setup__about { left: var(--home-gutter); right: auto; top: auto; bottom: 74px; width: min(320px, calc(100% - 2 * var(--home-gutter))); }
 .setup__utc { position: absolute; right: 26px; top: 42%; writing-mode: vertical-rl; rotate: 180deg; color: var(--ink-tertiary); font-size: 11px; }
 
