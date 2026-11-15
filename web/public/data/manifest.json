@@ -18,12 +18,13 @@
     "abcorr": "LT+S",
     "source": "NASA/JPL NAIF SPICE: DE440 (de440s.bsp), moon_pa_de440_200625.bpc, moon_de440_250416.tf"
   },
-  "generated": "2026-11-14T15:14:56Z",
+  "generated": "2026-11-15T09:26:48Z",
   "grid": {
     "n": 400,
     "pxM": 1000.0,
     "halfM": 200000.0,
     "radiusM": 1737400.0,
+    "pole": "south",
     "projection": "south polar stereographic (LOLA): x = rho·sin(lon), y = rho·cos(lon), row 0 = +y",
     "frame": "MOON_ME",
     "order": "row-major, row 0 at the top (+y, towards 0°E)"
@@ -35,6 +36,10 @@
         "label": "Artemis III candidate regions",
         "shape": "circle",
         "fidelity": "approximate",
+        "placeLabel": "Artemis III region",
+        "rankingLabel": "Artemis III references",
+        "markerLabel": "Artemis III reference region",
+        "legendLabel": "Artemis III reference",
         "note": "NASA announced nine ~15 × 15 km candidate regions on 2024-10-28. Points are approximate region centres, not landing sites.",
         "source": "NASA (2024); centres via Lunar Horizon / LROC mosaics (Henriksen et al. 2023)"
       }

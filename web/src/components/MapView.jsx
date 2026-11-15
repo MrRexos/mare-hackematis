@@ -6,7 +6,8 @@ import { ROUGH_MAX_M } from "../engine/score.js";
 import { paletteOf, rampFunction } from "../engine/globalRamps.js";
 import iceDetections from "../data/iceDetections.json";
 
-// Visor del mapa del polo sur (siempre en tema oscuro, como pide el design system).
+// Visor del mapa polar, sur o norte según data.manifest.grid.pole (siempre en tema oscuro,
+// como pide el design system).
 // Dibuja en un <canvas>: relieve sombreado + capa de datos coloreada.
 // Los marcadores son componentes MapMarker del design system encima del canvas.
 //
@@ -91,9 +92,12 @@ export function makeRamp(layer, colors, extent) {
   }
 }
 
-export default function MapView({ data, layer, values, sites, spots, selected, selectionKey = selected?.key, onSelect, onPick, showIceEvidence, hoverPixel, onHover, children }) {
+export default function MapView({ data, layer, values, sites, spots, selected, selectionKey = selected?.key, onSelect, onPick, showIceEvidence, hoverPixel, onHover, children, refLabels }) {
   const grid = data.manifest.grid;
   const n = grid.n;
+  const north = grid.pole === "north";
+  // Las observaciones de hielo (M³, regiones, LCROSS) están en el plano del polo sur: en el norte no hay.
+  showIceEvidence = showIceEvidence && !north;
   const [iceRegions, setIceRegions] = useState(null);
   const [iceRegionError, setIceRegionError] = useState(false);
   const wrapRef = useRef(null);
@@ -129,9 +133,9 @@ export default function MapView({ data, layer, values, sites, spots, selected, s
     }
     return path;
   }, [grid, iceRegions]);
-  const detections = useMemo(() => iceDetections.points
+  const detections = useMemo(() => (north ? [] : iceDetections.points)
     .map(([x, y]) => xyToPixel(grid, x, y))
-    .filter(([i, j]) => i >= -0.5 && j >= -0.5 && i < n - 0.5 && j < n - 0.5), [grid, n]);
+    .filter(([i, j]) => i >= -0.5 && j >= -0.5 && i < n - 0.5 && j < n - 0.5), [grid, n, north]);
   // Copias en refs para los listeners nativos (rueda, gestos), que no se recrean.
   const sizeRef = useRef(size);
   const viewRef = useRef(view);
@@ -400,7 +404,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, s
       data-theme="dark"
       tabIndex={0}
       role="application"
-      aria-label="South pole map. Drag or use arrow keys to pan. Scroll, pinch or use plus and minus to zoom. Select a point for ground data. Enter selects the centre and 0 resets the map."
+      aria-label={`${north ? "North" : "South"} pole map. Drag or use arrow keys to pan. Scroll, pinch or use plus and minus to zoom. Select a point for ground data. Enter selects the centre and 0 resets the map.`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -421,7 +425,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, s
             key={s.id}
             label={label}
             shape="circle"
-            category="Artemis III reference region"
+            category={refLabels?.markerLabel || "Artemis III reference region"}
             state={selected?.key === `site-${s.id}` ? "selected" : "default"}
             showLabel={view.zoom >= 2}
             style={markerPos(i, j)}

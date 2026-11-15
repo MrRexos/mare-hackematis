@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { loadData } from "./data/loadData.js";
+import { loadData, loadNorthManifest } from "./data/loadData.js";
 import { MissionEngine } from "./engine/missionEngine.js";
 import { DAY_MS, changePeriod, resolveMission, validateTiming } from "./engine/missionTiming.js";
 import { DEFAULT_LIMITS, exclusionAt, factorsAt, scoreGrid } from "./engine/score.js";
-import { LAYERS } from "./data/mapLayers.js";
+import { layersOf } from "./data/mapLayers.js";
 import { findHotspots, nearestSite } from "./engine/hotspots.js";
 import { formatLatLon, latLonToXY, pixelXY, xyToLatLon, xyToPixel } from "./engine/geometry.js";
 import { landingWindows, runs, siteTimeline, windowDetails } from "./engine/timeline.js";
@@ -19,7 +19,11 @@ import { ExportDialog, SettingsDrawer } from "./screens/Overlays.jsx";
 import LearnPage from "./components/LearnPage.jsx";
 
 const H = 3600e3;
-const REGION_HALF_PX = 7; // regiones Artemis III de ~15 × 15 km -> 15 × 15 píxeles de 1 km
+const REGION_HALF_PX = 7; // regiones Artemis III de ~15 × 15 km -> 15 × 15 píxeles de 1 km (y el mismo recuadro en el norte)
+const REGION_NAMES = { south: "South Pole", north: "North Pole", moon: "Whole Moon" };
+const NOT_LOADED = { done: 0, total: 1, error: null };
+// Textos del grupo de referencias de cada polo (los da el manifest; estos son los del polo sur).
+const REF_LABELS = { placeLabel: "Artemis III region", rankingLabel: "Artemis III references", markerLabel: "Artemis III reference region", legendLabel: "Artemis III reference" };
 const ANALYSIS_SCREENS = ["explore", "site", "compare"];
 
 const todayMs = () => {
@@ -63,20 +67,24 @@ export default function App() {
   const [tab, setTab] = useState("overview");
   const [dim, setDim] = useState("2D");
   const [overlay, setOverlay] = useState(null);
-  const [data, setData] = useState(null);
-  const [loadState, setLoadState] = useState({ done: 0, total: 1, error: null });
-  const engineRef = useRef(null);
+  // Módulo polar: un juego de datos y un motor por polo ({ south, north }). El sur se carga
+  // al abrir la web; el norte, la primera vez que se elige.
+  const [polar, setPolar] = useState({});
+  const [loads, setLoads] = useState({});
+  const engines = useRef({});
+  const requested = useRef({});
+  const [northManifest, setNorthManifest] = useState(null);
 
   const [periods, setPeriods] = useState(() => computePeriods(null));
   const [missionInput, setMissionInput] = useState(EMPTY_MISSION);
   const [destination, setDestination] = useState(null);
   const [weights, setWeights] = useState(null);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
-  const [calculation, setCalculation] = useState(null);
+  const [calcs, setCalcs] = useState({}); // cálculo de misión de cada polo: { south, north }
   const [layerKey, setLayerKey] = useState("score");
   const [terrainLayer, setTerrainLayer] = useState("sun");
   const [showIceEvidence, setShowIceEvidence] = useState(false);
-  const [selRef, setSelRef] = useState(null); // {type:"spot",rank} | {type:"site",id} | {type:"pick",p}
+  const [selRefs, setSelRefs] = useState({}); // por polo: {type:"spot",rank} | {type:"site",id} | {type:"pick",p}
   const [group, setGroup] = useState("spots");
   const [cmpRefs, setCmpRefs] = useState([]);
   const [timeMs, setTimeMs] = useState(() => todayMs());
@@ -85,11 +93,22 @@ export default function App() {
   const [gSel, setGSel] = useState(null);
   const [gGroup, setGGroup] = useState("spots"); // ranking de la Luna entera: "spots" | "apollo"
   useEffect(() => { loadGlobalManifest().then(setGlobalManifest); }, []);
+  useEffect(() => { loadNorthManifest().then(setNorthManifest); }, []);
+
+  // Polo activo del módulo polar. Con la Luna entera sigue siendo el sur: de él salen las efemérides.
+  const pole = destination === "north" ? "north" : "south";
+  const data = polar[pole] || null;
+  const loadState = loads[pole] || NOT_LOADED;
+  const selRef = selRefs[pole] || null;
+  const setSelRef = useCallback((next) => setSelRefs((all) => ({ ...all, [pole]: typeof next === "function" ? next(all[pole] || null) : next })), [pole]);
+  const setCalculation = useCallback((which, next) => setCalcs((all) => ({ ...all, [which]: typeof next === "function" ? next(all[which] || null) : next })), []);
+  const calculation = calcs[pole] || null;
 
   const analysisActive = ANALYSIS_SCREENS.includes(screen);
   const mission = useMemo(() => resolveMission(missionInput, periods), [missionInput, periods]);
   const { timingMissing, problem } = validateTiming(mission, periods);
-  const destinationReady = destination === "south" || (destination === "moon" && !!globalManifest);
+  const northReady = !!northManifest;
+  const destinationReady = destination === "south" || (destination === "north" && northReady) || (destination === "moon" && !!globalManifest);
   const timingReady = destinationReady && !timingMissing && !problem;
   const planReady = timingReady && weights != null;
   const planStarted = destination != null || weights != null || mission.period != null || mission.durationDays != null;
@@ -102,18 +121,25 @@ export default function App() {
   const closeOverlay = () => setOverlay(null);
 
   // --- Carga de datos y motor ---------------------------------------------
-  useEffect(() => {
-    loadData((done, total) => setLoadState((s) => ({ ...s, done, total })))
+  const loadPole = useCallback((which) => {
+    if (requested.current[which]) return;
+    requested.current[which] = true;
+    const setLoad = (change) => setLoads((all) => ({ ...all, [which]: { ...NOT_LOADED, ...all[which], ...change } }));
+    loadData((done, total) => setLoad({ done, total }), which)
       .then((d) => {
-        if (d.horizon && d.ephem) engineRef.current = new MissionEngine(d);
-        setPeriods(computePeriods(d.manifest.ephem));
-        setData(d);
+        if (d.horizon && d.ephem) engines.current[which] = new MissionEngine(d);
+        if (which === "south") setPeriods(computePeriods(d.manifest.ephem));
+        setPolar((all) => ({ ...all, [which]: d }));
       })
-      .catch((e) => setLoadState((s) => ({ ...s, error: e.message })));
-    return () => engineRef.current?.dispose();
+      .catch((e) => { requested.current[which] = false; setLoad({ error: e.message }); });
   }, []);
+  useEffect(() => {
+    loadPole("south");
+    return () => { for (const engine of Object.values(engines.current)) engine.dispose(); };
+  }, [loadPole]);
+  useEffect(() => { if (destination === "north" && northReady) loadPole("north"); }, [destination, northReady, loadPole]);
 
-  const engineReady = !!engineRef.current;
+  const engineReady = !!data && !!engines.current[pole];
   // --- Mission setters -------------------------------------------------------
   const chooseDestination = (value) => {
     if (value === destination) return;
@@ -125,7 +151,7 @@ export default function App() {
   // búsqueda se pasa a fecha fija, empezando el primer día del rango que había.
   const fixedOnlyDates = () => setMissionInput((m) => (m.period && m.period !== "fixed"
     ? { ...changePeriod(m, "fixed"), fromMs: resolveMission(m, periods).fromMs ?? null } : m));
-  // Pestañas South Pole / Whole Moon de Explore: cambian de región sin rehacer el plan.
+  // Pestañas South Pole / North Pole / Whole Moon de Explore: cambian de región sin rehacer el plan.
   const setRegion = (value) => {
     if (value === destination) return;
     setDestination(value);
@@ -139,17 +165,17 @@ export default function App() {
     setLimits(limits);
     closeOverlay();
   };
-  const selectFirst = useRef(true);
+  const selectFirst = useRef({ south: true, north: true });
   const resetPlan = () => {
     setMissionInput(EMPTY_MISSION);
     setDestination(null);
     setWeights(null);
     setLimits(DEFAULT_LIMITS);
-    setCalculation(null);
-    setSelRef(null);
+    setCalcs({});
+    setSelRefs({});
     setGSel(null);
     setCmpRefs([]);
-    selectFirst.current = true;
+    selectFirst.current = { south: true, north: true };
     setOverlay(null);
     go("home");
   };
@@ -169,34 +195,34 @@ export default function App() {
   const runError = planReady ? current?.error ?? null : null;
   const settled = !!(result || runError);
   const moon = destination === "moon" && !!globalManifest; // región activa: Luna entera
-  // En la Luna entera calcula su propio motor (useGlobalMission): el del polo sur no arranca.
+  // En la Luna entera calcula su propio motor (useGlobalMission): el del módulo polar no arranca.
   const running = analysisActive && engineReady && planReady && !settled && !moon;
   const progress = current?.progress ?? 0;
 
   useEffect(() => {
-    const engine = engineRef.current;
-    if (!running) return undefined;
+    const engine = engines.current[pole];
+    if (!running || !engine) return undefined;
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
         const result = await engine.run(request, (progress) => {
-          if (!cancelled) setCalculation({ request, progress });
+          if (!cancelled) setCalculation(pole, { request, progress });
         });
-        if (result && !cancelled) setCalculation({ request, result, progress: 1 });
+        if (result && !cancelled) setCalculation(pole, { request, result, progress: 1 });
       } catch (e) {
-        if (!cancelled) setCalculation({ request, error: e.message });
+        if (!cancelled) setCalculation(pole, { request, error: e.message });
       }
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(timer);
       engine.cancel();
-      setCalculation((current) => current?.request === request && !current.result && !current.error ? null : current);
+      setCalculation(pole, (current) => current?.request === request && !current.result && !current.error ? null : current);
     };
-  }, [running, request]);
+  }, [running, request, pole, setCalculation]);
 
   // --- Luna entera: mismo cálculo con la malla global (lo comparten Explore, Mare y Compare).
-  const G = useGlobalMission({ gm: globalManifest, data, request, problem: planReady ? problem : "Plan not ready",
+  const G = useGlobalMission({ gm: globalManifest, data: polar.south || null, request, problem: planReady ? problem : "Plan not ready",
     weights: weights || {}, limits, active: moon && planReady && analysisActive });
   // Referencias Apollo de la Luna entera: su propio ranking, como las regiones Artemis III.
   const gRefs = moon ? G.refs : [];
@@ -244,13 +270,18 @@ export default function App() {
     });
   }, [score, data, result, limits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Regiones Artemis III: mejor píxel de 1 km dentro de su recuadro de ~15 × 15 km.
+  // Referencias del polo (regiones Artemis III en el sur, cráteres con nombre en el norte):
+  // mejor píxel de 1 km dentro de su recuadro de ~15 × 15 km.
+  const refLabels = { ...REF_LABELS, ...(data?.manifest.sites?.groups?.[0] || {}) };
   const sites = useMemo(() => {
     if (!data) return [];
     const grid = data.manifest.grid;
     const n = grid.n;
     const raw = data.manifest.sites?.sites || [];
     const shorts = shortNames(raw.map((s) => s.name));
+    // En el sur el recuadro es la región candidata; en el norte, el entorno del centro del cráter.
+    const boxName = pole === "north" ? "box around the crater centre" : "region";
+    const boxMean = pole === "north" ? "Box" : "Region";
     const list = raw.map((s, k) => {
       const [x, y] = latLonToXY(grid, s.lat, s.lon);
       const [fi, fj] = xyToPixel(grid, x, y);
@@ -270,10 +301,10 @@ export default function App() {
       const mean = cnt ? sum / cnt : NaN;
       return {
         ...placeBase(best, {}),
-        id: s.id, name: s.name, short: shorts[k], shape: "circle", kindLabel: "Artemis III region",
+        id: s.id, name: s.name, short: shorts[k], shape: "circle", kindLabel: refLabels.placeLabel,
         key: `site-${s.id}`, ref: { type: "site", id: s.id }, score: bestScore, mean, centre: [s.lat, s.lon],
-        excluded: score && !Number.isFinite(bestScore) ? "No 1 km pixel in this region passes your limits" : null,
-        note: score && Number.isFinite(bestScore) ? `Best 1 km pixel inside the ~15 × 15 km region. Region mean ${Math.round(mean)} · ${cnt} of 225 km² pass the limits.` : null,
+        excluded: score && !Number.isFinite(bestScore) ? `No 1 km pixel in this ${boxName} passes your limits` : null,
+        note: score && Number.isFinite(bestScore) ? `Best 1 km pixel inside the ~15 × 15 km ${boxName}. ${boxMean} mean ${Math.round(mean)} · ${cnt} of 225 km² pass the limits.` : null,
       };
     });
     const ranked = [...list].sort((a, b) => (Number.isFinite(b.score) ? b.score : -1) - (Number.isFinite(a.score) ? a.score : -1));
@@ -283,9 +314,9 @@ export default function App() {
 
   const groups = useMemo(() => {
     const candidates = [...spots]; candidates.label = "Calculated candidates";
-    const references = [...sites]; references.label = "Artemis III references";
-    return { spots: candidates, artemis: references };
-  }, [sites, spots]);
+    const references = [...sites]; references.label = refLabels.rankingLabel;
+    return { spots: candidates, refs: references };
+  }, [sites, spots, refLabels.rankingLabel]);
 
   const resolve = useCallback((ref) => {
     if (!ref || !data) return null;
@@ -310,30 +341,33 @@ export default function App() {
 
   const firstPlace = groups[group][0];
   useEffect(() => {
-    if (!moon && analysisActive && selectFirst.current && Number.isFinite(firstPlace?.score)) {
-      selectFirst.current = false;
+    if (!moon && analysisActive && selectFirst.current[pole] && Number.isFinite(firstPlace?.score)) {
+      selectFirst.current[pole] = false;
       setSelRef((r) => r || firstPlace.ref);
     }
-  }, [moon, analysisActive, firstPlace]);
+  }, [moon, analysisActive, firstPlace, pole, setSelRef]);
 
   // --- Comparar ----------------------------------------------------------------
   const refKey = (r) => (r.type === "gcell" ? `gcell-${r.p}` : r.type === "spot" ? `spot-${r.rank}` : r.type === "site" ? `site-${r.id}` : `pick-${r.p}`);
-  const inCmp = (place) => !!place && cmpRefs.some((r) => refKey(r) === place.key);
+  // Cada región compara sus propios lugares (polo sur, polo norte y Luna entera no se mezclan):
+  // cada referencia guardada lleva la región en la que se añadió.
+  const regionId = moon ? "moon" : pole;
+  const here = (r) => r.region === regionId;
+  const isPlace = (r, place) => here(r) && refKey(r) === place.key;
+  const inCmp = (place) => !!place && cmpRefs.some((r) => isPlace(r, place));
   const toggleCmp = (place) => setCmpRefs((list) => {
-    if (list.some((r) => refKey(r) === place.key)) return list.filter((r) => refKey(r) !== place.key);
-    const g = place.ref.type === "gcell"; // máximo 4 por región
-    return list.filter((r) => (r.type === "gcell") === g).length >= 4 ? list : [...list, place.ref];
+    if (list.some((r) => isPlace(r, place))) return list.filter((r) => !isPlace(r, place));
+    return list.filter(here).length >= 4 ? list : [...list, { ...place.ref, region: regionId }]; // máximo 4 por región
   });
-  // Cada región compara sus propios lugares (los del polo sur y los de la Luna entera no se mezclan).
-  const cmpPlaces = cmpRefs.filter((r) => (r.type === "gcell") === moon).map(resolveAny).filter(Boolean);
+  const cmpPlaces = cmpRefs.filter(here).map(resolveAny).filter(Boolean);
   const gPlaces = moon ? G.spots.map((sp) => G.placeOf(sp.p)) : [];
   const ranked = (moon ? (gRefsOn ? gRefs : gPlaces) : groups[group] || []).filter((p) => Number.isFinite(p.score));
-  const addBest3 = () => setCmpRefs((list) => [...list.filter((r) => (r.type === "gcell") !== moon), ...ranked.slice(0, 3).map((p) => p.ref)]);
+  const addBest3 = () => setCmpRefs((list) => [...list.filter((r) => !here(r)), ...ranked.slice(0, 3).map((p) => ({ ...p.ref, region: regionId }))]);
 
   // --- Serie temporal del lugar seleccionado ---------------------------------
   const modes = { sunMode: mission.sunMode, earthMode: mission.earthMode };
   const showTimeline = analysisActive && planReady;
-  const tdata = moon ? G.gdata : data; // datos del punto: malla global o polo sur
+  const tdata = moon ? G.gdata : data; // datos del punto: malla global o la del polo activo
   const tl = useMemo(() => (showTimeline && selected && tdata?.ephem && tdata?.horizon ? siteTimeline(tdata, selected.p, mission.fromMs, mission.toMs, modes) : null),
     [showTimeline, selected?.p, tdata, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const lw = useMemo(() => (tl ? landingWindows(tl, mission.durationDays * 24, { sun: weights.sun, earth: weights.earth }, landEndMs) : null),
@@ -350,13 +384,13 @@ export default function App() {
   const tlCache = useRef(new Map());
   const timelineFor = useCallback((place) => {
     if (!planReady || !place || !tdata?.ephem || !tdata?.horizon) return null;
-    const k = `${moon ? "g" : "s"}${place.p}|${mission.fromMs}|${mission.toMs}|${mission.sunMode}|${mission.earthMode}`;
+    const k = `${regionId}${place.p}|${mission.fromMs}|${mission.toMs}|${mission.sunMode}|${mission.earthMode}`;
     if (!tlCache.current.has(k)) {
       if (tlCache.current.size > 24) tlCache.current.clear();
       tlCache.current.set(k, siteTimeline(tdata, place.p, mission.fromMs, mission.toMs, modes));
     }
     return tlCache.current.get(k);
-  }, [planReady, tdata, moon, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [planReady, tdata, regionId, mission.fromMs, mission.toMs, mission.sunMode, mission.earthMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // El reloj compartido salta al inicio de la mejor ventana al cambiar de lugar.
   const winStart = missionWin?.[0];
@@ -366,6 +400,7 @@ export default function App() {
   }, [planReady, mission.fromMs, mission.toMs]);
 
   // --- Valores de las capas -------------------------------------------------
+  const mapLayers = layersOf(pole);
   const cache = useMemo(() => new Map(), [data, result, score, limits.iceReachKm]);
   const valuesFor = useCallback((key) => {
     if (!data) return null;
@@ -403,7 +438,7 @@ export default function App() {
     if (key === "sun" || key === "earth") return ["0%", `${Math.round(hi * 100)}%`];
     if (key === "temp") return [`${Math.round(lo)} K`, `${Math.round(hi)} K`];
     if (key === "elevation") return [`${(lo / 1000).toFixed(1)} km`, `${(hi / 1000).toFixed(1)} km`];
-    return LAYERS[key].legend;
+    return mapLayers[key].legend;
   };
   const values = valuesFor(layerKey);
 
@@ -423,8 +458,12 @@ export default function App() {
     : selected && (selected.type === "site" || selected.type === "spot") && Number.isFinite(selected.score)
     ? { rank: siteList.findIndex((p) => p.key === selected.key) + 1, total: siteList.filter((p) => Number.isFinite(p.score)).length }
     : null;
+  // Comprobación que se ha hecho con los datos de este polo: JPL Horizons si se pudo consultar;
+  // si no, la comparación con el mapa de luz media del equipo LOLA.
   const v = data?.validation?.horizons?.maxArcmin;
-  const validation = v ? `JPL Horizons · ≤ ${Math.max(v.sun, v.earth).toFixed(3)}′` : "JPL Horizons";
+  const avgCheck = data?.validation?.avgvisib;
+  const validation = v ? `JPL Horizons · ≤ ${Math.max(v.sun, v.earth).toFixed(3)}′`
+    : avgCheck ? `LOLA AVGVISIB · ${avgCheck.meanAbsDiffPct.toFixed(1)} pts mean` : "Not run";
 
   // Fechas de misión de una celda: en modo búsqueda cada celda tiene las suyas.
   const datesFor = (p) => {
@@ -441,10 +480,10 @@ export default function App() {
   );
 
   const app = {
-    data, result: moon ? G.result : result, running, progress, runError, problem, loadState, engineReady,
+    data, pole, northReady, refLabels, mapLayers, result: moon ? G.result : result, running, progress, runError, problem, loadState, engineReady,
     places: [...sites, ...spots], groups, group, setGroup, selected, selectionKey: moon ? (gSel != null ? `gcell-${gSel}` : null) : selRef ? refKey(selRef) : null,
     setSelRef: selectRef, weights, setWeights, limits, setLimits,
-    layerKey, setLayerKey, layer: LAYERS[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
+    layerKey, setLayerKey, layer: mapLayers[layerKey], values, legendEnds: legendFor(layerKey, values), valuesFor, legendFor,
     terrainLayer, setTerrainLayer, showIceEvidence, setShowIceEvidence,
     dim, setDim, mission, periods, setPeriod, updateMission,
     destination, destinationReady, chooseDestination, timingMissing, timingReady, planReady, planStarted, resetPlan,
@@ -453,8 +492,8 @@ export default function App() {
     timeMs, setTimeMs, Rail: RailEl, TimeBarEl,
     moonMission: { windowStartMs: mission.fromMs, windowEndMs: landEndMs, durationDays: mission.durationDays },
     sitesForMap: sites, spotsForMap: spots,
-    tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: moon ? "Whole Moon" : "South Pole",
-    regionId: moon ? "moon" : "south", setRegion, globalManifest, globalReady: !!globalManifest,
+    tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: REGION_NAMES[regionId],
+    regionId, setRegion, globalManifest, globalReady: !!globalManifest,
     moon, G, gdata: G.gdata, gSel, setGSel, gGroup, setGGroup, gPlace, request,
     datesFor, fixedDates: mission.period === "fixed",
     curWin,
@@ -473,7 +512,7 @@ export default function App() {
     page = (
       <div className="shell">
         {RailEl}
-        <main className="shell__main">{data ? <div className="card card--flush"><LearnPage data={data} /></div> : null}</main>
+        <main className="shell__main">{data || polar.south ? <div className="card card--flush"><LearnPage data={data || polar.south} /></div> : null}</main>
       </div>
     );
   } else if (moon) {

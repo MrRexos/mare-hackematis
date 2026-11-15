@@ -1,4 +1,4 @@
-// 02 Explore · Whole Moon: la misma pantalla que el polo sur (Explore.jsx) para toda la Luna.
+// 02 Explore · Whole Moon: la misma pantalla que los polos (Explore.jsx) para toda la Luna.
 // Mismo esquema: barra de capas, ficha del punto, leyenda, bandeja de comparar y, a la
 // derecha, objetivo, mejor lugar y ranking. Cambian los datos: malla global de 0,5°, con la
 // luz, la Tierra y la temperatura calculadas al momento para las fechas de la misión
@@ -84,13 +84,18 @@ const POINT_FIELDS = [
   ["night", "Longest night", (v) => (v >= 48 ? `${(v / 24).toFixed(1)} d` : `${Math.round(v)} h`)],
 ];
 
-export function RegionTabs({ region, setRegion, globalReady }) {
+/** Pestañas de región. El polo norte y la Luna entera solo aparecen si sus datos existen. */
+export function RegionTabs({ region, setRegion, globalReady, northReady }) {
   return (
     <Tabs
       label="Region"
       value={region}
-      onChange={(r) => (r === "moon" && !globalReady ? null : setRegion(r))}
-      options={[{ value: "south", label: "South Pole", icon: "crosshair" }, { value: "moon", label: "Whole Moon", icon: "globe" }]}
+      onChange={setRegion}
+      options={[
+        { value: "south", label: "South Pole", icon: "crosshair" },
+        ...(northReady ? [{ value: "north", label: "North Pole", icon: "crosshair" }] : []),
+        ...(globalReady ? [{ value: "moon", label: "Whole Moon", icon: "globe" }] : []),
+      ]}
     />
   );
 }
@@ -247,7 +252,7 @@ export default function GlobalExplore({ app }) {
         <header className="pagehead">
           <h1 className="h-page">Explore/</h1>
           {gm.globe ? <Tabs label="View" value={is3D ? "3D" : "2D"} onChange={(value) => { setHoverP(null); setDim(value); }} options={[{ value: "2D", label: "2D", icon: "map" }, { value: "3D", label: "3D", icon: "globe" }]} /> : null}
-          <RegionTabs region={region} setRegion={setRegion} globalReady />
+          <RegionTabs region={region} setRegion={setRegion} globalReady northReady={app.northReady} />
           <div className="grow" />
           <MissionChip mission={mission} onClick={openSettings} />
         </header>
@@ -348,7 +353,7 @@ export default function GlobalExplore({ app }) {
                     <p>
                       {grid.stepDeg}° cells (about {Math.round(grid.stepDeg * 30.3)} km at the equator). Sun, Earth and temperature are computed in your browser for the mission dates;
                       slope, roughness, elevation, water and permanent shadow are fixed properties of the terrain. The limit “Leave out permanent shadow” drops cells
-                      with more than 50% in permanent shadow (LOLA). For 1 km detail near the south pole, switch to South Pole.
+                      with more than 50% in permanent shadow (LOLA). For 1 km detail near the poles, switch to South Pole{app.northReady ? " or North Pole" : ""}.
                     </p>
                   </section>
                 </div>

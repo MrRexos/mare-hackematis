@@ -1,11 +1,12 @@
 // 03 Site: ficha de un lugar con pestañas Overview, Sky & Time, Terrain y Lander's View.
 // En la Luna entera (app.moon) el lugar es una celda de la malla global: se muestran Overview
-// y Sky & Time con sus datos; Terrain y Lander's View son del mapa polar de 1 km y no aplican.
+// y Sky & Time con sus datos; Terrain y Lander's View son del mapa polar de 1 km (polo sur o
+// polo norte) y no aplican.
 
 import { Suspense, lazy, useMemo, useState } from "react";
 import MapView from "../components/MapView.jsx";
 import MapControls, { MapPointReadout } from "../components/MapControls.jsx";
-import { GROUND_GROUPS, LAYERS } from "../data/mapLayers.js";
+import { GROUND_GROUPS } from "../data/mapLayers.js";
 import iceDetections from "../data/iceDetections.json";
 import { Icon, Btn, Card, CardHead, Tabs, Fidelity, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, ProfileChip, fmtShort, fmtHM, fmtIso } from "../ui/Shell.jsx";
@@ -32,7 +33,7 @@ function UpTag({ up }) {
   return <span className={cx("uptag", up ? "is-up" : "is-down")}>{up ? "Up" : "Down"}</span>;
 }
 
-/** En la Luna entera dos factores miden otra cosa que en el polo sur: se les cambia el nombre. */
+/** En la Luna entera dos factores miden otra cosa que en los polos: se les cambia el nombre. */
 export const MOON_FACTOR_LABELS = {
   temp: ["Thermal comfort", "Share of mission hours with a workable surface temperature (LRO Diviner)"],
   ice: ["Water", "Water-equivalent hydrogen (Lunar Prospector); only above 70° latitude"],
@@ -397,7 +398,7 @@ function Overview({ app, place }) {
           <CardHead title="Data" />
           <div className="datalist mt-12">
             <div><span className="lbl">SPICE</span><span>DE440 · MOON_ME</span></div>
-            <div><span className="lbl">LOLA</span><span>{app.moon ? "LDEM_64 · LDRM_16 · LPSR 65N/65S" : "LDEM_75S_240M · LDSM · LPSR"}</span></div>
+            <div><span className="lbl">LOLA</span><span>{app.moon ? "LDEM_64 · LDRM_16 · LPSR 65N/65S" : `LDEM_${app.pole === "north" ? "75N" : "75S"}_240M · LDSM · LPSR`}</span></div>
             <div><span className="lbl">Horizons</span><span>{app.moon ? "72 bins · 500 m – 300 km · cell centre" : "72 bins · 300 m – 300 km"}</span></div>
             {app.moon ? <div><span className="lbl">Diviner</span><span>Global temperatures by local time</span></div> : null}
             <div><span className="lbl">Cross-check</span><span>{validation}</span></div>
@@ -537,9 +538,14 @@ const TERRAIN_LAYERS = ["sun", "earth", "elevation", "slope", "rough", "temp", "
 function GroundReadout({ data, pixel }) {
   const { grid } = data.manifest;
   const [x, y] = pixelXY(grid, Math.floor(pixel / grid.n), pixel % grid.n);
+  // Las detecciones de M³ que tenemos son las del polo sur (plano de su proyección):
+  // en el norte ese dato no se muestra.
+  const withDetections = grid.pole !== "north";
   let nearestSquared = Infinity;
-  for (const [iceX, iceY] of iceDetections.points) {
-    nearestSquared = Math.min(nearestSquared, (x - iceX) ** 2 + (y - iceY) ** 2);
+  if (withDetections) {
+    for (const [iceX, iceY] of iceDetections.points) {
+      nearestSquared = Math.min(nearestSquared, (x - iceX) ** 2 + (y - iceY) ** 2);
+    }
   }
   return (
     <div className="ground-groups mt-12">
@@ -547,7 +553,7 @@ function GroundReadout({ data, pixel }) {
         <section className="ground-group" key={group.label}>
           <h3 className="lbl">{group.label}</h3>
           <dl className="ground-values">
-            {group.fields.map(({ key, label, format }) => {
+            {group.fields.filter(({ key }) => withDetections || key !== "nearestIce").map(({ key, label, format }) => {
               const value = key === "nearestIce" ? Math.sqrt(nearestSquared) / 1000 : data.layers[key]?.[pixel];
               return (
                 <div key={key}>
@@ -565,9 +571,9 @@ function GroundReadout({ data, pixel }) {
 
 function Terrain({ app, place }) {
   const [hoveredPixel, setHoveredPixel] = useState(null);
-  const { data, terrainLayer, setTerrainLayer, valuesFor, sitesForMap, spotsForMap, legendFor, showIceEvidence, setShowIceEvidence, go } = app;
+  const { data, terrainLayer, setTerrainLayer, valuesFor, sitesForMap, spotsForMap, legendFor, showIceEvidence, setShowIceEvidence, go, pole, refLabels, mapLayers } = app;
   const key = terrainLayer;
-  const layer = LAYERS[key];
+  const layer = mapLayers[key];
   const values = valuesFor(key);
   const ends = legendFor(key, values);
   // El Mare analiza el punto elegido: el mapa se centra en él, solo muestra su
@@ -578,14 +584,14 @@ function Terrain({ app, place }) {
     <div className="explore">
       <section aria-label={`Terrain around ${place.name}`} className="mapsec" data-theme="dark">
         <MapView data={data} layer={layer} values={values} sites={focusSites} spots={focusSpots} selected={place}
-          showIceEvidence={showIceEvidence} hoverPixel={hoveredPixel} onHover={setHoveredPixel}>
+          showIceEvidence={showIceEvidence} hoverPixel={hoveredPixel} onHover={setHoveredPixel} refLabels={refLabels}>
           <div className="overlay mapnote">
             <Icon name="map-pin" size={14} />
             <span>Terrain around {place.short}. Hover to read any cell.</span>
             <button type="button" className="linkbtn linkbtn--12" onClick={() => go("explore")}>Change site in Explore<Icon name="chevron-right" size={12} /></button>
           </div>
         </MapView>
-        <MapControls activeLayer={key} onLayer={setTerrainLayer} layerKeys={TERRAIN_LAYERS} legendEnds={ends}
+        <MapControls activeLayer={key} onLayer={setTerrainLayer} layerKeys={TERRAIN_LAYERS} legendEnds={ends} layers={mapLayers} pole={pole} refLabels={refLabels}
           showIceEvidence={showIceEvidence} onIceEvidence={setShowIceEvidence}>
           <MapPointReadout data={data} layer={layer} values={values} hoveredPixel={hoveredPixel} selected={place}
             datesFor={app.datesFor} fixedDates={app.fixedDates}
@@ -647,7 +653,7 @@ export default function Site({ app }) {
         {tab === "lander" && !astronaut ? (
           <section aria-label="Lander's view" className="mapsec mapsec--tall">
             <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-              <Moon3D data={data} mission={moonMission} result={result} selected={place} timeMs={timeMs} onTimeChange={setTimeMs}
+              <Moon3D key={app.pole} data={data} mission={moonMission} result={result} selected={place} timeMs={timeMs} onTimeChange={setTimeMs}
                 sites={sitesForMap.filter((s) => s.key === place.key)} spots={spotsForMap.filter((s) => s.key === place.key)}
                 toolbarActions={<IconBtn icon="astronaut-helmet" label="Astronaut Mode" variant="raised" size={36} iconSize={20} onClick={() => setAstronaut(true)} />} />
             </Suspense>

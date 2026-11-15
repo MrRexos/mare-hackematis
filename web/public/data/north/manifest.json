@@ -1,0 +1,283 @@
+{
+  "layers": {
+    "elevation": {
+      "label": "Elevation",
+      "units": "m",
+      "source": "LOLA LDEM_75N_240M (PDS)",
+      "fidelity": "computed",
+      "description": "Height above the 1737.4 km reference sphere, bilinear at the pixel centre.",
+      "file": "layers/elevation.f32",
+      "dtype": "float32",
+      "min": -5028.013671875,
+      "max": 1796.65625
+    },
+    "slope": {
+      "label": "Slope",
+      "units": "deg",
+      "source": "LOLA LDSM_75N_240M (PDS)",
+      "fidelity": "computed",
+      "description": "Median of 16 slope samples (240 m baseline) inside the 1 km pixel.",
+      "file": "layers/slope.f32",
+      "dtype": "float32",
+      "min": 1.100250244140625,
+      "max": 45.0
+    },
+    "psrShare": {
+      "label": "Permanent shadow share",
+      "units": "fraction",
+      "source": "LOLA LPSR_75N_120M (PDS)",
+      "fidelity": "computed",
+      "description": "Share of the pixel in permanently shadowed regions.",
+      "file": "layers/psrShare.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 1.0
+    },
+    "psrDistKm": {
+      "label": "Distance to permanent shadow",
+      "units": "km",
+      "source": "LOLA LPSR_75N_120M (PDS)",
+      "fidelity": "computed",
+      "description": "Distance from the pixel centre to the nearest PSR cell (ice proxy).",
+      "file": "layers/psrDistKm.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 8.766572952270508
+    },
+    "avgSun": {
+      "label": "Long-term sunlight (LOLA)",
+      "units": "fraction",
+      "source": "LOLA AVGVISIB_75N_120M (PDS)",
+      "fidelity": "validated",
+      "description": "Average visible Sun fraction over 18.6 years (Mazarico et al. 2011).",
+      "file": "layers/avgSun.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 0.5301799774169922
+    },
+    "avgEarth": {
+      "label": "Long-term Earth view (LOLA)",
+      "units": "fraction",
+      "source": "LOLA AVGVISIB_75N_120M_EARTH (PDS)",
+      "fidelity": "validated",
+      "description": "Share of time with any part of the Earth disk visible, 18.6 years (Mazarico et al. 2011).",
+      "file": "layers/avgEarth.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 1.0
+    },
+    "roughness": {
+      "label": "Roughness",
+      "units": "m",
+      "source": "LOLA LDRM_75N_240M (PDS)",
+      "fidelity": "computed",
+      "description": "Median of 16 LOLA roughness samples (residual height std, 30-120 m baseline) per 1 km pixel.",
+      "file": "layers/roughness.f32",
+      "dtype": "float32",
+      "min": 0.2540000081062317,
+      "max": 3.5990002155303955
+    },
+    "tempAvgK": {
+      "label": "Average temperature",
+      "units": "K",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Annual average temperature 2 cm below the surface (Paige et al. 2010), mean per 1 km pixel.",
+      "file": "layers/tempAvgK.f32",
+      "dtype": "float32",
+      "min": 25.367874145507812,
+      "max": 206.1563720703125
+    },
+    "tempMaxK": {
+      "label": "Maximum temperature",
+      "units": "K",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Annual maximum surface temperature (Paige et al. 2010), mean per 1 km pixel.",
+      "file": "layers/tempMaxK.f32",
+      "dtype": "float32",
+      "min": 26.331375122070312,
+      "max": 339.5409851074219
+    },
+    "iceDepthM": {
+      "label": "Ice stability depth",
+      "units": "m",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Shallowest depth in the pixel where water ice is stable (0 = at the surface; 2.87 = deeper or never).",
+      "file": "layers/iceDepthM.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 2.873800039291382
+    },
+    "iceShare": {
+      "label": "Accessible ice share",
+      "units": "fraction",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Share of the pixel where ice is stable within 0.5 m of the surface.",
+      "file": "layers/iceShare.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 1.0
+    },
+    "iceDistKm": {
+      "label": "Distance to accessible ice",
+      "units": "km",
+      "source": "LRO Diviner PRP v2.0 (PDS)",
+      "fidelity": "computed",
+      "description": "Distance to the nearest spot where ice is stable within 0.5 m of the surface.",
+      "file": "layers/iceDistKm.f32",
+      "dtype": "float32",
+      "min": 0.0,
+      "max": 9.92471694946289
+    }
+  },
+  "hillshade": {
+    "file": "hillshade.png",
+    "size": 1600,
+    "pxM": 250.0,
+    "exaggeration": 2.0,
+    "light": {
+      "azimuthDeg": 315,
+      "altitudeDeg": 35
+    },
+    "note": "Relief shading is a visual aid, not sunlight.",
+    "source": "LOLA LDEM_75N_240M (PDS)"
+  },
+  "generated": "2026-11-15T09:22:45Z",
+  "grid": {
+    "n": 400,
+    "pxM": 1000.0,
+    "halfM": 200000.0,
+    "radiusM": 1737400.0,
+    "pole": "north",
+    "projection": "north polar stereographic (LOLA): x = rho·sin(lon), y = −rho·cos(lon), row 0 = +y",
+    "frame": "MOON_ME",
+    "order": "row-major, row 0 at the top (+y, towards 180°E)"
+  },
+  "ephem": {
+    "file": "../ephem.f32",
+    "startUtc": "2026-01-01T00:00:00Z",
+    "startUnixMs": 1767225600000,
+    "stepSeconds": 3600.0,
+    "count": 43824,
+    "columns": [
+      "sunX",
+      "sunY",
+      "sunZ",
+      "earthX",
+      "earthY",
+      "earthZ"
+    ],
+    "units": "km",
+    "frame": "MOON_ME",
+    "abcorr": "LT+S",
+    "source": "NASA/JPL NAIF SPICE: DE440 (de440s.bsp), moon_pa_de440_200625.bpc, moon_de440_250416.tf"
+  },
+  "horizon": {
+    "file": "horizon.u8",
+    "dtype": "uint8",
+    "bins": 72,
+    "binCentreDeg": "k * 360 / bins, clockwise from north (north = towards the north pole)",
+    "scaleDeg": 0.1,
+    "offsetDeg": -5.0,
+    "observerHeightM": 2.0,
+    "minDistanceM": 300.0,
+    "maxDistanceM": 300000.0,
+    "source": "Ray-marched over LOLA LDEM_75N_240M (PDS)",
+    "fidelity": "approximate",
+    "note": "1 km grid, 5° azimuth bins: regional screening, not site certification."
+  },
+  "sites": {
+    "groups": [
+      {
+        "id": "craters",
+        "label": "Named craters near the north pole",
+        "shape": "circle",
+        "fidelity": "approximate",
+        "placeLabel": "Named crater",
+        "rankingLabel": "Named craters",
+        "markerLabel": "Named crater (landmark)",
+        "legendLabel": "Named crater",
+        "note": "Landmarks, not proposed landing sites: there is no published list of candidate regions for the north pole comparable to Artemis III. Points are crater centres.",
+        "source": "IAU Gazetteer of Planetary Nomenclature (USGS), crater centres; each one checked against the LOLA LDEM_75N_240M relief"
+      }
+    ],
+    "sites": [
+      {
+        "id": "crater-whipple",
+        "name": "Whipple",
+        "lat": 89.14,
+        "lon": 118.2,
+        "group": "craters",
+        "diameterKm": 15.7
+      },
+      {
+        "id": "crater-peary",
+        "name": "Peary",
+        "lat": 88.63,
+        "lon": 24.4,
+        "group": "craters",
+        "diameterKm": 79
+      },
+      {
+        "id": "crater-aepinus",
+        "name": "Aepinus",
+        "lat": 87.9,
+        "lon": -109.7,
+        "group": "craters",
+        "diameterKm": 18
+      },
+      {
+        "id": "crater-erlanger",
+        "name": "Erlanger",
+        "lat": 86.9,
+        "lon": 28.6,
+        "group": "craters",
+        "diameterKm": 10
+      },
+      {
+        "id": "crater-fibiger",
+        "name": "Fibiger",
+        "lat": 86.1,
+        "lon": 37.2,
+        "group": "craters",
+        "diameterKm": 21
+      },
+      {
+        "id": "crater-hermite",
+        "name": "Hermite",
+        "lat": 86.0,
+        "lon": -89.9,
+        "group": "craters",
+        "diameterKm": 104
+      },
+      {
+        "id": "crater-byrd",
+        "name": "Byrd",
+        "lat": 85.3,
+        "lon": 9.8,
+        "group": "craters",
+        "diameterKm": 94
+      },
+      {
+        "id": "crater-rozhdestvenskiy",
+        "name": "Rozhdestvenskiy",
+        "lat": 85.2,
+        "lon": -155.4,
+        "group": "craters",
+        "diameterKm": 177
+      },
+      {
+        "id": "crater-lenard",
+        "name": "Lenard",
+        "lat": 85.2,
+        "lon": -109.4,
+        "group": "craters",
+        "diameterKm": 48
+      }
+    ]
+  },
+  "validation": "validation.json"
+}

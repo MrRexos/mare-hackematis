@@ -99,6 +99,9 @@ export default function AstronautMode({ app, onClose }) {
   const resume = () => { setPanel(null); engine.current?.start(); };
   const close = () => { setPlaying(false); engine.current?.pause(); onClose(); };
   const setOption = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  // The packaged 5 m demo is a south pole site: from the north pole map it is not offered,
+  // because the distant horizons loaded here belong to the north.
+  const hasDemo = data.pole !== "north";
   const useDemo = () => { engine.current?.pause(); setPlaying(false); setPanel(null); setCenter({ lat: -89.45, lon: 222.5, name: "Connecting ridge · NASA 5 m demo" }); };
   const reading = hud.reading, eye = hud.eye || { x: 0, z: 0 }, heading = hud.heading || 0;
   const position = reading ? formatLatLon(reading.lat, reading.lon, 5) : formatLatLon(center.lat, center.lon, 5);
@@ -133,7 +136,7 @@ export default function AstronautMode({ app, onClose }) {
       {error ? <>
         <h2>Terrain unavailable</h2>
         <p>{error}</p>
-        <div className="row-8 wrap"><Btn onClick={() => setRetry((n) => n + 1)} icon="refresh">Retry</Btn><Btn onClick={useDemo}>Explore NASA 5 m demo</Btn></div>
+        <div className="row-8 wrap"><Btn onClick={() => setRetry((n) => n + 1)} icon="refresh">Retry</Btn>{hasDemo && <Btn onClick={useDemo}>Explore NASA 5 m demo</Btn>}</div>
       </> : <>
         <span className="astronaut__loading-line" />
         <span className="astronaut__loading-stage">{stage}</span>
@@ -198,7 +201,7 @@ export default function AstronautMode({ app, onClose }) {
         <label>Fine gravel density<input aria-label="Gravel density" type="range" min="0.4" max="1.4" step="0.1" value={settings.density} onChange={(e) => setOption("density", Number(e.target.value))} /></label>
         <label>Exposure <b>{settings.exposure.toFixed(1)}</b><input aria-label="Exposure" type="range" min="0.7" max="2" step="0.1" value={settings.exposure} onChange={(e) => setOption("exposure", Number(e.target.value))} /></label>
         <label className="astronaut__checkbox"><input type="checkbox" checked={minimap} onChange={(e) => setMinimap(e.target.checked)} />Show minimap</label>
-        <Btn size="sm" icon="locate" onClick={() => engine.current?.reset()}>Reset position</Btn><Btn size="sm" onClick={useDemo}>Explore NASA 5 m demo</Btn>
+        <Btn size="sm" icon="locate" onClick={() => engine.current?.reset()}>Reset position</Btn>{hasDemo && <Btn size="sm" onClick={useDemo}>Explore NASA 5 m demo</Btn>}
         <p>WASD walk · Shift faster · Space jump · R reset.<br />Hold Z or the right mouse button for a 4× long lens.<br />Esc pauses to change the time or settings.<br />Drag to look on touchscreens. Gravity: 1.62 m/s².</p>
       </> : <>
         <span className="astronaut__eyebrow">Scientific terrain</span><b>{bundle.metadata.name}</b><p>{bundle.metadata.provider} · {bundle.metadata.resolutionM} m sample spacing. Horizontal and vertical scale 1:1. Lunar reference sphere: 1,737,400 m.</p>

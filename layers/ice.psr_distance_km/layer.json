@@ -17,6 +17,11 @@
       "name": "LOLA LPSR_75S_120M",
       "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/img/",
       "citation": "Mazarico et al. (2011), Icarus 211"
+    },
+    {
+      "name": "LOLA LPSR_75N_120M",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/img/",
+      "citation": "Mazarico et al. (2011), Icarus 211"
     }
   ],
   "files": [
@@ -28,6 +33,15 @@
       "sha256": "27913f61d9c4903ba3faceb9d9c97ca1a208aecdc79f35be4f981f2199c161f9",
       "min": 0.0,
       "max": 12.191669464111328
+    },
+    {
+      "grid": "PN1K",
+      "period": "static",
+      "path": "PN1K/static.f32",
+      "dtype": "float32",
+      "sha256": "f2aca93d49ab4b9354d998c1abc36a2a75593cf85cf421d19cfc143a688bcefc",
+      "min": 0.0,
+      "max": 8.766572952270508
     }
   ]
 }

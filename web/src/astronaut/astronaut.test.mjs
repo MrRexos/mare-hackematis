@@ -304,3 +304,46 @@ test("Find sunlight changes no state and returns a scientifically sunlit hour", 
   const abort = new AbortController(); abort.abort();
   await assert.rejects(findSunlitTime(data, skyData, terrain, eye, from, from, to, abort.signal), { name: "AbortError" });
 });
+
+// --- North pole: same code, LOLA north polar stereographic plane -------------------------
+
+test("North pole places use the north stereographic plane and its own catalog", async () => {
+  const { latLonToXY, xyToLatLon, xyToUnit, cellUnit } = await import("../engine/geometry.js");
+  const { catalogFile } = await import("./TerrainLoader.js");
+  assert.equal(catalogFile(86), "catalog-north.json"); assert.equal(catalogFile(-86), "catalog.json");
+  const grid = { pole: "north", radiusM: MOON_RADIUS, n: 400, pxM: 1000, halfM: 200000 };
+  // LOLA LDEM_75N: longitude 0° points down, 90°E to the right.
+  const [x0, y0] = latLonToXY(grid, 85, 0), [x90, y90] = latLonToXY(grid, 85, 90);
+  near(x0, 0, 1e-6); assert.ok(y0 < 0); near(y90, 0, 1e-6); assert.ok(x90 > 0);
+  for (const lon of [0, 40, 90, -130, 179]) {
+    const [x, y] = latLonToXY(grid, 86.5, lon), [lat, back] = xyToLatLon(grid, x, y);
+    near(lat, 86.5, 1e-9); near(back, lon, 1e-9);
+    const u = xyToUnit(MOON_RADIUS, x, y, "north"), up = makeFrame(86.5, lon).up;
+    for (let k = 0; k < 3; k++) near(u[k], up[k], 1e-12);
+  }
+  // The pole itself is at the centre of the grid, and the default pole is still the south.
+  assert.ok(cellUnit(grid, 199, 199)[2] > 0.99999); assert.ok(cellUnit({ ...grid, pole: undefined }, 199, 199)[2] < -0.99999);
+  const frame = makeFrame(86.86, 21.86); assert.equal(frame.pole, "north"); assert.equal(makeFrame(-86.86, 21.86).pole, "south");
+  for (const [x, z] of [[500, 0], [0, -500], [-500, 500]]) {
+    const p = localToLunar(frame, x, z), actual = lunarToLocal(frame, p.lat, p.lon), [px, py] = latLonToXY(grid, p.lat, p.lon);
+    near(actual[0], x, 1e-4); near(actual[1], z, 1e-4); near(p.px, px, 1e-6); near(p.py, py, 1e-6);
+  }
+  assert.ok(localToLunar(frame, 0, -100).lat > frame.lat, "−Z is north: towards the pole");
+});
+
+test("The packaged north regional DEM builds terrain at a north pole site", async () => {
+  const base = new URL("../../public/data/astronaut/", import.meta.url);
+  const catalog = JSON.parse(await readFile(new URL("catalog-north.json", base), "utf8")), meta = catalog.regional;
+  assert.equal(catalog.pole, "north"); assert.equal(meta.id, "LOLA-LDEM-75N-240M"); assert.match(meta.proj4, /lat_0=90/);
+  const file = await readFile(new URL(meta.file, base));
+  const values = new Int16Array(file.buffer, file.byteOffset, file.byteLength / 2);
+  assert.equal(values.length, meta.width * meta.height);
+  const north = { ...meta, values };
+  // Whipple crater (89.14°N, 118.2°E): its floor is far below the rim around it.
+  const terrain = buildTerrain(north, 89.14, 118.2, { spacing: 10 });
+  assert.ok(terrain.heights.every(Number.isFinite)); assert.equal(terrain.frame.pole, "north");
+  const centre = localToLunar(terrain.frame, 0, 0), floor = sampleRaster(north, centre.px, centre.py);
+  near(terrain.anchorHeight, floor, 1e-6);
+  const rim = [0, 90, 180, 270].map((a) => { const p = localToLunar(terrain.frame, 7850 * Math.sin(a * Math.PI / 180), -7850 * Math.cos(a * Math.PI / 180)); return sampleRaster(north, p.px, p.py); });
+  assert.ok(Math.min(...rim) - floor > 1000, `Whipple rim ${rim.map(Math.round)} vs floor ${Math.round(floor)}`);
+});

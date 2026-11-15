@@ -1,8 +1,11 @@
 const cache = new Map();
 export const TERRAIN_BASE = () => new URL(`${import.meta.env.BASE_URL}data/astronaut/`, document.baseURI).href;
 
+/** Each pole has its own catalog: its elevation rasters are in that pole's stereographic plane. */
+export const catalogFile = (lat) => (lat >= 0 ? "catalog-north.json" : "catalog.json");
+
 export async function loadTerrain(lat, lon, onStage, signal) {
-  const response = await fetch(new URL("catalog.json", TERRAIN_BASE()), { signal });
+  const response = await fetch(new URL(catalogFile(lat), TERRAIN_BASE()), { signal });
   if (!response.ok) throw new Error("Lunar DEM catalog unavailable. Run the terrain preparation command.");
   const catalog = await response.json();
   const signature = JSON.stringify([catalog.generated, catalog.sources.map((s) => [s.id, s.resolutionM]), catalog.patches.map((p) => [p.id, p.sha256])]);

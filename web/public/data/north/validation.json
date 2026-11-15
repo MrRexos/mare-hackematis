@@ -1,0 +1,21 @@
+{
+  "avgvisib": {
+    "points": 2000,
+    "criterion": "share of time with any part of the solar disk visible (as LOLA AVGVISIB)",
+    "meanAbsDiffPct": 2.887559812522142,
+    "biasPct": 2.0518747156058033,
+    "p90AbsDiffPct": 7.199359460277863,
+    "strideHours": 3,
+    "meanDiskFractionMinusAnyPartPct": -1.6391919979312184,
+    "note": "Same criterion as LOLA (any part of the disk). Ours: 2026-2030 (5 years), 1 km grid, 72 azimuths, observer 2 m; LOLA AVGVISIB: 18.6-year average at 120 m. Differences include the shorter period, the coarser terrain and the observer height."
+  },
+  "avgearth": {
+    "points": 2000,
+    "criterion": "share of time with any part of the Earth disk visible (as LOLA)",
+    "meanAbsDiffPct": 2.731279456249319,
+    "biasPct": 1.329029841409466,
+    "p90AbsDiffPct": 7.712426555443957,
+    "strideHours": 3,
+    "note": "Ours: 2026-2030, 1 km grid, 72 azimuths, observer 2 m; LOLA: 18.6-year average at 120 m. The web scores Earth by the disk centre, which is slightly stricter."
+  }
+}

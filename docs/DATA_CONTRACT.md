@@ -61,7 +61,7 @@ it is added here before it is coded.
 **Near the poles** the cells get narrower (120 m wide at 83.5°, 17 m at 89°). This is
 normal and accepted. Two consequences:
 - For areas and zone means, each cell weighs **cos(lat)**.
-- The per-date detail of the south pole is computed separately by the web app's polar module (§8), which
+- The per-date detail of the two poles is computed separately by the web app's polar module (§8), which
   also delivers its layers in `G1K`.
 
 **Web version (`W4`)**: 1,440 × 720 (0.25° per cell), same orientation. It is
@@ -267,10 +267,11 @@ Priority: **P0** essential · **P1** strongly recommended · **P2** if there is 
 
 ## 8. Polar module (internal to the web app)
 
-For the **per-date detail** of the south pole (best landing hour, countdown to
+For the **per-date detail** of each pole (best landing hour, countdown to
 sunset, 3D view on a date), the web app uses an internal stereographic grid of
-400 × 400 km at 1 km, with horizons and hourly ephemerides. **It is not part of any
-job**: it is already done and validated against JPL Horizons. Its layers are also delivered
+400 × 400 km at 1 km, with horizons and hourly ephemerides: `PS1K` for the south pole and
+`PN1K` for the north pole (LOLA north projection: longitude 0° at the bottom). **It is not part of any
+job**: it is already done and validated against JPL Horizons (south pole) and against the LOLA illumination maps (both poles). Its layers are also delivered
 converted to `G1K` so that only one grid exists towards the outside.
 
 ---
