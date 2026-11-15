@@ -38,7 +38,7 @@ export function layerCanvas(el, layer, values, cols, rows) {
   return c;
 }
 
-export default function GlobalMap({ grid, hillshade, layer, values, spots, sites = [], selectedP, onSelect, onHover, children }) {
+export default function GlobalMap({ grid, hillshade, layer, values, photoUrl, photoFallbackUrl, spots, sites = [], selectedP, onSelect, onHover, children }) {
   const { cols, rows } = grid;
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -49,15 +49,56 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, sites
   viewRef.current = view;
   sizeRef.current = size;
   const drag = useRef(null);
+  const base = (s) => Math.min(s.w / cols, s.h / rows);
+  const scale = base(size) * view.zoom;
+  const photoMode = layer?.ramp === "photo";
+  const [photo, setPhoto] = useState(null);
+  const [detailFailed, setDetailFailed] = useState(false);
+  const connection = navigator.connection;
+  const canUseDetail = navigator.deviceMemory >= 8 && navigator.hardwareConcurrency >= 8 && !connection?.saveData
+    && !["slow-2g", "2g", "3g"].includes(connection?.effectiveType);
+  const needsDetail = canUseDetail && cols * scale * (window.devicePixelRatio || 1) > 4096;
+  const photoSource = needsDetail && photo && !detailFailed ? photoUrl || photoFallbackUrl : photoFallbackUrl || photoUrl;
+  const photoImage = photo?.image || null;
+  const upgrading = photoSource === photoUrl && photoSource !== photoFallbackUrl;
+  const detailZoom = upgrading ? view.zoom : 0;
+
+  // Primero 4K bajo demanda. 8K solo si el zoom aporta detalle y el equipo tiene margen;
+  // se espera a que deje de cambiar el zoom y se decodifica antes de sustituir la imagen.
+  useEffect(() => {
+    if (!photoMode) {
+      if (photo?.url === photoUrl) setPhoto(null);
+      return undefined;
+    }
+    if (!photoSource || photo?.url === photoSource) return undefined;
+    let active = true;
+    let image, idle;
+    const load = () => {
+      image = new Image();
+      image.decoding = "async";
+      image.onload = async () => {
+        try { await image.decode(); } catch { if (active && upgrading) setDetailFailed(true); return; }
+        if (active) setPhoto({ url: photoSource, image });
+      };
+      image.onerror = () => { if (active && upgrading) setDetailFailed(true); };
+      image.src = photoSource;
+    };
+    const timer = window.setTimeout(() => {
+      if (upgrading && window.requestIdleCallback) idle = window.requestIdleCallback(load, { timeout: 1500 });
+      else load();
+    }, upgrading ? 500 : 0);
+    return () => {
+      active = false; window.clearTimeout(timer);
+      if (idle != null) window.cancelIdleCallback(idle);
+      if (image) { image.onload = null; image.onerror = null; }
+    };
+  }, [photoMode, photoSource, photoUrl, photoFallbackUrl, photo, upgrading, detailZoom]);
 
   useLayoutEffect(() => {
     const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
     ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, []);
-
-  const base = (s) => Math.min(s.w / cols, s.h / rows);
-  const scale = base(size) * view.zoom;
 
   // Capa coloreada: una imagen del tamaño de la malla que luego se escala (como en MapView).
   const [dataCanvas, setDataCanvas] = useState(null);
@@ -82,8 +123,18 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, sites
     ctx.clearRect(0, 0, size.w, size.h);
     const [x0, y0] = toScreen(0, 0);
     ctx.imageSmoothingEnabled = true;
-    ctx.globalAlpha = !dataCanvas ? 0.9 : layer?.ramp === "score" ? 0.3 : 0.5;
-    if (hillshade) ctx.drawImage(hillshade, x0, y0, cols * scale, rows * scale);
+    ctx.globalAlpha = photoMode ? 1 : !dataCanvas ? 0.9 : layer?.ramp === "score" ? 0.3 : 0.5;
+    const surface = photoMode ? photoImage || hillshade : hillshade;
+    if (surface && scale > 0) {
+      // Solo se remuestrea la parte visible, también al acercarse al mosaico de 8K.
+      const left = Math.max(0, x0), top = Math.max(0, y0);
+      const width = Math.min(size.w, x0 + cols * scale) - left;
+      const height = Math.min(size.h, y0 + rows * scale) - top;
+      if (width > 0 && height > 0) {
+        const sx = surface.naturalWidth / (cols * scale), sy = surface.naturalHeight / (rows * scale);
+        ctx.drawImage(surface, (left - x0) * sx, (top - y0) * sy, width * sx, height * sy, left, top, width, height);
+      }
+    }
     ctx.globalAlpha = 1;
     if (dataCanvas) {
       ctx.imageSmoothingEnabled = view.zoom < 3;
@@ -104,7 +155,7 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, sites
       ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + cols * scale, y); ctx.stroke();
       ctx.fillText(`${lat}°`, Math.max(0, x0) + 4, y - 4);
     }
-  }, [size, view, scale, hillshade, dataCanvas, layer, cols, rows, grid.stepDeg, toScreen]);
+  }, [size, view, scale, hillshade, dataCanvas, layer, cols, rows, grid.stepDeg, toScreen, photoMode, photoImage]);
 
   const clamp = (v) => ({ zoom: Math.min(MAX_ZOOM, Math.max(1, v.zoom)), cx: Math.min(cols, Math.max(0, v.cx)), cy: Math.min(rows, Math.max(0, v.cy)) });
   const zoomAt = (f, sx, sy) => {

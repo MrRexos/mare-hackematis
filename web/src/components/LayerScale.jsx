@@ -16,8 +16,9 @@ export function scaleTicks(ends, count = 5) {
   return Array.from({ length: count }, (_, k) => (k === 0 ? String(ends[0]) : k === count - 1 ? String(ends[1]) : `${(a + step * k).toFixed(decimals)}${unit.length > 2 ? "" : gap + unit}`));
 }
 
-/** Escala de valores de la capa activa, siempre visible sobre el mapa. */
+/** Escala de valores de las capas de datos; la superficie sin colorear no necesita escala. */
 export default function LayerScale({ layer, ends, note }) {
+  if (layer.ramp === "photo") return null;
   const palette = paletteOf(layer), ticks = scaleTicks(ends);
   return (
     <div className="overlay map-scale" role="img" aria-label={`${layer.label}: scale from ${ticks[0]} to ${ticks[ticks.length - 1]}`}>

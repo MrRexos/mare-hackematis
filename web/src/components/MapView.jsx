@@ -245,7 +245,7 @@ export default function MapView({ data, layer, values, sites, spots, selected, s
     const x0 = size.w / 2 - view.cx * scale;
     const y0 = size.h / 2 - view.cy * scale;
     ctx.imageSmoothingEnabled = true;
-    ctx.globalAlpha = !values ? 0.9 : layer.ramp === "score" ? 0.3 : 0.5;
+    ctx.globalAlpha = layer.ramp === "photo" ? 1 : !values ? 0.9 : layer.ramp === "score" ? 0.3 : 0.5;
     if (data.hillshade) ctx.drawImage(data.hillshade, x0, y0, n * scale, n * scale);
     ctx.globalAlpha = 1;
     ctx.imageSmoothingEnabled = view.zoom < 3;

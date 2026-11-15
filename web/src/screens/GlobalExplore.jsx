@@ -33,6 +33,11 @@ const LAYERS = {
     description: "Suitability from 0 to 100, computed from the six weighted mission factors. The active limits can exclude a cell from the map.",
     sources: [],
   },
+  photo: {
+    label: "Photograph of the Moon", short: "Photo", ramp: "photo",
+    description: "LROC WAC surface mosaic, up to 8192 × 4096 pixels, without coloured data overlays. Near the poles, gaps in the photographs are filled with LOLA shaded relief.",
+    sources: [["NASA/GSFC/ASU · LROC WAC global mosaic", "https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LROC-WAC_Mosaic_global_100m_June2013.tif"]],
+  },
   sun: {
     label: "Sun visibility", short: "Sun", ramp: "sun", palette: "sun", range: [0, 1], legend: ["0%", "100%"], format: percent,
     description: "Share of the surface stay when the Sun clears the terrain horizon of the cell, computed in your browser for the mission dates. One horizon per 0.5° cell; four above 60° latitude.",
@@ -73,8 +78,7 @@ const LAYERS = {
 };
 const MAP_LAYERS = Object.keys(LAYERS);
 /** El globo 3D lleva las mismas capas que el mapa 2D, además de la foto sola. */
-const GLOBE_LAYERS = MAP_LAYERS;
-const PHOTO = { label: "Photograph of the Moon", short: "Photo" };
+const GLOBE_LAYERS = MAP_LAYERS.filter((key) => key !== "photo");
 
 /** Lecturas extra de la ficha del punto (no son capas de mapa). */
 const POINT_FIELDS = [
@@ -162,7 +166,7 @@ export default function GlobalExplore({ app }) {
   /** Barra de capas (la misma en 2D y en 3D). */
   const layerBar = (keys, active, pick) => (
     <div className="map-controls__row">
-      <MapLayerBar layers={{ ...LAYERS, photo: PHOTO }} layerKeys={keys} activeLayer={active} onLayer={pick} />
+      <MapLayerBar layers={LAYERS} layerKeys={keys} activeLayer={active} onLayer={pick} />
       <div className="overlay map-controls__extras">
         <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
       </div>
@@ -203,7 +207,7 @@ export default function GlobalExplore({ app }) {
   const readout = pointP != null ? (() => {
     const hovering = hoverP != null;
     const v = values ? values[pointP] : NaN;
-    const reading = pending ? "Calculating…" : Number.isFinite(v) ? layer.format(v) : layerKey === "score" ? "Left out" : "No data";
+    const reading = layer.ramp === "photo" ? null : pending ? "Calculating…" : Number.isFinite(v) ? layer.format(v) : layerKey === "score" ? "Left out" : "No data";
     const excluded = hovering ? null : selected.excluded;
     return (
       <section className="overlay map-readout" aria-label={hovering ? "Point under cursor" : "Selected point"} onPointerEnter={selected ? () => setHoverP(null) : undefined}>
@@ -211,10 +215,10 @@ export default function GlobalExplore({ app }) {
           <span className="num-13 grow ellipsis">{hovering ? "Point under cursor" : selected.name}</span>
           <span className="coords">{hovering ? fmtLatLon(...cellLatLon(grid, pointP)) : selected.coords}</span>
         </div>
-        <div className="row-8">
+        {reading != null && <div className="row-8">
           <span className="muted-12 grow">{layer.label}</span>
           <strong className="num-15">{reading}</strong>
-        </div>
+        </div>}
         {!pending && ["score", "sun", "earth", "temp"].includes(layerKey) && dates ? (
           <div className="row-8"><span className="muted-12 grow">Your dates</span><span className="num-13">{dates}</span></div>
         ) : null}
@@ -285,6 +289,8 @@ export default function GlobalExplore({ app }) {
               ) : (
                 <>
                 <GlobalMap grid={grid} hillshade={hillshade} layer={layer} values={values} spots={spots} sites={refs} selectedP={sel}
+                  photoUrl={gm.globe?.albedo?.fileHi ? `${import.meta.env.BASE_URL}data/${gm.globe.albedo.fileHi}` : null}
+                  photoFallbackUrl={gm.globe?.albedo?.file ? `${import.meta.env.BASE_URL}data/${gm.globe.albedo.file}` : null}
                   onSelect={setSel} onHover={(p) => setHoverP(p ?? null)}>
                   <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
                   {error ? (

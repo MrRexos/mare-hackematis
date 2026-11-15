@@ -533,7 +533,7 @@ function SkyTime({ app }) {
 
 /* --------------------------------------------------------------- Terrain */
 
-const TERRAIN_LAYERS = ["sun", "earth", "elevation", "slope", "rough", "temp", "shadow"];
+const TERRAIN_LAYERS = ["photo", "sun", "earth", "elevation", "slope", "rough", "temp", "shadow"];
 
 function GroundReadout({ data, pixel }) {
   const { grid } = data.manifest;

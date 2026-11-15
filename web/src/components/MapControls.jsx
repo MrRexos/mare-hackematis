@@ -20,17 +20,17 @@ export function MapPointReadout({ data, layer, values, pending, hoveredPixel, se
   const coords = hoveredPixel == null
     ? selected.coords
     : formatLatLon(...xyToLatLon(grid, ...pixelXY(grid, Math.floor(pixel / grid.n), pixel % grid.n)));
-  const reading = pending ? "Calculating…" : layerReading(layer, values, data.layers, pixel);
+  const reading = layer.ramp === "photo" ? null : pending ? "Calculating…" : layerReading(layer, values, data.layers, pixel);
   return (
     <section className="overlay map-readout" aria-label={hoveredPixel == null ? "Selected point" : "Point under cursor"} onPointerEnter={selected ? onEnter : undefined}>
       <div className="row-8">
         <span className="num-13 grow ellipsis">{hoveredPixel == null ? selected.name : "Point under cursor"}</span>
         <span className="coords">{coords}</span>
       </div>
-      <div className="row-8">
+      {reading != null && <div className="row-8">
         <span className="muted-12 grow">{layer.label}</span>
         <strong className="num-15">{reading}</strong>
-      </div>
+      </div>}
       {/* Las capas de misión dependen de fechas: en modo búsqueda cada celda tiene las suyas. */}
       {!pending && MISSION_RAMPS.includes(layer.ramp) && datesFor?.(pixel) ? (
         <div className="row-8">

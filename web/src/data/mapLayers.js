@@ -18,6 +18,11 @@ export const LAYERS = {
     description: "Suitability from 0 to 100, computed from the six weighted mission factors. The active limits can exclude a cell from the map.",
     sources: [],
   },
+  photo: {
+    label: "Lunar surface", short: "Photo", ramp: "photo",
+    description: "Surface without a coloured data overlay. Detailed shaded relief from LOLA at 250 m per image pixel; the shading is independent of the mission dates.",
+    sources: [["NASA PDS · LOLA LDEM_75S_240M", LOLA + "ldem_75s_240m.lbl"]],
+  },
   sun: {
     label: "Sun visibility", short: "Sun", ramp: "sun", legend: ["0%", "100%"], format: percent,
     description: "Share of the selected surface stay when the Sun clears the local terrain horizon, using the solar disk setting. Before a run, the map shows the LOLA 18.6-year average. Solar power also depends on panel orientation and sunlight intensity.",
