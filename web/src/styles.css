@@ -572,6 +572,56 @@ button:disabled { cursor: default; }
 .learn__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
 .learn .steps, .learn .sources { position: static; margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
 
+/* Learn · Part II "Data & methods": índice, bloques plegables, fichas y tablas. */
+.dm { margin-top: 64px; min-width: 0; }
+.dm__head { margin-bottom: 24px; }
+.dm__head .title-lg { margin: 8px 0 12px; }
+.dm__intro { max-width: 72ch; margin: 0; }
+.dm__index { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 12px; }
+.dm__chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--surface-raised);
+  color: var(--ink); font: inherit; cursor: pointer;
+}
+.dm__chip:hover { background: var(--surface-hover); }
+.dm__chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.dm__tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.dm__stack { display: grid; gap: 12px; min-width: 0; }
+.dm__stack > section { scroll-margin-top: 16px; min-width: 0; }
+.dm__stack > section > .body-sm { max-width: 80ch; margin: 0 0 8px; }
+.dm-item { border-top: 1px solid var(--line); }
+.dm-item > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px;
+  padding: 8px 0; cursor: pointer; list-style: none;
+}
+.dm-item > summary::-webkit-details-marker { display: none; }
+.dm-item > summary::after { content: "+"; flex: none; width: 20px; text-align: center; color: var(--ink-secondary); font-size: 20px; line-height: 1; }
+.dm-item[open] > summary::after { content: "−"; }
+.dm-item > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
+.dm-item__body { display: grid; gap: 10px; padding: 0 0 16px; max-width: 80ch; min-width: 0; }
+.dm-item__body p { margin: 0; }
+.dm-item__body b, .dm-facts dd { color: var(--ink); }
+.learn code { font-family: var(--font-mono); font-size: 0.92em; padding: 1px 4px; border-radius: 4px; background: var(--surface-sunken); overflow-wrap: anywhere; }
+.dm-facts { display: grid; gap: 8px; margin: 0; }
+.dm-facts__row { display: grid; grid-template-columns: minmax(120px, 160px) minmax(0, 1fr); gap: 4px 16px; }
+.dm-facts dt { padding-top: 2px; }
+.dm-facts dd { margin: 0; min-width: 0; }
+.dm-eq {
+  margin: 0 0 8px; padding: 12px 14px; border-radius: var(--radius-xs); background: var(--surface-sunken);
+  font-family: var(--font-mono); font-size: 13px; line-height: 20px; color: var(--ink); white-space: pre-wrap;
+}
+.dm-table-wrap { overflow-x: auto; max-width: 100%; }
+.dm-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dm-table th, .dm-table td { padding: 8px 10px 8px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.dm-table thead th { color: var(--ink-tertiary); font-weight: 500; white-space: nowrap; }
+.dm-table tbody th { color: var(--ink); font-weight: 500; }
+.dm-table td { color: var(--ink-secondary); }
+.dm-refs { gap: 10px; }
+@media (max-width: 599px) {
+  .dm-facts__row { grid-template-columns: minmax(0, 1fr); }
+  .dm-table { min-width: 520px; }
+}
+
 /* Explore cabe en la ventana (escritorio): el ranking hace scroll, no la página. */
 @media (min-width: 1200px) and (min-height: 600px) {
   .shell__main--fit { height: calc(100vh - 24px); }

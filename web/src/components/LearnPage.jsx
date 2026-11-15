@@ -1,4 +1,5 @@
 import { L } from "../ds.js";
+import DataMethods from "./DataMethods.jsx";
 
 // How it works/: cómo funciona, de dónde salen los datos y qué no dice la herramienta.
 
@@ -105,6 +106,8 @@ export default function LearnPage({ data }) {
           </p>
         </L.Panel>
       </div>
+      {/* Parte II: datos y métodos en detalle (fuentes, cálculos, validación). */}
+      <DataMethods data={data} />
     </div>
   );
 }
