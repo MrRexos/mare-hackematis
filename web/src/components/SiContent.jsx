@@ -45,7 +45,6 @@ export default function SiContent() {
             <ul className="body-sm sources dm-si-notes">
               <li><b>No SI inside the app:</b> the scores come from fixed formulas applied to NASA data, not from an AI model.</li>
               <li><b>The data is not generated:</b> every map comes from NASA archives (see Data &amp; methods).</li>
-              <li><b>Marked in the code:</b> commits made with SI help carry a “Co-Authored-By” line naming the tool.</li>
               <li>No NASA logos or branding were created or modified with SI.</li>
             </ul>
           </L.Panel>
