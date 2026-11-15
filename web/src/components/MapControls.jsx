@@ -4,7 +4,6 @@ import { LAYERS, layerReading } from "../data/mapLayers.js";
 import iceDetections from "../data/iceDetections.json";
 import { formatLatLon, pixelXY, xyToLatLon } from "../engine/geometry.js";
 import { Icon, IconBtn, Shape, cx } from "../ui/kit.jsx";
-import { paletteOf, rampCss } from "../engine/globalRamps.js";
 import LayerScale from "./LayerScale.jsx";
 
 function SourceLink({ href, children }) {
@@ -77,11 +76,6 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
           <div className="legend__row"><Shape kind="circle" />Artemis III reference</div>
           <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
           <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
-          <div className="legend__ramp">
-            <span className="legend__name">{layer.label}</span>
-            <div className={cx("ramp", !paletteOf(layer) && `ramp--${layer.ramp}`)} style={paletteOf(layer) ? { background: rampCss(paletteOf(layer)) } : undefined} />
-            <div className="legend__ends"><span>{legendEnds[0]}</span><span>{legendEnds[1]}</span></div>
-          </div>
           {layer.ramp === "shadow" && <div className="legend__row"><i className="legend__hatch" />Over 50% permanent shadow</div>}
           {showIceEvidence && (
             <>

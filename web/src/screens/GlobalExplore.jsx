@@ -14,7 +14,6 @@ import { ROUGH_MAX_M, presetOf } from "../engine/score.js";
 // El globo 3D (three.js y sus texturas) solo se descarga si se abre la vista 3D.
 const MoonGlobe = lazy(() => import("../components/MoonGlobe.jsx"));
 
-import { paletteOf, rampCss } from "../engine/globalRamps.js";
 import LayerScale from "../components/LayerScale.jsx";
 import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
@@ -179,11 +178,6 @@ export default function GlobalExplore({ app }) {
       <div className="overlay legend__pop">
         <div className="legend__row"><Shape kind="square" />Best cell</div>
         <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
-        <div className="legend__ramp">
-          <span className="legend__name">{ly.label}</span>
-          <div className={cx("ramp", !paletteOf(ly) && `ramp--${ly.ramp}`)} style={paletteOf(ly) ? { background: rampCss(paletteOf(ly)) } : undefined} />
-          <div className="legend__ends"><span>{ends[0]}</span><span>{ends[1]}</span></div>
-        </div>
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
       </div>
     </details>
