@@ -2,10 +2,12 @@ import * as THREE from "three";
 import { CSM } from "three/examples/jsm/csm/CSM.js";
 import { celestialAt, findSunlitTime } from "./CelestialPosition.js";
 import { initPhysics, LunarPhysics, FIXED_STEP } from "./LunarPhysics.js";
-import { makeSurfaceMaterials, setupLunarMaterial } from "./SurfaceMaterials.js";
+import { lunarReflectance, makeSurfaceMaterials, setupLunarMaterial } from "./SurfaceMaterials.js";
 import { addGravel, addRocks, rockPlacements } from "./ProceduralRocks.js";
 import { loadAssetLibrary } from "./MegascansLibrary.js";
-import { seedAt } from "./coordinates.js";
+import { lunarToLocal, seedAt } from "./coordinates.js";
+import { LANDMARKS, createFlag } from "./Landmarks.js";
+import { groundAt } from "./SurfaceRelief.js";
 import { addTerrainLOD } from "./TerrainLOD.js";
 import { createSurfaceGeology } from "./SurfaceGeology.js";
 import { applyLookDelta, createFirstPersonControls } from "./FirstPersonControls.js";
@@ -29,6 +31,11 @@ const BOUNCE = 0.085;
 // only natural light once the Sun is below the local horizon.
 const EARTHSHINE_DAY = 0.0006, EARTHSHINE_NIGHT = 0.05;
 const ZOOM = 4;
+// The exposure was set for the grazing Sun of the poles. With the Sun high the ground returns
+// several times more light, so the exposure comes down with it, as a camera's would.
+const groundLevel = (elevationDeg) => lunarReflectance(Math.sin(Math.max(1, elevationDeg) * Math.PI / 180), 0.3, 0);
+const POLAR_LEVEL = groundLevel(2.5);
+const autoExposure = (elevationDeg) => Math.max(0.3, Math.min(1.15, (POLAR_LEVEL / groundLevel(elevationDeg)) ** 0.75));
 
 function meshFrom(data) {
   const geometry = new THREE.BufferGeometry();
@@ -146,7 +153,8 @@ export async function createAstronautScene(wrap, bundle, data, skyData, initial,
     scene.add(earthshine, earthshine.target);
     onStage("Calculating celestial positions");
     let settings = { ...initial }, quality = QUALITIES[settings.quality], yaw = 0, pitch = -0.08, active = false, locked = false;
-    let zoomHeld = false, zoom = 0, saving = 1;
+    let zoomHeld = false, zoom = 0, saving = 1, exposure = 1;
+    const plain = new Set();   // materials lit as ordinary matte surfaces (the flag), not as regolith
     let error = "", fatal = false, reading = null, targetSky = null, lastSky = -Infinity, lastHud = -Infinity;
     let last = performance.now(), accumulator = 0, averageMs = 16, samples = 0, adapted = false;
     let shadowTime = -Infinity, shadowClock = NaN, shadowsDirty = true;
@@ -173,6 +181,7 @@ export async function createAstronautScene(wrap, bundle, data, skyData, initial,
       csm.fade = true; csm.updateFrustums();
       csm.lights.forEach((light) => { light.shadow.normalBias = 0.025; light.shadow.radius = 1.5; light.shadow.autoUpdate = false; });
       materials.materials.forEach((material) => setupLunarMaterial(material, csm));
+      plain.forEach((material) => { csm.setupMaterial(material); material.needsUpdate = true; });
       renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality.dpr));
       shadowsDirty = true; adapted = false; saving = 1; samples = 0;
       renderer.shadowMap.needsUpdate = true;
@@ -221,6 +230,20 @@ export async function createAstronautScene(wrap, bundle, data, skyData, initial,
       targetSky = reading;
     };
     updateSky(physics.eye());
+    exposure = autoExposure(reading.sun.el); renderer.toneMappingExposure = settings.exposure * exposure;
+    // Landmarks inside the walkable kilometre. One at the arrival point itself is set a few
+    // steps ahead, turned to face the walker.
+    for (const landmark of LANDMARKS) {
+      if (!landmark.flag) continue;
+      let [x, z] = lunarToLocal(bundle.terrain.frame, landmark.lat, landmark.lon);
+      if (!(Math.abs(x) < 480 && Math.abs(z) < 480)) continue;
+      if (Math.hypot(x, z) < 5) { x -= Math.sin(yaw) * 7; z -= Math.cos(yaw) * 7; }
+      const flag = createFlag(landmark.flag);
+      flag.group.position.set(x, groundAt(bundle.terrain, x, z), z); flag.group.rotation.y = yaw;
+      flag.geometries.forEach((g) => geoms.add(g)); flag.textures.forEach((t) => materials.textures.add(t));
+      flag.materials.forEach((m) => { extraMaterials.add(m); plain.add(m); csm.setupMaterial(m); });
+      scene.add(flag.group);
+    }
     const placeBody = (mesh, key, eye, dt) => {
       const body = targetSky[key], distance = 22000;
       direction.fromArray(body.world); skyDirections[key].lerp(direction, 1 - Math.exp(-dt * 10)).normalize();
@@ -258,6 +281,8 @@ export async function createAstronautScene(wrap, bundle, data, skyData, initial,
       }
       placeBody(sun, "sun", eye, dt); placeBody(earth, "earth", eye, dt);
       const daylight = targetSky.sun.visibleFraction, earthBody = targetSky.earth;
+      exposure += (autoExposure(targetSky.sun.el) - exposure) * (1 - Math.exp(-dt * 3));
+      renderer.toneMappingExposure = settings.exposure * exposure;
       // Turn the globe so the right continents face the Moon, and light its day side.
       earthAxes[0].fromArray(earthBody.greenwich); earthAxes[1].fromArray(earthBody.north); earthAxes[2].crossVectors(earthAxes[0], earthAxes[1]);
       earth.quaternion.setFromRotationMatrix(earthBasis.makeBasis(earthAxes[0], earthAxes[1], earthAxes[2]));
@@ -327,7 +352,7 @@ export async function createAstronautScene(wrap, bundle, data, skyData, initial,
       configure(next) {
         const previous = settings; settings = { ...settings, ...next };
         if (previous.headlamp !== settings.headlamp || previous.density !== settings.density) shadowsDirty = true;
-        if (next.exposure != null) renderer.toneMappingExposure = settings.exposure;
+        if (next.exposure != null) renderer.toneMappingExposure = settings.exposure * exposure;
         if (next.fov != null && previous.fov !== settings.fov) { camera.fov = settings.fov / (1 + (ZOOM - 1) * zoom); camera.updateProjectionMatrix(); csm.updateFrustums(); shadowsDirty = true; }
         if (next.quality && previous.quality !== next.quality) { setupQuality(); resize(); }
       },

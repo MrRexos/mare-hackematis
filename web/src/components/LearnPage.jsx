@@ -50,11 +50,11 @@ export default function LearnPage({ data }) {
             Earth, and the ground data. <b>Compare</b> puts up to four places side by side.
           </p>
           <p className="body-sm lh-sec">
-            At the poles, <b>Astronaut Mode</b> lets you walk one square kilometre around the place at real scale,
-            with the Sun and the Earth where they would be at that hour. The hills come from the NASA elevation model:
-            5 m at some South Pole sites, 240 m everywhere else and at the North Pole.
-            Craters smaller than the model can show, rocks and gravel are generated with lunar statistics: plausible, not
-            measured.
+            <b>Astronaut Mode</b> lets you walk one square kilometre around the place at real scale, with the Sun and
+            the Earth where they would be at that hour. The hills come from the NASA elevation model: 5 m at some South
+            Pole sites, 240 m elsewhere at both poles and about 1.9 km on the rest of the Moon. Craters smaller than the
+            model can show, rocks and gravel are generated with lunar statistics: plausible, not measured. Outside the
+            poles that is almost everything within the kilometre you walk.
           </p>
         </L.Panel>
         <L.Panel eyebrow="05" title="Data sources">

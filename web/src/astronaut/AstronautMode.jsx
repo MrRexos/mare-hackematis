@@ -4,6 +4,7 @@ import { formatLatLon, formatUtc } from "../engine/geometry.js";
 import { loadAstronautEphemeris, loadTerrain } from "./TerrainLoader.js";
 import { createAstronautScene, QUALITIES } from "./AstronautScene.js";
 import { surfaceAt } from "./coordinates.js";
+import { landmarkInCell } from "./Landmarks.js";
 import "./astronaut.css";
 
 const dateInput = (ms) => new Date(ms).toISOString().slice(0, 16);
@@ -31,8 +32,13 @@ function TouchButton({ code, label, icon, engine }) {
 }
 
 export default function AstronautMode({ app, onClose }) {
-  const { data, selected, timeMs, setTimeMs, mission } = app;
-  const [center, setCenter] = useState(() => ({ lat: selected.lat, lon: selected.lon, name: selected.name }));
+  // The far horizon comes from the map of the active region: south pole or whole Moon.
+  const { selected, timeMs, setTimeMs, mission } = app, data = app.moon ? app.gdata : app.data;
+  // A whole-Moon cell is some 15 km wide: if it holds a landmark, the walk starts there.
+  const [center, setCenter] = useState(() => {
+    const landmark = app.moon ? landmarkInCell(selected.lat, selected.lon, app.gdata.manifest.grid.stepDeg) : null;
+    return landmark ? { lat: landmark.lat, lon: landmark.lon, name: landmark.name } : { lat: selected.lat, lon: selected.lon, name: selected.name };
+  });
   const [bundle, setBundle] = useState(null), [stage, setStage] = useState("Loading lunar terrain"), [error, setError] = useState(null);
   const [retry, setRetry] = useState(0), [ready, setReady] = useState(false), [hud, setHud] = useState({});
   const [panel, setPanel] = useState(null), [minimap, setMinimap] = useState(true), [playing, setPlaying] = useState(false);

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildTerrain, dot, localToLunar, lunarToLocal, makeFrame, MOON_RADIUS, randomSeed, sampleRaster, sampleRasterSmooth, seedAt, surfaceAt } from "./coordinates.js";
-import { azimuthElevation, celestialAt, earthOrientation, findSunlitTime, interpolateEphemeris, topocentric, visibleDisc } from "./CelestialPosition.js";
+import { buildTerrain, dot, localToLunar, lunarToLocal, makeFrame, MOON_RADIUS, randomSeed, rasterPoint, sampleRaster, sampleRasterSmooth, seedAt, surfaceAt } from "./coordinates.js";
+import { azimuthElevation, celestialAt, earthOrientation, findSunlitTime, interpolateEphemeris, regionalHorizon, topocentric, visibleDisc } from "./CelestialPosition.js";
 import { initPhysics, LunarPhysics, EYE_HEIGHT, LUNAR_GRAVITY } from "./LunarPhysics.js";
 import { NODE_CELLS, nodeIndices, nodeVertices, selectNodes, treeDepth } from "./TerrainLOD.js";
 import { buildTerrainContext } from "./TerrainContext.js";
@@ -287,6 +287,55 @@ test("Walking follows the generated relief: the collider is the surface that is 
   } finally { p.dispose(); }
 });
 
+// A whole-Moon raster like the packaged one, at 2 samples per degree. Like real terrain, the
+// field has a single value at each pole: elevation = 1000·sin(lat) + 200·cos(lat)·cos(lon).
+function globalRaster() {
+  const ppd = 2, pad = 2, width = 360 * ppd + 2 * pad, height = 180 * ppd + 2 * pad, values = new Int16Array(width * height), step = 1 / ppd;
+  const origin = [-180 + step / 2 - pad * step, 90 - step / 2 + pad * step], rad = Math.PI / 180;
+  for (let i = 0; i < height; i++) for (let j = 0; j < width; j++) {
+    const lat = Math.max(-90, Math.min(90, origin[1] - i * step)), lon = origin[0] + j * step;
+    values[i * width + j] = Math.round((1000 * Math.sin(lat * rad) + 200 * Math.cos(lat * rad) * Math.cos(lon * rad)) / 0.5);
+  }
+  return { projection: "cylindrical", origin, pixelSize: [step, -step], width, height, values, noData: -32768, scale: 0.5, resolutionM: 15160 };
+}
+
+test("The whole-Moon DEM is read in longitude and latitude, across ±180° and at both poles", () => {
+  const r = globalRaster(), rad = Math.PI / 180, height = (lat, lon) => 1000 * Math.sin(lat * rad) + 200 * Math.cos(lat * rad) * Math.cos(lon * rad);
+  for (const [lat, lon] of [[0, 0], [23.4, 151.2], [-41.7, -179.9], [10, 179.99], [10, -180], [60, 359.5]]) {
+    const frame = makeFrame(lat, lon), point = localToLunar(frame, 0, 0), [x, y] = rasterPoint(r, point);
+    assert.ok(x >= r.origin[0] + 2 * r.pixelSize[0] && x < r.origin[0] + 2 * r.pixelSize[0] + 360, "Longitude wrapped into the raster");
+    near(sampleRaster(r, x, y), height(lat, lon), 3);
+    near(sampleRasterSmooth(r, (x - r.origin[0]) / r.pixelSize[0], (y - r.origin[1]) / r.pixelSize[1]), height(lat, lon), 3);
+  }
+  for (const [lat, lon] of [[10, 179.999], [0.7, -23.4], [89.99, 40], [-89.995, 200], [45, 0]]) {
+    const terrain = buildTerrain(r, lat, lon, { spacing: 10 });
+    near(surfaceAt(terrain, 0, 0), 0); assert.ok(terrain.heights.every(Number.isFinite));
+    near(terrain.anchorHeight, height(lat, lon), 30);
+    terrain.surface = buildSurface(r, terrain, { cells: 256, seed: 5, relief: false });
+    assert.ok(terrain.surface.heights.every(Number.isFinite), `Surface at ${lat}, ${lon}`);
+    // At this sampling the kilometre is a gently tilted plane: the fine surface is the DEM mesh.
+    let worst = 0;
+    for (const [x, z] of [[0, 0], [300, -200], [-450, 450], [499, 0], [-120, 333]]) worst = Math.max(worst, Math.abs(groundAt(terrain, x, z) - surfaceAt(terrain, x, z)));
+    // Heights are stored in half-metre steps, so two ways of interpolating them differ by a fraction of that.
+    assert.ok(worst < 0.3, `Fine surface ${worst} m off the DEM mesh at ${lat}, ${lon}`);
+    const context = buildTerrainContext(r, terrain);
+    assert.ok(context.positions.every(Number.isFinite) && context.indices.length > 1000, "Surroundings out to 16 km");
+  }
+});
+
+test("Far horizons are read from the polar grid or from the whole-Moon grid", () => {
+  const bins = 72, grid = { type: "latlon", cols: 720, rows: 360, stepDeg: 0.5, lon0: -180, lat0: 90 };
+  const horizon = new Uint8Array(grid.cols * grid.rows * bins).fill(26);         // 26 · 0.25 − 6.5 = 0°
+  const cell = (lat, lon) => (Math.floor((90 - lat) / 0.5) * grid.cols + Math.floor((lon + 180) / 0.5)) * bins;
+  horizon[cell(12.3, 45.6) + 18] = 66; horizon[cell(12.3, 45.6) + 19] = 46;       // 10° due east, 5° at 95°
+  horizon[cell(-33.2, -179.8) + 0] = 34;                                          // 2° due north
+  const data = { horizon, manifest: { grid, horizon: { bins, scaleDeg: 0.25, offsetDeg: -6.5 } } };
+  near(regionalHorizon(data, 12.3, 45.6, 90), 10); near(regionalHorizon(data, 12.3, 45.6, 92.5), 7.5); near(regionalHorizon(data, 12.3, 45.6, 0), 0);
+  near(regionalHorizon(data, -33.2, 180.2, 0), 2); near(regionalHorizon(data, -33.2, -179.8, 360), 2);
+  near(regionalHorizon(data, 89.9, 10, 123), 0); near(regionalHorizon(data, -90, 10, 123), 0);
+  assert.equal(regionalHorizon({ manifest: { grid } }, 0, 0, 0), null);
+});
+
 test("Find sunlight changes no state and returns a scientifically sunlit hour", async () => {
   const base = new URL("../../public/data/", import.meta.url);
   const json = async (name) => JSON.parse(await readFile(new URL(name, base), "utf8"));
@@ -346,4 +395,16 @@ test("The packaged north regional DEM builds terrain at a north pole site", asyn
   near(terrain.anchorHeight, floor, 1e-6);
   const rim = [0, 90, 180, 270].map((a) => { const p = localToLunar(terrain.frame, 7850 * Math.sin(a * Math.PI / 180), -7850 * Math.cos(a * Math.PI / 180)); return sampleRaster(north, p.px, p.py); });
   assert.ok(Math.min(...rim) - floor > 1000, `Whipple rim ${rim.map(Math.round)} vs floor ${Math.round(floor)}`);
+});
+
+test("Both pole catalogs offer the whole-Moon DEM, so northern places off the pole have terrain", async () => {
+  const base = new URL("../../public/data/astronaut/", import.meta.url);
+  const south = JSON.parse(await readFile(new URL("catalog.json", base), "utf8"));
+  const north = JSON.parse(await readFile(new URL("catalog-north.json", base), "utf8"));
+  assert.deepEqual(north.global, south.global);
+  const meta = north.global, file = await readFile(new URL(meta.file, base));
+  const values = new Int16Array(file.buffer, file.byteOffset, file.byteLength / 2);
+  // Apollo 11 (0.67°N) is outside the north polar DEM: the walk is built on the global one.
+  const terrain = buildTerrain({ ...meta, values }, 0.67416, 23.47314, { spacing: 10 });
+  assert.ok(terrain.heights.every(Number.isFinite)); assert.equal(terrain.frame.pole, "north");
 });

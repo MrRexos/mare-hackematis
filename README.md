@@ -35,7 +35,7 @@ Open http://localhost:5173.
 
 ## Astronaut Mode
 
-In **Mare → Lander's View**, press the **Astronaut Mode** helmet to walk around a 1 km × 1 km region centred on the selected point (at either pole; the north pole uses the 240 m LOLA relief, see "North pole" below). It includes real NASA terrain at 1:1 scale, lunar physics, Sun/Earth from SPICE, time controls, four surfaces and 20 Quixel rock variants. Craters smaller than the DEM resolution and the rocks are generated with lunar statistics: they are plausible, not measured data. The ground reflects light with a lunar photometric model (Hapke) and the Earth is shown at its real size, turned and lit for the chosen instant.
+In **Mare → Lander's View**, press the **Astronaut Mode** helmet to walk around a 1 km × 1 km region centred on the selected point (at either pole; the north pole uses the 240 m LOLA relief, see "North pole" below). It includes real NASA terrain at 1:1 scale, lunar physics, Sun/Earth from SPICE, time controls, four surfaces and 20 Quixel rock variants. Craters smaller than the DEM resolution and the rocks are generated with lunar statistics: they are plausible, not measured data. The ground reflects light with a lunar photometric model (Hapke) and the Earth is shown at its real size, turned and lit for the chosen instant. The mode also opens from Mare on the Whole Moon map, on a 1.9 km elevation model, with a flag at the Apollo 11 site.
 
 Controls: WASD, captured mouse, Shift, Space, R and Z (or right button) for a 4× telephoto lens. Escape pauses and opens the settings; Resume exploring captures the mouse again. The demo data and the regional fallback are included. See [running, sources, DEM preparation, assets, tests and scientific limits](docs/ASTRONAUT_MODE.md).
 

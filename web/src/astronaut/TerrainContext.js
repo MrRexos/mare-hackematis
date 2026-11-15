@@ -1,4 +1,4 @@
-import { dot, localToLunar, MOON_RADIUS, sampleRaster } from "./coordinates.js";
+import { dot, localToLunar, MOON_RADIUS, rasterPoint, sampleRaster } from "./coordinates.js";
 
 // Regional and local DEMs may disagree at the boundary. Join every native edge
 // vertex through a transition outside the walkable kilometer. Its measured
@@ -10,7 +10,7 @@ export function buildTerrainContext(raster, terrain) {
   const n = axis.length, positions = [], uv = [], valid = [], indices = [];
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
     const x = axis[j], z = axis[i], point = localToLunar(terrain.frame, x, z);
-    const h = sampleRaster(raster, point.px, point.py);
+    const h = sampleRaster(raster, ...rasterPoint(raster, point));
     valid.push(Number.isFinite(h));
     positions.push(x, Number.isFinite(h) ? (MOON_RADIUS + h) * dot(point.unit, terrain.frame.up) - MOON_RADIUS - terrain.anchorHeight : 0, z);
     uv.push(x / 8, -z / 8);

@@ -51,14 +51,17 @@ self.onmessage = async ({ data: request }) => {
     stage("Loading lunar terrain");
     const catalog = request.catalog, frame = makeFrame(request.lat, request.lon);
     if (!catalog.regional) throw new Error("Regional NASA elevation data are missing.");
-    const regional = await loadRaster(catalog.regional, request.base);
+    // South of 75°S the polar DEM gives the surroundings; anywhere else the whole-Moon one does.
+    const polar = covers(catalog.regional, frame, 16500) || !catalog.global;
+    const regional = await loadRaster(polar ? catalog.regional : catalog.global, request.base);
     let raster = null, terrain = null;
     const errors = [];
     const prepared = catalog.patches.filter((p) => covers(p, frame)).sort((a, b) => a.resolutionM - b.resolutionM);
     const available = catalog.sources.filter((p) => covers(p, frame)).sort((a, b) => a.resolutionM - b.resolutionM);
     const choices = [...prepared.map((meta) => ({ meta, local: true })),
       ...(request.proxyBase ? available.filter((p) => !prepared.some((q) => q.resolutionM <= p.resolutionM)).map((meta) => ({ meta, local: false })) : []),
-      { meta: catalog.regional, local: true }].sort((a, b) => a.meta.resolutionM - b.meta.resolutionM);
+      ...(covers(catalog.regional, frame) || !catalog.global ? [{ meta: catalog.regional, local: true }] : []),
+      ...(catalog.global ? [{ meta: catalog.global, local: true }] : [])].sort((a, b) => a.meta.resolutionM - b.meta.resolutionM);
     for (const choice of choices) {
       try {
         raster = choice.local ? await loadRaster(choice.meta, request.base) : await remoteRaster(choice.meta, frame, request.proxyBase);
