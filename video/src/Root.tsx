@@ -20,7 +20,7 @@ export const RemotionRoot: React.FC = () => (
       height={1080}
       fps={30}
       durationInFrames={900}
-      defaultProps={{ url: "", music: true }}
+      defaultProps={{ url: "nasa-space-apps-2026-swart.vercel.app", music: true }}
     />
     <Folder name="Submission-Scenes">
       <Composition id="Hook" component={Hook} width={1920} height={1080} fps={30} durationInFrames={90} />
@@ -31,7 +31,7 @@ export const RemotionRoot: React.FC = () => (
       <Composition id="Astronaut" component={Astronaut} width={1920} height={1080} fps={30} durationInFrames={120} />
       <Composition id="Reach" component={Reach} width={1920} height={1080} fps={30} durationInFrames={75} />
       <Composition id="Trust" component={Trust} width={1920} height={1080} fps={30} durationInFrames={75} />
-      <Composition id="End" component={End} width={1920} height={1080} fps={30} durationInFrames={60} defaultProps={{ url: "" }} />
+      <Composition id="End" component={End} width={1920} height={1080} fps={30} durationInFrames={60} defaultProps={{ url: "nasa-space-apps-2026-swart.vercel.app" }} />
     </Folder>
   </>
 );

@@ -26,7 +26,7 @@ export const End: React.FC<{ url: string }> = ({ url }) => {
         <span style={{ color: C.ink2 }}>Lunar Landing Site Navigator</span>
       </div>
       {url ? (
-        <div style={{ position: "absolute", left: MARGIN, top: 704, fontFamily: mono, fontSize: 26, color: C.ink2, ...rise(frame, 8) }}>{url}</div>
+        <div style={{ position: "absolute", left: MARGIN, top: 708, fontFamily: mono, fontSize: 32, color: C.ink, ...rise(frame, 8) }}>{url}</div>
       ) : null}
       <div style={{ position: "absolute", left: MARGIN, top: 926, fontFamily: sans, fontSize: 28, color: C.ink2, ...rise(frame, 6) }}>
         Student project. Not affiliated with or endorsed by NASA. Data sources are named for attribution only.

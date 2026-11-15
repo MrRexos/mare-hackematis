@@ -25,7 +25,7 @@ This is a student project. NASA did not build, use or endorse it, and the film s
 | "South Pole. North Pole. Whole Moon." and "Poles: 1 km, date search. Whole Moon: 0.5 degrees, fixed date." | `README.md`, "North pole" (same 400 x 400 km grid at 1 km, same engine) and "Whole Moon view" (grid of 0.5 degrees; "For now only with a fixed landing date; searching for the best dates is still for the two poles only"). |
 | "Reference formulas checked against JPL Horizons", "0.002 arcminutes, at most", "Sun and Earth, azimuth and elevation. 726 comparisons at 3 south pole sites." | `web/public/data/validation.json`, `horizons`: largest difference 0.0016 arcmin for the Earth and 0.00004 arcmin for the Sun, in 6 series of 121 samples (Connecting ridge, Malapert Massif and Haworth, January 2027, every 6 hours). What was compared with JPL Horizons is the pipeline's reference formula (`pipeline/moonsite/visibility.py`). The browser uses the same formula for the Earth. For the Sun it takes the direction from the Moon's centre (`web/src/engine/mission.worker.js`, `web/src/engine/timeline.js`), which sits a constant 0.04 arcmin from the checked value. That is 150 times smaller than the 0.1 degree step of the horizon table and changes no result, but the number on the card describes the reference formula, not the browser's Sun. The north pole comparison has not been run (`README.md`, "North pole"). |
 | "Data: NASA LOLA, NASA/JPL SPICE DE440, LRO Diviner" | `docs/ARCHITECTURE.md`, "Data (all official)". |
-| End card | Team name in `web/src/screens/Home.jsx` (About). Challenge name in `README.md`. |
+| End card | Team name in `web/src/screens/Home.jsx` (About). Challenge name in `README.md`. The web address, nasa-space-apps-2026-swart.vercel.app, is the public address of the app as given by the team; it could not be opened from the machine that rendered the film. |
 
 Numbers that appear inside the app captures (scores, dates, elevations) are whatever the app computed during capture. `video/src/captured.json` keeps a copy of the main ones.
 
@@ -79,7 +79,6 @@ Remotion 4 (remotion.dev) renders the film. Its installer says "Remotion is free
 
 ## To settle before publishing
 
-1. The end card shows no web address, because nobody had confirmed which public address to print. To add one, set the `url` prop of `Submission` in `video/src/Root.tsx` and run `npm run render`, which also trims the audio and checks that the file is 30.000 s or under.
-2. Remotion is free for teams of up to three and the About box of the app lists six people. Read remotion.dev/docs/license and check that a student team at a hackathon is covered.
-3. The Fab Standard License of the Megascans assets was accepted through one team member's account. That person should confirm it covers showing the assets in a public video.
-4. `docs/ARCHITECTURE.md` and the note in `validation.json` say the browser uses the same formulas that were checked against JPL Horizons. That holds for the Earth and not for the Sun (see the table above). The difference is negligible, but the documents should say it.
+1. Remotion is free for teams of up to three and the About box of the app lists six people. Read remotion.dev/docs/license and check that a student team at a hackathon is covered.
+2. The Fab Standard License of the Megascans assets was accepted through one team member's account. That person should confirm it covers showing the assets in a public video.
+3. `docs/ARCHITECTURE.md` and the note in `validation.json` say the browser uses the same formulas that were checked against JPL Horizons. That holds for the Earth and not for the Sun (see the table above). The difference is negligible, but the documents should say it.

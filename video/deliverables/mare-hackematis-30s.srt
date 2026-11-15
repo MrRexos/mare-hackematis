@@ -45,5 +45,5 @@ Sun and Earth, azimuth and elevation. 726 comparisons at 3 south pole sites. Dat
 
 11
 00:00:28,067 --> 00:00:30,000
-Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026, Lunar Landing Site Navigator.
+Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026, Lunar Landing Site Navigator. nasa-space-apps-2026-swart.vercel.app
 Student project. Not affiliated with or endorsed by NASA. Data sources are named for attribution only.
