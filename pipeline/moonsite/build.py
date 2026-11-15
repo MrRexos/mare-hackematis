@@ -8,6 +8,12 @@ Uso (desde pipeline/):
     python -m moonsite.build sites      # sitios de referencia
     python -m moonsite.build validate   # Horizons + LOLA AVGVISIB (necesita red)
 
+Polo norte: los mismos pasos con `--pole north` (antes, `python -m moonsite.fetch north`).
+    python -m moonsite.build all --pole north
+
+El polo sur se escribe en web/public/data/ y el norte en web/public/data/north/, con la
+misma estructura. Las efemérides no dependen del polo: hay un solo ephem.f32, en la raíz.
+
 Cada paso actualiza su parte de manifest.json sin borrar las demás.
 """
 
@@ -23,7 +29,21 @@ import numpy as np
 from . import config as C
 from . import ephemeris, horizon, layers, sites, validate
 
-MANIFEST = C.WEB_DATA / "manifest.json"
+MANIFEST = C.WEB_DATA / "manifest.json"  # polo sur (nombre histórico); ver _manifest(pole)
+
+#: Etiqueta de los productos LOLA de cada polo: LDEM_75S_240M / LDEM_75N_240M.
+POLE_TAG = {"south": "75S", "north": "75N"}
+
+
+def _manifest(pole: str):
+    return C.web_data(pole) / "manifest.json"
+
+
+def layer_meta(pole: str) -> dict:
+    """Metadatos de las capas, con el nombre del producto del polo que toca."""
+    tag = POLE_TAG[pole]
+    return {name: {**meta, "source": meta["source"].replace("75S", tag)} for name, meta in LAYER_META.items()}
+
 
 LAYER_META = {
     "elevation": {"label": "Elevation", "units": "m", "source": "LOLA LDEM_75S_240M (PDS)", "fidelity": "computed",
@@ -54,94 +74,115 @@ LAYER_META = {
 }
 
 
-def _load() -> dict:
-    if MANIFEST.exists():
-        return json.loads(MANIFEST.read_text(encoding="utf-8"))
+PROJECTION = {
+    "south": "south polar stereographic (LOLA): x = rho·sin(lon), y = rho·cos(lon), row 0 = +y",
+    "north": "north polar stereographic (LOLA): x = rho·sin(lon), y = −rho·cos(lon), row 0 = +y",
+}
+ORDER = {
+    "south": "row-major, row 0 at the top (+y, towards 0°E)",
+    "north": "row-major, row 0 at the top (+y, towards 180°E)",
+}
+NORTH_IS = {"south": "away from the south pole", "north": "towards the north pole"}
+
+
+def _load(pole: str = "south") -> dict:
+    f = _manifest(pole)
+    if f.exists():
+        return json.loads(f.read_text(encoding="utf-8"))
     return {}
 
 
-def _save(m: dict) -> None:
+def _save(m: dict, pole: str = "south") -> None:
     m["generated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     m["grid"] = {
         "n": C.GRID_N, "pxM": C.GRID_PX_M, "halfM": C.GRID_HALF_M, "radiusM": C.MOON_R_M,
-        "projection": "south polar stereographic (LOLA): x = rho·sin(lon), y = rho·cos(lon), row 0 = +y",
-        "frame": "MOON_ME", "order": "row-major, row 0 at the top (+y, towards 0°E)",
+        "pole": pole, "projection": PROJECTION[pole],
+        "frame": "MOON_ME", "order": ORDER[pole],
     }
-    C.WEB_DATA.mkdir(parents=True, exist_ok=True)
-    MANIFEST.write_text(json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8")
+    C.web_data(pole).mkdir(parents=True, exist_ok=True)
+    _manifest(pole).write_text(json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def step_layers(m: dict) -> None:
+def step_layers(m: dict, pole: str = "south") -> None:
     print("Capas fijas...")
-    (C.WEB_DATA / "layers").mkdir(parents=True, exist_ok=True)
-    built = layers.build_all()
+    out = C.web_data(pole)
+    (out / "layers").mkdir(parents=True, exist_ok=True)
+    built = layers.build_all(pole)
+    meta = layer_meta(pole)
     m["layers"] = {}
     for name, arr in built.items():
-        f = C.WEB_DATA / "layers" / f"{name}.f32"
+        f = out / "layers" / f"{name}.f32"
         arr.astype("<f4").tofile(f)
         finite = arr[np.isfinite(arr)]
-        m["layers"][name] = {**LAYER_META[name], "file": f"layers/{name}.f32", "dtype": "float32",
+        m["layers"][name] = {**meta[name], "file": f"layers/{name}.f32", "dtype": "float32",
                              "min": float(finite.min()), "max": float(finite.max())}
         print(f"   {name}: {finite.min():.3f} … {finite.max():.3f}")
-    m["hillshade"] = layers.hillshade_png(layers.dem_raster(), C.WEB_DATA / "hillshade.png")
-    m["hillshade"]["source"] = "LOLA LDEM_75S_240M (PDS)"
+    m["hillshade"] = layers.hillshade_png(layers.dem_raster(pole), out / "hillshade.png")
+    m["hillshade"]["source"] = f"LOLA LDEM_{POLE_TAG[pole]}_240M (PDS)"
 
 
-def step_ephem(m: dict) -> None:
+def step_ephem(m: dict, pole: str = "south") -> None:
+    """Sol y Tierra cada hora. No depende del polo: un solo fichero, en la raíz de los datos."""
     print("Efemérides (SPICE)...")
     vec, meta = ephemeris.build()
-    vec.astype("<f4").tofile(C.WEB_DATA / meta["file"])
-    m["ephem"] = meta
+    f = C.WEB_DATA / meta["file"]
+    vec = vec.astype("<f4")
+    # Solo se reescribe si cambia algo: así construir un polo no toca el fichero del otro.
+    if not f.exists() or not np.array_equal(np.fromfile(f, dtype="<f4"), vec.ravel()):
+        vec.tofile(f)
+    # Ruta relativa a la carpeta del manifest de cada polo.
+    m["ephem"] = {**meta, "file": meta["file"] if pole == "south" else f"../{meta['file']}"}
     print(f"   {meta['count']} horas desde {meta['startUtc']}")
 
 
-def step_horizon(m: dict) -> None:
+def step_horizon(m: dict, pole: str = "south") -> None:
     print("Horizontes (puede tardar unos minutos)...")
     t0 = time.time()
-    deg = horizon.compute(layers.dem_raster())
+    deg = horizon.compute(layers.dem_raster(pole), pole=pole)
     q = horizon.quantize(deg)
-    q.tofile(C.WEB_DATA / "horizon.u8")
+    q.tofile(C.web_data(pole) / "horizon.u8")
     m["horizon"] = {
         "file": "horizon.u8", "dtype": "uint8", "bins": C.HORIZON_BINS,
-        "binCentreDeg": "k * 360 / bins, clockwise from north (north = away from the south pole)",
+        "binCentreDeg": f"k * 360 / bins, clockwise from north (north = {NORTH_IS[pole]})",
         "scaleDeg": C.HORIZON_Q_SCALE_DEG, "offsetDeg": C.HORIZON_Q_OFFSET_DEG,
         "observerHeightM": C.OBSERVER_HEIGHT_M, "minDistanceM": C.HORIZON_MIN_M, "maxDistanceM": C.HORIZON_MAX_M,
-        "source": "Ray-marched over LOLA LDEM_75S_240M (PDS)", "fidelity": "approximate",
+        "source": f"Ray-marched over LOLA LDEM_{POLE_TAG[pole]}_240M (PDS)", "fidelity": "approximate",
         "note": "1 km grid, 5° azimuth bins: regional screening, not site certification.",
     }
     print(f"   hecho en {time.time() - t0:.0f} s")
 
 
-def step_sites(m: dict) -> None:
-    m["sites"] = sites.catalog()
+def step_sites(m: dict, pole: str = "south") -> None:
+    m["sites"] = sites.catalog(pole)
 
 
-def step_validate(m: dict) -> None:
+def step_validate(m: dict, pole: str = "south") -> None:
     print("Validación...")
+    data = C.web_data(pole)
     out = {}
     try:
-        out["horizons"] = validate.horizons_check()
+        out["horizons"] = validate.horizons_check(pole=pole)
         print(f"   Horizons: máx. Sol {out['horizons']['maxArcmin']['sun']:.4f}′, "
               f"Tierra {out['horizons']['maxArcmin']['earth']:.4f}′")
     except Exception as e:  # sin red, etc.
         print(f"   Horizons no disponible: {e}")
     if "avgSun" in m.get("layers", {}) and "horizon" in m and "ephem" in m:
         n = C.GRID_N * C.GRID_N
-        q = np.fromfile(C.WEB_DATA / "horizon.u8", dtype=np.uint8).reshape(n, C.HORIZON_BINS)
-        avg = np.fromfile(C.WEB_DATA / "layers/avgSun.f32", dtype="<f4")
-        eph = np.fromfile(C.WEB_DATA / m["ephem"]["file"], dtype="<f4").reshape(-1, 6)
-        out["avgvisib"] = validate.avgvisib_check(q, avg, eph, C.HORIZON_Q_SCALE_DEG, C.HORIZON_Q_OFFSET_DEG)
+        q = np.fromfile(data / "horizon.u8", dtype=np.uint8).reshape(n, C.HORIZON_BINS)
+        avg = np.fromfile(data / "layers/avgSun.f32", dtype="<f4")
+        eph = np.fromfile(data / m["ephem"]["file"], dtype="<f4").reshape(-1, 6)
+        out["avgvisib"] = validate.avgvisib_check(q, avg, eph, C.HORIZON_Q_SCALE_DEG, C.HORIZON_Q_OFFSET_DEG, pole=pole)
         print(f"   LOLA AVGVISIB: diferencia media {out['avgvisib']['meanAbsDiffPct']:.2f} puntos "
               f"(sesgo {out['avgvisib']['biasPct']:+.2f})")
     if "avgEarth" in m.get("layers", {}) and "horizon" in m and "ephem" in m:
         n = C.GRID_N * C.GRID_N
-        q = np.fromfile(C.WEB_DATA / "horizon.u8", dtype=np.uint8).reshape(n, C.HORIZON_BINS)
-        avg = np.fromfile(C.WEB_DATA / "layers/avgEarth.f32", dtype="<f4")
-        eph = np.fromfile(C.WEB_DATA / m["ephem"]["file"], dtype="<f4").reshape(-1, 6)
-        out["avgearth"] = validate.avgearth_check(q, avg, eph, C.HORIZON_Q_SCALE_DEG, C.HORIZON_Q_OFFSET_DEG)
+        q = np.fromfile(data / "horizon.u8", dtype=np.uint8).reshape(n, C.HORIZON_BINS)
+        avg = np.fromfile(data / "layers/avgEarth.f32", dtype="<f4")
+        eph = np.fromfile(data / m["ephem"]["file"], dtype="<f4").reshape(-1, 6)
+        out["avgearth"] = validate.avgearth_check(q, avg, eph, C.HORIZON_Q_SCALE_DEG, C.HORIZON_Q_OFFSET_DEG, pole=pole)
         print(f"   LOLA Tierra: diferencia media {out['avgearth']['meanAbsDiffPct']:.2f} puntos "
               f"(sesgo {out['avgearth']['biasPct']:+.2f})")
-    (C.WEB_DATA / "validation.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    (data / "validation.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     m["validation"] = "validation.json"
 
 
@@ -149,16 +190,39 @@ STEPS = {"layers": step_layers, "ephem": step_ephem, "horizon": step_horizon, "s
          "validate": step_validate}
 
 
+def _pole_arg(argv: list[str]) -> tuple[str, list[str]]:
+    """Separa `--pole north` (o `--pole=north`) del resto de argumentos."""
+    pole, rest, k = "south", [], 0
+    while k < len(argv):
+        a = argv[k]
+        if a == "--pole":
+            if k + 1 >= len(argv):
+                raise SystemExit("--pole necesita un valor: south o north")
+            pole, k = argv[k + 1], k + 1
+        elif a.startswith("--pole="):
+            pole = a.split("=", 1)[1]
+        else:
+            rest.append(a)
+        k += 1
+    if pole not in C.POLES:
+        raise SystemExit(f"--pole debe ser uno de {', '.join(C.POLES)}")
+    return pole, rest
+
+
 def main(argv: list[str]) -> None:
-    todo = argv or ["all"]
+    pole, todo = _pole_arg(argv)
+    todo = todo or ["all"]
     if "all" in todo:
         todo = ["layers", "ephem", "horizon", "sites", "validate"]
-    m = _load()
-    C.WEB_DATA.mkdir(parents=True, exist_ok=True)
+    unknown = [s for s in todo if s not in STEPS]
+    if unknown:
+        raise SystemExit(f"Paso desconocido: {', '.join(unknown)}. Pasos: {', '.join(STEPS)}, all")
+    m = _load(pole)
+    C.web_data(pole).mkdir(parents=True, exist_ok=True)
     for s in todo:
-        STEPS[s](m)
-        _save(m)
-    print(f"Listo: {MANIFEST}")
+        STEPS[s](m, pole)
+        _save(m, pole)
+    print(f"Listo: {_manifest(pole)}")
 
 
 if __name__ == "__main__":

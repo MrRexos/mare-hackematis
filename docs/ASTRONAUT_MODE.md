@@ -23,7 +23,10 @@ The calendar panel changes the UTC date/time and offers a time lapse of 6 real h
 | LOLA Site01, Connecting ridge | Demo at −89.45°, 222.5°E; 2.2 km crop to choose an explorable 1 km region | 5 m | [NASA PGDA 78](https://pgda.gsfc.nasa.gov/products/78) |
 | LOLA Haworth | 2.2 km crop at −86.86°, 338.14°E | 5 m | [NASA PGDA 78](https://pgda.gsfc.nasa.gov/products/78) |
 | LDEM_75S_240M | Regional coverage for any point on the map and context terrain out to 16 km | 240 m | [NASA PDS LOLA](https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/ldem_75s_240m.lbl) |
+| LDEM_75N_240M | The same regional coverage for the north pole map (`catalog-north.json`, `regional-north.i16`). There are no 5 m crops for the north | 240 m | [NASA PDS LOLA](https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/ldem_75n_240m.lbl) |
 | PGDA catalog of 5 m DEMs and LDEM_83S_10MPP_ADJ | Selection by coverage and resolution in development | 5 / 10 m | [PGDA 78](https://pgda.gsfc.nasa.gov/products/78), [PGDA 90](https://pgda.gsfc.nasa.gov/products/90) |
+
+Each pole has its own catalog, because its rasters are in that pole's stereographic plane: `catalog.json` for the south and `catalog-north.json` for the north. The loader picks one by the sign of the latitude. The north catalog is created with `python tools/prepare_lunar_dem.py --pole north`. From a north pole site the "Explore NASA 5 m demo" button is not offered, because that demo is a south pole site.
 
 `catalog.json` records product, URL, provider, coverage, projection, frame, vertical datum, resolution and uncertainty limitations. Each crop includes its SHA-256 and valid fraction; all values in the included crops are valid. The 5 m LOLA DEMs contain interpolation between measurements; **5 m spacing does not mean 5 m effective resolution or height accuracy**. Per-sample uncertainty is not included; the original products are linked with their error maps.
 

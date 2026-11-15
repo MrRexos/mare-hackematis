@@ -1,6 +1,9 @@
 // Geometría compartida por la web y el worker. Mismas convenciones que el
 // pipeline (pipeline/moonsite/geo.py y visibility.py):
-// - Plano estereográfico polar sur de LOLA: x = rho·sin(lon), y = rho·cos(lon).
+// - Plano estereográfico polar de LOLA, según grid.pole:
+//     "south" (por defecto): x = rho·sin(lon), y =  rho·cos(lon), rho = 2R·tan(45° + lat/2)
+//     "north":               x = rho·sin(lon), y = −rho·cos(lon), rho = 2R·tan(45° − lat/2)
+//   La longitud 0° (cara visible) queda arriba en el sur y abajo en el norte; 90°E, a la derecha.
 // - Malla: fila 0 arriba (+y). Centro del píxel (i, j):
 //   x = -half + (j + 0.5)·px,  y = half - (i + 0.5)·px.
 // - Marco local ENU; acimut horario desde el norte (norte = hacia el polo norte).
@@ -16,29 +19,35 @@ export function xyToPixel(grid, x, y) {
   return [(grid.halfM - y) / grid.pxM - 0.5, (x + grid.halfM) / grid.pxM - 0.5];
 }
 
+/** +1 en el polo sur, −1 en el norte: signo de y respecto a cos(lon) y signo de z. */
+const poleSign = (pole) => (pole === "north" ? -1 : 1);
+
 export function latLonToXY(grid, latDeg, lonDeg) {
-  const rho = 2 * grid.radiusM * Math.tan(Math.PI / 4 + (latDeg * RAD) / 2);
-  return [rho * Math.sin(lonDeg * RAD), rho * Math.cos(lonDeg * RAD)];
+  const s = poleSign(grid.pole);
+  const rho = 2 * grid.radiusM * Math.tan(Math.PI / 4 + (s * latDeg * RAD) / 2);
+  return [rho * Math.sin(lonDeg * RAD), s * rho * Math.cos(lonDeg * RAD)];
 }
 
 export function xyToLatLon(grid, x, y) {
+  const s = poleSign(grid.pole);
   const rho = Math.hypot(x, y);
-  const lat = -(Math.PI / 2 - 2 * Math.atan(rho / (2 * grid.radiusM)));
-  return [lat * DEG, Math.atan2(x, y) * DEG];
+  const lat = -s * (Math.PI / 2 - 2 * Math.atan(rho / (2 * grid.radiusM)));
+  return [lat * DEG, Math.atan2(x, s * y) * DEG];
 }
 
-/** Vector unitario (MOON_ME) del punto (x, y) del plano. */
-export function xyToUnit(R, x, y) {
+/** Vector unitario (MOON_ME) del punto (x, y) del plano del polo `pole` ("south" si no se indica). */
+export function xyToUnit(R, x, y, pole) {
+  const s = poleSign(pole);
   const xs = x / (2 * R);
   const ys = y / (2 * R);
   const t2 = xs * xs + ys * ys;
   const k = 1 / (1 + t2);
-  return [2 * ys * k, 2 * xs * k, -(1 - t2) * k];
+  return [2 * s * ys * k, 2 * xs * k, -s * (1 - t2) * k];
 }
 
 /**
  * Vector unitario (MOON_ME) del centro de la celda (i, j).
- * Malla polar (polo sur, n × n) o malla global lat/lon (grid.type === "latlon":
+ * Malla polar (polo sur o norte, n × n) o malla global lat/lon (grid.type === "latlon":
  * fila 0 desde lat0 hacia el sur, columna 0 desde lon0 hacia el este).
  * En la malla global, (fi, fj) eligen un punto dentro de la celda (0,5 = centro).
  */
@@ -50,7 +59,7 @@ export function cellUnit(grid, i, j, fi = 0.5, fj = 0.5) {
     return [cl * Math.cos(lon), cl * Math.sin(lon), Math.sin(lat)];
   }
   const [x, y] = pixelXY(grid, i, j);
-  return xyToUnit(grid.radiusM, x, y);
+  return xyToUnit(grid.radiusM, x, y, grid.pole);
 }
 
 /** Marco local a partir del vector unitario: [up, east, north]. */

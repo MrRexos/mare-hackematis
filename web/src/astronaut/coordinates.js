@@ -6,16 +6,18 @@ export const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 export const normalize = (v) => { const length = Math.hypot(...v); return v.map((x) => x / length); };
 
 // Right-handed Three.js frame: +X east, +Y up, -Z north. One unit = one meter.
+// `pole` is the hemisphere of the place: it selects the LOLA polar stereographic plane
+// (south or north) in which the elevation rasters of that pole are stored.
 export function makeFrame(lat, lon) {
   const u = [Math.cos(lat * RAD) * Math.cos(lon * RAD), Math.cos(lat * RAD) * Math.sin(lon * RAD), Math.sin(lat * RAD)];
   const [up, east, north] = localFrame(u);
-  return { up, east, north, lat, lon };
+  return { up, east, north, lat, lon, pole: lat >= 0 ? "north" : "south" };
 }
 
 export function localToLunar(frame, x, z) {
   const unit = normalize(frame.up.map((value, k) => value + (frame.east[k] * x - frame.north[k] * z) / MOON_RADIUS));
   const lat = Math.asin(unit[2]) * DEG, lon = Math.atan2(unit[1], unit[0]) * DEG;
-  const [px, py] = latLonToXY({ radiusM: MOON_RADIUS }, lat, lon);
+  const [px, py] = latLonToXY({ radiusM: MOON_RADIUS, pole: frame.pole }, lat, lon);
   return { unit, lat, lon, px, py };
 }
 

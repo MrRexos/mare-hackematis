@@ -3,6 +3,11 @@ import { L } from "../ds.js";
 // Learn/: cómo funciona, de dónde salen los datos y qué no dice la herramienta.
 
 export default function LearnPage({ data }) {
+  // Los textos hablan del polo cuyos datos están cargados (el del plan en curso).
+  const north = data.pole === "north";
+  const pole = north ? "north" : "south";
+  const tag = north ? "75N" : "75S";
+  const group = data.manifest.sites?.groups?.[0];
   const v = data.validation || {};
   const hz = v.horizons?.maxArcmin;
   const avg = v.avgvisib;
@@ -16,7 +21,7 @@ export default function LearnPage({ data }) {
       <div className="learn__cols">
         <L.Panel eyebrow="01" title="What the map answers">
           <p className="body-lg">
-            For a landing window and a surface time, which 1 km spots near the lunar south pole give the most sunlight and
+            For a landing window and a surface time, which 1 km spots near the lunar {pole} pole give the most sunlight and
             Earth visibility on gentle ground near terrain where water ice could persist?
           </p>
           <p className="body lh-sec">
@@ -35,13 +40,17 @@ export default function LearnPage({ data }) {
         </L.Panel>
         <L.Panel eyebrow="03" title="Data sources">
           <ul className="body-sm sources">
-            <li><b>Terrain, slope, roughness:</b> LOLA LDEM_75S_240M, LDSM_75S_240M and LDRM_75S_240M, NASA PDS Geosciences Node.</li>
+            <li><b>Terrain, slope, roughness:</b> LOLA LDEM_{tag}_240M, LDSM_{tag}_240M and LDRM_{tag}_240M, NASA PDS Geosciences Node.</li>
             <li><b>Permanent shadow, long-term Sun and Earth:</b> LOLA LPSR and AVGVISIB 120 m (Mazarico et al. 2011), NASA PDS.</li>
             <li><b>Temperature and ice stability:</b> LRO Diviner Polar Resource Product v2.0 (Paige et al. 2010), NASA PDS. A peer-reviewed thermal model fit to the first mapping year.</li>
-            <li><b>Ice observations:</b> Lemelin et al. (2021) mapped permanently shadowed regions associated with M³ detections. The LCROSS marker uses NASA’s Centaur impact coordinates and the water detection reported by Colaprete et al. (2010).</li>
+            {north
+              ? <li><b>Ice observations:</b> not shown at the north pole. The M³ detection points, the Lemelin et al. (2021) regions and the LCROSS impact in this app are south pole data.</li>
+              : <li><b>Ice observations:</b> Lemelin et al. (2021) mapped permanently shadowed regions associated with M³ detections. The LCROSS marker uses NASA’s Centaur impact coordinates and the water detection reported by Colaprete et al. (2010).</li>}
             <li><b>Sun and Earth:</b> NASA/JPL NAIF SPICE, DE440 ephemeris, MOON_ME frame, light time and aberration.</li>
-            <li><b>Artemis III regions:</b> NASA (2024-10-28), approximate centres.</li>
-            <li><b>Checks:</b> JPL Horizons API and LOLA AVGVISIB (Sun and Earth).</li>
+            {north
+              ? <li><b>Named craters:</b> {group?.source || "IAU nomenclature"}. {group?.note}</li>
+              : <li><b>Artemis III regions:</b> NASA (2024-10-28), approximate centres.</li>}
+            <li><b>Checks:</b> {hz ? "JPL Horizons API and " : ""}LOLA AVGVISIB (Sun and Earth).{hz ? "" : " The JPL Horizons comparison has not been run for this pole’s test points."}</li>
           </ul>
         </L.Panel>
         <L.Panel eyebrow="04" title="Can I trust these numbers?" actions={<L.FidelityBadge level={hz ? "validated" : "computed"}>{hz ? "Checked" : "Computed"}</L.FidelityBadge>}>
@@ -67,7 +76,7 @@ export default function LearnPage({ data }) {
         </L.Panel>
         <L.Panel eyebrow="06" title="Why no radiation or impact layer">
           <p className="body-sm lh-sec">
-            NASA publishes no surface map of radiation dose or meteoroid impact risk per site at the south pole. With no
+            NASA publishes no surface map of radiation dose or meteoroid impact risk per site at the {pole} pole. With no
             atmosphere or magnetic field, the dose is almost the same everywhere; the terrain only blocks a small part of
             the sky. Hydrogen maps (LRO LEND) and UV frost maps (LRO LAMP) exist, but their reading as ice is indirect,
             so they are not scored.

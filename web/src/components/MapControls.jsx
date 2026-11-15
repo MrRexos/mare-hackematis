@@ -45,9 +45,15 @@ export function MapPointReadout({ data, layer, values, pending, hoveredPixel, se
   );
 }
 
-export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnds, showIceEvidence, onIceEvidence, children }) {
+/**
+ * layers: capas del polo activo (data/mapLayers.js, layersOf). pole: las observaciones de hielo
+ * (M³, regiones de Lemelin, LCROSS) solo existen para el polo sur; en el norte no se ofrecen.
+ */
+export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnds, showIceEvidence, onIceEvidence, children, layers = LAYERS, pole = "south", refLabels }) {
   const sources = useRef(null);
-  const layer = LAYERS[activeLayer];
+  const layer = layers[activeLayer];
+  const iceObs = pole === "south";
+  showIceEvidence = showIceEvidence && iceObs;
   return (
     <>
       <div className="map-controls">
@@ -56,14 +62,14 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
             <Icon name="layers" size={16} />
             {layerKeys.map((key) => (
               <button key={key} type="button" className={cx("layerbar__b", activeLayer === key && "is-on")}
-                aria-label={LAYERS[key].label} title={LAYERS[key].label} aria-pressed={activeLayer === key} onClick={() => onLayer(key)}>
+                aria-label={layers[key].label} title={layers[key].label} aria-pressed={activeLayer === key} onClick={() => onLayer(key)}>
                 <span className="layerbar__check">{activeLayer === key && <Icon name="check" size={12} />}</span>
-                {LAYERS[key].short}
+                {layers[key].short}
               </button>
             ))}
           </div>
           <div className="overlay map-controls__extras">
-            <IconBtn icon="droplet" label="Ice observations" variant="ghost" size={32} aria-pressed={showIceEvidence} onClick={() => onIceEvidence(!showIceEvidence)} />
+            {iceObs && <IconBtn icon="droplet" label="Ice observations" variant="ghost" size={32} aria-pressed={showIceEvidence} onClick={() => onIceEvidence(!showIceEvidence)} />}
             <IconBtn icon="info" label="Layer sources and meaning" variant="ghost" size={32} onClick={() => sources.current.showModal()} />
           </div>
         </div>
@@ -73,7 +79,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
       <details className="overlay map-legend">
         <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
         <div className="overlay legend__pop">
-          <div className="legend__row"><Shape kind="circle" />Artemis III reference</div>
+          <div className="legend__row"><Shape kind="circle" />{refLabels?.legendLabel || "Artemis III reference"}</div>
           <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
           <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
           {layer.ramp === "shadow" && <div className="legend__row"><i className="legend__hatch" />Over 50% permanent shadow</div>}
@@ -93,7 +99,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
         </div>
         <div className="layer-info__body">
           {layerKeys.map((key) => {
-            const { label, description, sources: links } = LAYERS[key];
+            const { label, description, sources: links } = layers[key];
             return (
               <section key={key} className={cx("layer-info__item", activeLayer === key && "layer-info__item--current")}>
                 <h3>{label}</h3>
@@ -106,7 +112,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
               </section>
             );
           })}
-          <section className="layer-info__item">
+          {iceObs && <section className="layer-info__item">
             <h3>Ice observations</h3>
             <p>Blue dots mark published Chandrayaan-1 M³ spectral detections of exposed water ice. Each detection represents an approximately 280 × 280 m observation. Blue outlines trace permanent-shadow regions associated with detections. Ice extent, depth and abundance remain uncertain.</p>
             <p>The diamond marks the Centaur impact in Cabeus, where LCROSS detected water in the excavated material. Mare shows the straight-line map distance from the cell centre to the nearest published M³ point.</p>
@@ -118,7 +124,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
               <SourceLink href={iceDetections.impact.locationUrl}>NASA · impact coordinates</SourceLink>
               <SourceLink href={iceDetections.regionSource.licenseUrl}>{iceDetections.regionSource.license}</SourceLink>
             </div>
-          </section>
+          </section>}
         </div>
       </dialog>, document.body)}
     </>

@@ -22,6 +22,12 @@ KERNELS = CACHE / "kernels"
 #: Lo que consume la web (pequeño, sí va a git para publicar sin recalcular).
 WEB_DATA = REPO / "web" / "public" / "data"
 
+
+def web_data(pole: str = "south") -> Path:
+    """Carpeta de datos del módulo polar: el polo sur en la raíz (como siempre), el norte en north/."""
+    return WEB_DATA if pole == "south" else WEB_DATA / pole
+
+
 # ---------------------------------------------------------------------------
 # Fuentes oficiales (NASA PDS Geosciences Node y NASA/JPL NAIF)
 # ---------------------------------------------------------------------------
@@ -37,33 +43,47 @@ class Remote:
     note: str = ""
 
 
-#: Productos LOLA en proyección estereográfica polar (esfera R = 1737.4 km).
-LOLA = {
-    "ldem": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldem_75s_240m.img", RAW / "ldem_75s_240m.img",
-                   29_062_688, "Elevación LOLA 240 m/px, 75-90°S (horizontes y relieve)"),
-    "ldsm": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldsm_75s_240m.img", RAW / "ldsm_75s_240m.img",
-                   29_062_688, "Pendiente LOLA 240 m/px, 75-90°S"),
-    "lpsr": Remote(f"{PDS_LOLA}/extras/illumination/img/lpsr_75s_120m_201608.img", RAW / "lpsr_75s_120m.img",
-                   116_250_752, "Regiones en sombra permanente (Mazarico et al. 2011), 120 m/px"),
-    "avgsun": Remote(f"{PDS_LOLA}/extras/illumination/img/avgvisib_75s_120m_201608.img", RAW / "avgvisib_75s_120m_sun.img",
-                     116_250_752, "Visibilidad media del Sol (validación), 120 m/px"),
-}
-LOLA |= {
-    "ldrm": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldrm_75s_240m.img", RAW / "ldrm_75s_240m.img",
-                   29_062_688, "Rugosidad LOLA 240 m/px (desviación de alturas, base 30-120 m), 75-90°S"),
-    "avgearth": Remote(f"{PDS_LOLA}/extras/illumination/img/avgvisib_75s_120m_201608_earth.img",
-                       RAW / "avgvisib_75s_120m_earth.img", 116_250_752,
-                       "Visibilidad media de la Tierra (Mazarico et al. 2011), 120 m/px"),
-}
+#: Productos LOLA en proyección estereográfica polar (esfera R = 1737.4 km), por polo.
+#: Los dos polos tienen los mismos productos y tamaños; solo cambia la letra (75S / 75N).
+POLES = ("south", "north")
+_POLE_TAG = {"south": "s", "north": "n"}
+_POLE_LAT = {"south": "75-90°S", "north": "75-90°N"}
+
+
+def _lola(pole: str) -> dict[str, "Remote"]:
+    t, where = _POLE_TAG[pole], _POLE_LAT[pole]
+    return {
+        "ldem": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldem_75{t}_240m.img", RAW / f"ldem_75{t}_240m.img",
+                       29_062_688, f"Elevación LOLA 240 m/px, {where} (horizontes y relieve)"),
+        "ldsm": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldsm_75{t}_240m.img", RAW / f"ldsm_75{t}_240m.img",
+                       29_062_688, f"Pendiente LOLA 240 m/px, {where}"),
+        "lpsr": Remote(f"{PDS_LOLA}/extras/illumination/img/lpsr_75{t}_120m_201608.img", RAW / f"lpsr_75{t}_120m.img",
+                       116_250_752, "Regiones en sombra permanente (Mazarico et al. 2011), 120 m/px"),
+        "avgsun": Remote(f"{PDS_LOLA}/extras/illumination/img/avgvisib_75{t}_120m_201608.img",
+                         RAW / f"avgvisib_75{t}_120m_sun.img", 116_250_752, "Visibilidad media del Sol (validación), 120 m/px"),
+        "ldrm": Remote(f"{PDS_LOLA}/data/lola_gdr/polar/img/ldrm_75{t}_240m.img", RAW / f"ldrm_75{t}_240m.img",
+                       29_062_688, f"Rugosidad LOLA 240 m/px (desviación de alturas, base 30-120 m), {where}"),
+        "avgearth": Remote(f"{PDS_LOLA}/extras/illumination/img/avgvisib_75{t}_120m_201608_earth.img",
+                           RAW / f"avgvisib_75{t}_120m_earth.img", 116_250_752,
+                           "Visibilidad media de la Tierra (Mazarico et al. 2011), 120 m/px"),
+    }
+
+
+LOLA_BY_POLE = {pole: _lola(pole) for pole in POLES}
+#: Polo sur (nombre histórico; el código nuevo usa LOLA_BY_POLE[pole]).
+LOLA = LOLA_BY_POLE["south"]
 LOLA_EXTRA: dict[str, "Remote"] = {}
 
 #: LRO Diviner Polar Resource Product v2.0 (Paige et al. 2010), revisado por pares en PDS.
-#: Tabla ASCII de 2 880 000 triángulos (~0,5 km) hasta 80°S: temperatura media anual
-#: a 2 cm, temperatura máxima anual en superficie y profundidad de estabilidad del hielo.
+#: Tabla ASCII de 2 880 000 triángulos (~0,5 km) hasta 80° de latitud, una por polo:
+#: temperatura media anual a 2 cm, temperatura máxima anual en superficie y profundidad
+#: de estabilidad del hielo.
 PDS_DIVINER = "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1"
 DIVINER = {
     "prp_south": Remote(f"{PDS_DIVINER}/data_derived_prp/dlre_prp_south.tab", RAW / "dlre_prp_south.tab",
                         604_800_210, "Diviner PRP sur (LRO-L-DLRE-5-PRP-V2.0)"),
+    "prp_north": Remote(f"{PDS_DIVINER}/data_derived_prp/dlre_prp_north.tab", RAW / "dlre_prp_north.tab",
+                        604_800_210, "Diviner PRP norte (LRO-L-DLRE-5-PRP-V2.0)"),
 }
 #: Profundidad máxima (m) a la que consideramos el hielo "accesible" para la capa de cercanía.
 ICE_ACCESSIBLE_DEPTH_M = 0.5
@@ -107,11 +127,11 @@ SPICE = {
 }
 
 # ---------------------------------------------------------------------------
-# Malla de análisis (estereográfica polar sur, igual que LOLA)
+# Malla de análisis (estereográfica polar, igual que LOLA; la misma en los dos polos)
 # ---------------------------------------------------------------------------
 MOON_R_M = 1_737_400.0  # esfera de referencia LOLA
-#: Semiancho de la malla. 200 km cubre hasta ~83.4°S en los ejes, para
-#: incluir todas las regiones candidatas de Artemis III publicadas.
+#: Semiancho de la malla. 200 km cubre hasta ~83.4° de latitud en los ejes: en el sur
+#: incluye todas las regiones candidatas de Artemis III publicadas.
 GRID_HALF_M = 200_000.0
 GRID_PX_M = 1_000.0
 GRID_N = int(round(2 * GRID_HALF_M / GRID_PX_M))  # 400 x 400 píxeles

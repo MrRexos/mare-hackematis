@@ -10,13 +10,13 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-from .config import GRID_HALF_M, GRID_PX_M, LOLA, LOLA_EXTRA
+from .config import GRID_HALF_M, GRID_PX_M, LOLA_BY_POLE, LOLA_EXTRA
 from .geo import grid_xy
 from .pds import PolarRaster
 
 
-def _open(key: str) -> PolarRaster | None:
-    f = LOLA.get(key) or LOLA_EXTRA.get(key)
+def _open(key: str, pole: str = "south") -> PolarRaster | None:
+    f = LOLA_BY_POLE[pole].get(key) or LOLA_EXTRA.get(key)
     if not f.dest.exists():
         return None
     return PolarRaster.open(f.dest, f.url)
@@ -87,32 +87,36 @@ def hillshade_png(dem: PolarRaster, path, px_m: float = 250.0) -> dict:
             "note": "Relief shading is a visual aid, not sunlight."}
 
 
-def build_all() -> dict[str, np.ndarray]:
-    """Devuelve las capas calculadas (las que tengan su producto descargado)."""
+def build_all(pole: str = "south") -> dict[str, np.ndarray]:
+    """Devuelve las capas calculadas (las que tengan su producto descargado).
+
+    Los rasters LOLA de cada polo ya vienen en el plano de su proyección, así que el
+    muestreo es idéntico en los dos; solo Diviner (lat/lon) necesita saber el polo.
+    """
     out: dict[str, np.ndarray] = {}
-    dem = _open("ldem")
-    if dem is None:
-        raise FileNotFoundError("Falta ldem_75s_240m.img: ejecuta `python -m moonsite.fetch`")
+    dem = dem_raster(pole)
     out["elevation"] = elevation(dem)
-    if (slope := _open("ldsm")) is not None:
+    if (slope := _open("ldsm", pole)) is not None:
         out["slope"] = block_stat(slope, 4, "median")
-    if (psr := _open("lpsr")) is not None:
+    if (psr := _open("lpsr", pole)) is not None:
         out["psrShare"] = block_stat(psr, 8, "mean")
         out["psrDistKm"] = psr_distance_km(psr)
-    if (avg := _open("avgsun")) is not None:
+    if (avg := _open("avgsun", pole)) is not None:
         out["avgSun"] = block_stat(avg, 8, "mean")
-    if (avg := _open("avgearth")) is not None:
+    if (avg := _open("avgearth", pole)) is not None:
         out["avgEarth"] = block_stat(avg, 8, "mean")
-    if (rough := _open("ldrm")) is not None:
+    if (rough := _open("ldrm", pole)) is not None:
         out["roughness"] = block_stat(rough, 4, "median")
     from . import diviner  # producto grande: solo si está descargado
-    if (d := diviner.load()) is not None:
-        out |= diviner.layers(d)
+    if (d := diviner.load(pole)) is not None:
+        diviner.align_check(d, out["elevation"], pole)  # la tabla tiene que caer sobre el relieve LOLA
+        out |= diviner.layers(d, pole)
     return out
 
 
-def dem_raster() -> PolarRaster:
-    dem = _open("ldem")
+def dem_raster(pole: str = "south") -> PolarRaster:
+    dem = _open("ldem", pole)
     if dem is None:
-        raise FileNotFoundError("Falta ldem_75s_240m.img")
+        name = LOLA_BY_POLE[pole]["ldem"].dest.name
+        raise FileNotFoundError(f"Falta {name}: ejecuta `python -m moonsite.fetch{'' if pole == 'south' else ' ' + pole}`")
     return dem

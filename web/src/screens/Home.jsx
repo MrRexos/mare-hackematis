@@ -5,8 +5,11 @@ import MissionTiming, { lengthLong, timingLabel } from "../ui/MissionTiming.jsx"
 import MissionOptions from "../ui/MissionOptions.jsx";
 import MissionWeights from "../ui/MissionWeights.jsx";
 
-/** La Luna entera se activa cuando existen sus datos globales (web/public/data/global). */
-const destinations = (moonReady) => DESTINATIONS.map((d) => (d.value === "moon" && moonReady ? { value: "moon", label: "Whole Moon" } : d));
+/**
+ * El polo norte se activa cuando existen sus datos (web/public/data/north) y la Luna entera
+ * cuando existen los globales (web/public/data/global).
+ */
+const destinations = (ready) => DESTINATIONS.map((d) => (ready[d.value] ? { value: d.value, label: d.label } : d));
 
 const DESTINATIONS = [
   { value: "south", label: "South Pole" },
@@ -104,7 +107,7 @@ export default function Home({ app }) {
             ) : (
               <section className="setup__editor" aria-label={`${STEPS[step].label} settings`}>
                 <div className="setup__editor-head"><span>0{step + 1}</span><h2>{STEPS[step].label}</h2></div>
-                {step === 0 && <MissionOptions label="Lunar destination" value={destination} onChange={chooseDestination} options={destinations(app.globalReady)} />}
+                {step === 0 && <MissionOptions label="Lunar destination" value={destination} onChange={chooseDestination} options={destinations({ north: app.northReady, moon: app.globalReady })} />}
                 {step === 1 && <MissionTiming {...app} fixedOnly={destination === "moon"} />}
                 {step === 2 && <MissionWeights weights={weights} setWeights={setWeights} compact />}
                 <p id="mission-status" className={cx("home__status", step === 1 && problem && "mission-error")} role="status">{status}</p>

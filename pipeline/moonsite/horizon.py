@@ -34,8 +34,11 @@ def distances() -> np.ndarray:
     return np.array(d)
 
 
-def compute(dem: PolarRaster, x=None, y=None, bins: int = HORIZON_BINS, log=print) -> np.ndarray:
-    """Horizonte en grados, forma (puntos, bins). Por defecto, toda la malla."""
+def compute(dem: PolarRaster, x=None, y=None, bins: int = HORIZON_BINS, log=print, pole: str = "south") -> np.ndarray:
+    """Horizonte en grados, forma (puntos, bins). Por defecto, toda la malla.
+
+    `pole` fija el paso del plano a la esfera y dónde queda el norte (acimut 0).
+    """
     if x is None:
         gx, gy = grid_xy()
         x, y = gx.ravel(), gy.ravel()
@@ -43,10 +46,10 @@ def compute(dem: PolarRaster, x=None, y=None, bins: int = HORIZON_BINS, log=prin
     y = np.asarray(y, float)
     h0 = dem.bilinear(x, y).astype(float)
     h0 = np.where(np.isnan(h0), 0.0, h0)
-    ux, uy, uz = xy_to_unit(x, y)
+    ux, uy, uz = xy_to_unit(x, y, pole=pole)
     r0 = MOON_R_M + h0 + OBSERVER_HEIGHT_M
     ox, oy, oz = r0 * ux, r0 * uy, r0 * uz
-    (nx, ny), (ex, ey) = plane_frame(x, y)
+    (nx, ny), (ex, ey) = plane_frame(x, y, pole)
     D = distances()
     out = np.full((x.size, bins), -90.0)
     t0 = time.time()
@@ -59,7 +62,7 @@ def compute(dem: PolarRaster, x=None, y=None, bins: int = HORIZON_BINS, log=prin
             px = x + d * dx
             py = y + d * dy
             ht = dem.bilinear(px, py)
-            tx, ty, tz = xy_to_unit(px, py)
+            tx, ty, tz = xy_to_unit(px, py, pole=pole)
             rt = MOON_R_M + np.where(np.isnan(ht), -1e9, ht)  # sin dato: muy por debajo
             vx, vy, vz = rt * tx - ox, rt * ty - oy, rt * tz - oz
             el = np.arcsin(np.clip((vx * ux + vy * uy + vz * uz) / np.sqrt(vx * vx + vy * vy + vz * vz), -1, 1))

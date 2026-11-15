@@ -1,6 +1,6 @@
 # NASA Space Apps 2026: Lunar Landing Site Navigator
 
-Mission selector for the lunar south pole: you enter the **landing window** and the
+Mission selector for the lunar poles (south and north): you enter the **landing window** and the
 mission **duration**, and the web app computes a **suitability heat map** from
 official NASA data. The map combines solar exposure, Earth visibility,
 relief and proximity to ice, and marks the **hotspots** where it is best to land.
@@ -8,7 +8,7 @@ relief and proximity to ice, and marks the **hotspots** where it is best to land
 Challenge: [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/).
 
 - **Data:** NASA LOLA (PDS) and NASA/JPL SPICE, validated against JPL Horizons.
-- **Grid:** 1 km × 1 km, 83.5–90°S.
+- **Grid:** 1 km × 1 km, 83.5–90°S and the same grid for 83.5–90°N.
 - **No server:** static web app; the computation runs in the browser.
 - **Design:** shared design system "Lunar Horizon".
 
@@ -35,7 +35,7 @@ Open http://localhost:5173.
 
 ## Astronaut Mode
 
-In **Mare → Lander's View**, press the **Astronaut Mode** helmet to walk around a 1 km × 1 km region centred on the selected point. It includes real NASA terrain at 1:1 scale, lunar physics, Sun/Earth from SPICE, time controls, four surfaces and 20 Quixel rock variants. Craters smaller than the DEM resolution and the rocks are generated with lunar statistics: they are plausible, not measured data. The ground reflects light with a lunar photometric model (Hapke) and the Earth is shown at its real size, turned and lit for the chosen instant.
+In **Mare → Lander's View**, press the **Astronaut Mode** helmet to walk around a 1 km × 1 km region centred on the selected point (at either pole; the north pole uses the 240 m LOLA relief, see "North pole" below). It includes real NASA terrain at 1:1 scale, lunar physics, Sun/Earth from SPICE, time controls, four surfaces and 20 Quixel rock variants. Craters smaller than the DEM resolution and the rocks are generated with lunar statistics: they are plausible, not measured data. The ground reflects light with a lunar photometric model (Hapke) and the Earth is shown at its real size, turned and lit for the chosen instant.
 
 Controls: WASD, captured mouse, Shift, Space, R and Z (or right button) for a 4× telephoto lens. Escape pauses and opens the settings; Resume exploring captures the mouse again. The demo data and the regional fallback are included. See [running, sources, DEM preparation, assets, tests and scientific limits](docs/ASTRONAUT_MODE.md).
 
@@ -51,12 +51,72 @@ cd pipeline
 ../.venv/Scripts/python -m moonsite.build all
 ```
 
-`build all` runs, in order:
+`build all` runs, in order (add `--pole north` for the north pole, see "North pole"):
 - static layers;
 - ephemerides;
 - horizons (a few minutes);
 - sites;
 - validation (needs network access for JPL Horizons).
+
+## North pole
+
+The north pole is a second copy of the polar module: same 400 × 400 km grid at 1 km, same layers,
+same engine in the browser, same screens (Explore in 2D and 3D, Mare with its four tabs, Astronaut
+Mode, Compare and Export). You choose **North Pole** as the destination on the home page, or with the
+**South Pole / North Pole / Whole Moon** tab in Explore. Its data live in `web/public/data/north/`
+(20 MB) and are downloaded the first time the north pole is opened. The ephemerides are shared
+(`web/public/data/ephem.f32`).
+
+To regenerate it (1.2 GB of downloads, about 5 minutes of computing):
+
+```bash
+cd pipeline
+../.venv/Scripts/python -m moonsite.fetch north
+../.venv/Scripts/python -m moonsite.build all --pole north
+cd ..
+python tools/prepare_lunar_dem.py --pole north    # 240 m relief for Astronaut Mode
+```
+
+The sources are the north pole counterparts of the south pole ones: LOLA `LDEM_75N_240M`,
+`LDSM_75N_240M`, `LDRM_75N_240M`, `LPSR_75N_120M`, `AVGVISIB_75N_120M` (Sun and Earth) and the
+Diviner Polar Resource Product `dlre_prp_north.tab`.
+
+What is different from the south pole:
+
+- **Map orientation.** LOLA's north projection puts longitude 0° (the near side) at the bottom of
+  the map and 90°E on the right. At the south pole 0° is at the top.
+- **Reference places.** There is no published list of candidate regions for the north pole
+  comparable to Artemis III, so the second ranking lists nine named craters (Whipple, Peary,
+  Aepinus, Erlanger, Fibiger, Hermite, Byrd, Rozhdestvenskiy, Lenard) as landmarks. They are not
+  proposed landing sites. For each one the app scores the best 1 km pixel in the ~15 × 15 km box
+  around the crater centre. The centres were written from the IAU nomenclature and checked
+  against the LOLA relief (a crater of the expected size is there); the USGS gazetteer could not
+  be queried from the machine where this was built, so check them before quoting them.
+- **Ice observations.** The M³ detection points, the Lemelin et al. regions and the LCROSS
+  impact are south pole data. At the north pole the button is hidden and Mare does not show
+  "Nearest M³ detection". The modelled ice layer (Diviner) does exist for the north.
+- **Astronaut Mode.** The 5 m LOLA DEMs of NASA PGDA only cover south pole sites. At the north
+  pole the walkable kilometre is built from `LDEM_75N_240M` (240 m) plus the generated
+  sub-resolution relief, which is what the south pole also does away from its 5 m sites.
+- **Diviner longitudes.** `dlre_prp_north.tab`, as published in PDS, is mirrored: real longitude =
+  180° − `tri_clon`. The label does not say so. It shows when the height that each triangle
+  carries is compared with the LOLA relief: correlation 0.15 as published and 0.999 once mirrored
+  (44 m RMS). `moonsite.diviner` applies the correction and repeats the comparison on every
+  build, for both poles, and stops if it fails.
+
+Checks on the north data:
+
+| Check | Result |
+|---|---|
+| LOLA polar relief against the global LDEM_64 relief (84° to 89.5°N) | correlation 0.9999, 14 m RMS |
+| Sunlight against LOLA AVGVISIB_75N (2,000 pixels, 2026-2030) | mean difference 2.9 points (south: 1.6) |
+| Earth view against LOLA AVGVISIB_75N_EARTH | mean difference 2.7 points (south: 2.0) |
+| Browser engine against the Python reference (6 pixels, 6 months, hourly) | Sun and Earth shares equal to 0.0005 |
+| Refactor: south pole layers and horizons rebuilt with the new code | byte-identical to the committed files |
+
+The JPL Horizons comparison is not in the north `validation.json` yet: the Horizons API was not
+reachable from the machine where the data were built. `python -m moonsite.build validate --pole north`
+adds it. The azimuth and elevation formulas are the same code that the south pole check covers.
 
 ## Global Earth layer (task T4)
 
@@ -109,13 +169,13 @@ on mouse hover, latitude, longitude, G1K row/column and value. It works for any 
 
 ## "Whole Moon" view
 
-You choose **Whole Moon** as the destination on the home page, or with the **South Pole / Whole Moon** tab
+You choose **Whole Moon** as the destination on the home page, or with the **South Pole / North Pole / Whole Moon** tab
 in Explore (it switches region without redoing the plan). The web app computes **on the spot**, in the
 browser, the light, the visible Earth and the longest night of each cell for the mission
 dates: landing day + days on the surface (a few seconds for 14 days). It is the same
-engine as the south pole, with a whole-Moon grid of 0.5° (720 × 360, ~15 km at the equator).
+engine as the poles, with a whole-Moon grid of 0.5° (720 × 360, ~15 km at the equator).
 For now only with a **fixed landing date**; searching for the best dates is still
-south pole only. The score uses the factors that have global data: light, Earth and slope.
+for the two poles only. The score uses the factors that have global data: light, Earth and slope.
 
 **3D view.** As at the south pole, Explore has 2D and 3D. The 3D view is a globe of the Moon that you
 rotate and zoom with the mouse: real photography (LROC WAC 100 m mosaic) with LOLA relief,
@@ -136,8 +196,8 @@ blue, transparent where there is none. The Earth keeps the blue of the design sy
 
 **Mare and Compare** also work with the whole Moon: on the map, a cell has the
 "Open site" and "Compare" buttons. The site page (Mare) shows Overview and Sky & Time with the
-hour-by-hour series of that cell; Terrain and Lander's View belong to the 1 km polar map and only exist
-at the south pole. Each region compares its own places.
+hour-by-hour series of that cell; Terrain and Lander's View belong to the 1 km polar maps and only exist
+at the poles. Each region compares its own places.
 
 Everything that does not depend on the date is already computed and ships in the repository
 (`web/public/data/global/`), so nothing has to be run to use the view:

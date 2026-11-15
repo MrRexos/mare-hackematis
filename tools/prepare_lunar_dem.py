@@ -3,6 +3,7 @@
 python tools/prepare_lunar_dem.py --defaults
 python tools/prepare_lunar_dem.py --lat -86.86 --lon 338.14 --name my-site
 python tools/prepare_lunar_dem.py --source path/to/legal-lunar-dtm.tif --lat ... --lon ...
+python tools/prepare_lunar_dem.py --pole north     # regional 240 m DEM of the north pole (catalog-north.json)
 """
 from __future__ import annotations
 
@@ -103,6 +104,42 @@ def catalog():
     return result
 
 
+def regional_north():
+    """North pole: the same native 240 m PDS elevations, from LDEM_75N_240M, in their own catalog.
+
+    The PGDA 5 m and 10 m products indexed for the south pole have no north pole counterpart
+    here, so the north catalog has no `sources` or `patches`: Astronaut Mode uses this raster.
+    """
+    url = PDS.replace("ldem_75s_240m", "ldem_75n_240m")
+    label = requests.get(url[:-4] + ".lbl", timeout=30)
+    label.raise_for_status()
+    text = label.text
+    num = lambda key: float(re.search(rf"^\s*{key}\s*=\s*([-+0-9.Ee]+)", text, re.M).group(1))
+    if num("CENTER_LATITUDE") != 90:
+        raise ValueError("Expected the north polar stereographic product")
+    n, m = int(num("LINES")), int(num("LINE_SAMPLES"))
+    scale, line, sample = num("MAP_SCALE"), num("LINE_PROJECTION_OFFSET"), num("SAMPLE_PROJECTION_OFFSET")
+    full = np.memmap(download(url), dtype="<i2", mode="r", shape=(n, m))
+    half = 202000
+    i0, j0 = math.floor(line - half / scale), math.floor(sample - half / scale)
+    i1, j1 = math.ceil(line + half / scale), math.ceil(sample + half / scale)
+    crop = np.array(full[i0:i1 + 1, j0:j1 + 1], dtype="<i2")
+    crop.tofile(OUT / "regional-north.i16")
+    (OUT / "pds-source-north.lbl").write_text(text, encoding="utf-8")
+    result = {
+        "version": 1, "generated": datetime.now(timezone.utc).isoformat(), "pole": "north", "sources": [], "patches": [],
+        "regional": {"id": "LOLA-LDEM-75N-240M", "file": "regional-north.i16", "dtype": "int16", "scale": num("SCALING_FACTOR"),
+            "width": crop.shape[1], "height": crop.shape[0], "origin": [(j0 - sample) * scale, (line - i0) * scale],
+            "pixelSize": [scale, -scale], "resolutionM": scale, "noData": -32768,
+            "sha256": hashlib.sha256(crop.tobytes()).hexdigest(),
+            "name": "LOLA LDEM_75N_240M", "provider": "NASA PDS / LRO LOLA", "url": url, "productUrl": url[:-4] + ".lbl",
+            "frame": "MOON_ME_DE421", "proj4": CRS.replace("-90", "90"), "verticalDatum": "Height above the 1737400 m reference sphere",
+            "uncertainty": "Not supplied per sample; regional fallback. Interpolation does not add measured detail."},
+    }
+    (OUT / "catalog-north.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"Prepared north regional DEM: {crop.shape}, {scale} m", flush=True)
+
+
 def regional(result):
     """Bundle native 240 m PDS elevations for every map location, not the 1 km analysis layer."""
     if (OUT / "regional.i16").exists() and result.get("regional"):
@@ -182,7 +219,12 @@ def main():
     parser.add_argument("--name", default="custom-region")
     parser.add_argument("--source", help="Local or HTTP GeoTIFF, including a registered LROC NAC DTM")
     parser.add_argument("--source-metadata", help="JSON provenance for a custom DEM; frame must be MOON_ME_DE421")
+    parser.add_argument("--pole", choices=["south", "north"], default="south", help="north: only the regional 240 m DEM")
     args = parser.parse_args()
+    if args.pole == "north":
+        OUT.mkdir(parents=True, exist_ok=True)
+        regional_north()
+        return
     result = catalog()
     regional(result)
     if args.defaults:
