@@ -47,7 +47,7 @@ export default function LearnPage({ data }) {
             <li><b>Astronaut Mode:</b> walk one kilometre at real scale, with the Sun and the Earth in place. Hills are real NASA terrain; small craters and rocks are generated.</li>
           </ul>
         </L.Panel>
-        <L.Panel eyebrow="05" title="Can I trust these numbers?" actions={<L.FidelityBadge level={hz ? "validated" : "computed"}>{hz ? "Checked" : "Computed"}</L.FidelityBadge>}>
+        <L.Panel eyebrow="05" title="Can I trust these numbers?">
           <div className="readout-grid">
             <L.Readout label="Sun vs Horizons" value={hz ? arcmin(hz.sun) : "–"} unit="′ max" />
             <L.Readout label="Earth vs Horizons" value={hz ? arcmin(hz.earth) : "–"} unit="′ max" />
