@@ -176,7 +176,7 @@ export default function GlobalExplore({ app }) {
     <details className="overlay map-legend">
       <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
       <div className="overlay legend__pop">
-        <div className="legend__row"><Shape kind="square" />Best cell</div>
+        <div className="legend__row"><Shape kind="square" />Calculated candidate</div>
         <div className="legend__row"><Icon name="crosshair" size={12} />Selected point</div>
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
       </div>
@@ -414,7 +414,7 @@ export default function GlobalExplore({ app }) {
               <div className="stack-10">
                 <div className="row-8 px-4"><h2 className="h-sm">Ranking/</h2></div>
                 <div className="row-6 px-4 wrap">
-                  <span className="chip is-on">Best cells<span className="chip__n">{places.length}</span></span>
+                  <span className="chip is-on">Calculated candidates<span className="chip__n">{places.length}</span></span>
                 </div>
                 <div className="rows">
                   {rest.length === 0 && !loading ? <p className="muted-12 px-4">Nothing to rank yet.</p> : null}
@@ -424,7 +424,7 @@ export default function GlobalExplore({ app }) {
                       <button type="button" className="rrow__main" onClick={() => setSel(p.p)}>
                         <GlobalThumb place={p} hillshadeUrl={hillshadeUrl} />
                         <span className="rrow__text">
-                          <span className="row-6"><Shape kind={p.shape} /><span className="rrow__name">{p.coords}</span></span>
+                          <span className="row-6"><Shape kind={p.shape} /><span className="rrow__name">{p.name}</span></span>
                           <FactorSpark values={p.factors} />
                         </span>
                       </button>

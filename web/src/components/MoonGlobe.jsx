@@ -287,7 +287,7 @@ export default function MoonGlobe({ globe, grid, places, selected, onSelect, ove
       {labels.map(({ place, x, y }, k) => (
         <L.MapMarker
           key={place.key}
-          label={`${place.coords}${Number.isFinite(place.score) ? ` · ${Math.round(place.score)}` : ""}`}
+          label={`${place.name}${Number.isFinite(place.score) ? ` · ${Math.round(place.score)}` : ""}`}
           shape={place.shape === "square" ? "square" : "custom"}
           rank={place.rank || undefined}
           category={place.kindLabel}

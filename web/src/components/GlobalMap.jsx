@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { L, cssColor } from "../ds.js";
 import { makeRamp } from "./MapView.jsx";
 import { IconBtn } from "../ui/kit.jsx";
-import { cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 // Mapa de toda la Luna (equirectangular, malla global de 0,5°). Mismo aspecto que el visor
 // del polo sur (MapView): relieve LOLA de fondo y la capa elegida encima, cada propiedad con
@@ -189,10 +188,10 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
       {spots.map((s, k) => (
         <L.MapMarker
           key={`g-${s.p}`}
-          label={`${fmtLatLon(s.lat, s.lon)} · ${Math.round(s.score)}`}
+          label={`Hotspot ${String(k + 1).padStart(2, "0")} · ${Math.round(s.score)}`}
           shape="square"
           rank={k + 1}
-          category="Best cell on the whole Moon"
+          category="Calculated candidate"
           state={selectedP === s.p ? "selected" : "default"}
           showLabel={k < 3 || view.zoom >= 3}
           style={markerStyle(s.p)}
@@ -200,7 +199,7 @@ export default function GlobalMap({ grid, hillshade, layer, values, spots, selec
         />
       ))}
       {selectedP != null && !spots.some((s) => s.p === selectedP) ? (
-        <L.MapMarker label={fmtLatLon(...cellLatLon(grid, selectedP))} shape="custom" state="selected" category="Cell you picked" style={markerStyle(selectedP)} />
+        <L.MapMarker label="Your spot" shape="custom" state="selected" category="Your spot" style={markerStyle(selectedP)} />
       ) : null}
       <div className="viewer__zoom">
         <IconBtn icon="plus" label="Zoom in" variant="overlay" onClick={() => zoomAt(1.5)} />
