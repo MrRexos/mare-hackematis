@@ -52,6 +52,7 @@ the name and `dlre_prp_north.tab` for Diviner.
 | Check | Horizons API | NASA/JPL |
 | Artemis III regions (south pole references) | NASA announcement (2024-10-28), approximate centres | NASA |
 | Named craters (north pole references) | Crater centres, IAU nomenclature, checked against LOLA | IAU / USGS |
+| Apollo landing sites (Whole Moon) | Lunar module positions measured on LROC images | NASA NSSDCA |
 
 ## Grid
 

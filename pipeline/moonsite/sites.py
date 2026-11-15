@@ -14,6 +14,10 @@ centro se ha comprobado contra el relieve LOLA LDEM_75N_240M: en todos hay un cr
 diámetro esperado (borde entre 0,4 y 2,6 km por encima del fondo) y su centro medido
 queda a menos de un 15 % del diámetro del valor de la tabla. Los que no pasaron esa
 comprobación (Hinshelwood, Florey, Haskin) se dejaron fuera.
+
+Para la vista "Whole Moon": los seis alunizajes tripulados del programa Apollo. Posición
+del módulo lunar medida sobre imágenes de LROC (tabla "Lunar landing site coordinates" de
+NASA NSSDCA). La web puntúa la celda de 0,5° que contiene cada punto.
 """
 
 ARTEMIS_III = [
@@ -81,4 +85,31 @@ def catalog(pole: str = "south") -> dict:
             "source": "NASA (2024); centres via Lunar Horizon / LROC mosaics (Henriksen et al. 2023)",
         }],
         "sites": [{"id": i, "name": n, "lat": lat, "lon": lon, "group": "artemis3"} for i, n, lat, lon in ARTEMIS_III],
+    }
+
+
+APOLLO = [
+    ("apollo-11", "Apollo 11", "A11", 0.67416, 23.47314),
+    ("apollo-12", "Apollo 12", "A12", -3.01239, -23.42157),
+    ("apollo-14", "Apollo 14", "A14", -3.64530, -17.47136),
+    ("apollo-15", "Apollo 15", "A15", 26.13222, 3.63386),
+    ("apollo-16", "Apollo 16", "A16", -8.97301, 15.50019),
+    ("apollo-17", "Apollo 17", "A17", 20.19080, 30.77168),
+]
+
+
+def catalog_global() -> dict:
+    """Referencias de la vista "Whole Moon" (web/public/data/global/manifest.json → sites)."""
+    return {
+        "groups": [{
+            "id": "apollo",
+            "label": "Apollo references",
+            "kind": "Apollo landing site",
+            "shape": "circle",
+            "fidelity": "approximate",
+            "note": ("The six crewed Apollo landings (1969–1972). Each one is scored as the 0.5° cell "
+                     "that contains the lunar module, so the score describes about 15 km of terrain, not the exact spot."),
+            "source": "NASA NSSDCA, lunar module positions measured on LROC images",
+        }],
+        "sites": [{"id": i, "name": n, "short": sh, "lat": lat, "lon": lon, "group": "apollo"} for i, n, sh, lat, lon in APOLLO],
     }

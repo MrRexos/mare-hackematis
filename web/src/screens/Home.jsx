@@ -78,7 +78,6 @@ export default function Home({ app }) {
               {planReady && cmpPlaces.length > 0 && <button type="button" onClick={() => go("compare")}><Icon name="compare" size={16} />Compare sites</button>}
               <button type="button" onClick={() => { setMenu(false); openSettings(); }}><Icon name="sliders" size={16} />Advanced settings</button>
               <button type="button" onClick={() => go("learn")}><Icon name="info" size={16} />How it works</button>
-              <button type="button" onClick={() => { setMenu(false); setAbout(true); }}><Icon name="badge" size={16} />About the team</button>
               {planStarted && <button type="button" onClick={clear}><Icon name="rotate-ccw" size={16} />Reset plan</button>}
             </nav>
           )}

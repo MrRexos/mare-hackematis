@@ -91,6 +91,7 @@ export default function App() {
   // Luna entera: datos globales ya calculados (si existen) y celda elegida en su malla.
   const [globalManifest, setGlobalManifest] = useState(null);
   const [gSel, setGSel] = useState(null);
+  const [gGroup, setGGroup] = useState("spots"); // ranking de la Luna entera: "spots" | "apollo"
   useEffect(() => { loadGlobalManifest().then(setGlobalManifest); }, []);
   useEffect(() => { loadNorthManifest().then(setNorthManifest); }, []);
 
@@ -223,6 +224,12 @@ export default function App() {
   // --- Luna entera: mismo cálculo con la malla global (lo comparten Explore, Mare y Compare).
   const G = useGlobalMission({ gm: globalManifest, data: polar.south || null, request, problem: planReady ? problem : "Plan not ready",
     weights: weights || {}, limits, active: moon && planReady && analysisActive });
+  // Referencias Apollo de la Luna entera: su propio ranking, como las regiones Artemis III.
+  const gRefs = moon ? G.refs : [];
+  const gRefsOn = gGroup === "apollo" && gRefs.length > 0;
+  // Lugar de una celda. Con el ranking Apollo abierto, la celda de un alunizaje lleva su nombre
+  // aunque además sea una de las mejores celdas calculadas.
+  const gPlace = (p) => (gRefsOn && gRefs.find((r) => r.p === p)) || G.placeOf(p);
 
   // --- Puntuación, puntos calientes y regiones -----------------------------
   const score = useMemo(() => (data && result ? scoreGrid(result, data.layers, weights, limits) : null), [data, result, weights, limits]);
@@ -328,8 +335,8 @@ export default function App() {
     return s ? { ...s, type: s.type || selRef.type } : null;
   }, [resolve, selRef]);
   // En la Luna entera el lugar es una celda de la malla global ({type: "gcell", p}).
-  const resolveAny = (ref) => (ref?.type === "gcell" ? G.placeOf(ref.p) : resolve(ref));
-  const selected = moon ? (gSel != null ? G.placeOf(gSel) : null) : southSelected;
+  const resolveAny = (ref) => (ref?.type === "gcell" ? gPlace(ref.p) : resolve(ref));
+  const selected = moon ? (gSel != null ? gPlace(gSel) : null) : southSelected;
   const selectRef = (ref) => (ref?.type === "gcell" ? setGSel(ref.p) : setSelRef(ref));
 
   const firstPlace = groups[group][0];
@@ -354,7 +361,7 @@ export default function App() {
   });
   const cmpPlaces = cmpRefs.filter(here).map(resolveAny).filter(Boolean);
   const gPlaces = moon ? G.spots.map((sp) => G.placeOf(sp.p)) : [];
-  const ranked = moon ? gPlaces : (groups[group] || []).filter((p) => Number.isFinite(p.score));
+  const ranked = (moon ? (gRefsOn ? gRefs : gPlaces) : groups[group] || []).filter((p) => Number.isFinite(p.score));
   const addBest3 = () => setCmpRefs((list) => [...list.filter((r) => !here(r)), ...ranked.slice(0, 3).map((p) => ({ ...p.ref, region: regionId }))]);
 
   // --- Serie temporal del lugar seleccionado ---------------------------------
@@ -436,14 +443,18 @@ export default function App() {
   const values = valuesFor(layerKey);
 
   // --- Lista de navegación de la ficha --------------------------------------
-  const siteList = moon ? gPlaces : selected?.type === "spot" ? spots : sites;
+  // Una celda Apollo que además es hotspot cuenta en el ranking que esté abierto.
+  const inRefs = moon && !!selected?.site && !selected.rank;
+  const siteList = moon ? (inRefs ? gRefs : gPlaces) : selected?.type === "spot" ? spots : sites;
   const stepSite = (d) => {
     if (!siteList.length) return;
     const k = siteList.findIndex((p) => p.key === selected?.key);
     const next = siteList[(k + d + siteList.length) % siteList.length];
     selectRef(next.ref);
   };
-  const rankInfo = moon ? (selected?.rank ? { rank: selected.rank, total: gPlaces.length } : null)
+  const rankInfo = moon
+    ? (inRefs ? (Number.isFinite(selected.score) ? { rank: gRefs.findIndex((p) => p.key === selected.key) + 1, total: gRefs.filter((p) => Number.isFinite(p.score)).length } : null)
+      : selected?.rank ? { rank: selected.rank, total: gPlaces.length } : null)
     : selected && (selected.type === "site" || selected.type === "spot") && Number.isFinite(selected.score)
     ? { rank: siteList.findIndex((p) => p.key === selected.key) + 1, total: siteList.filter((p) => Number.isFinite(p.score)).length }
     : null;
@@ -483,7 +494,7 @@ export default function App() {
     sitesForMap: sites, spotsForMap: spots,
     tl, lw, siteList, stepSite, rankInfo, validation, timelineFor, region: REGION_NAMES[regionId],
     regionId, setRegion, globalManifest, globalReady: !!globalManifest,
-    moon, G, gdata: G.gdata, gSel, setGSel, request,
+    moon, G, gdata: G.gdata, gSel, setGSel, gGroup, setGGroup, gPlace, request,
     datesFor, fixedDates: mission.period === "fixed",
     curWin,
     exportPlaces: cmpPlaces.length ? cmpPlaces : ranked,

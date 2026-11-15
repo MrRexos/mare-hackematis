@@ -199,6 +199,13 @@ blue, transparent where there is none. The Earth keeps the blue of the design sy
 hour-by-hour series of that cell; Terrain and Lander's View belong to the 1 km polar maps and only exist
 at the poles. Each region compares its own places.
 
+**Apollo references.** The ranking has a second list, **Apollo references**, next to the calculated
+candidates: the six crewed Apollo landings, as the south pole has the Artemis III regions. They are
+the circles on the 2D map and on the globe. Each one is scored as the 0.5° cell that contains the lunar
+module, so the score describes about 15 km of terrain and not the exact spot. The coordinates are in
+`pipeline/moonsite/sites.py` (NASA NSSDCA, positions measured on LROC images) and reach the web app
+through the `sites` block of `global/manifest.json`.
+
 Everything that does not depend on the date is already computed and ships in the repository
 (`web/public/data/global/`), so nothing has to be run to use the view:
 
