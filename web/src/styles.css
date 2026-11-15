@@ -283,7 +283,8 @@ button:disabled { cursor: default; }
 .mapnote { position: absolute; left: 20px; bottom: 64px; z-index: var(--z-hud); display: flex; gap: 8px; max-width: 360px; padding: 10px 12px; border-radius: 14px; font-size: 12px; line-height: 16px; color: var(--ink-secondary); }
 
 .rank { flex: 1 1 360px; max-width: 410px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.rank__list { flex: 1; min-height: 0; }
+/* La lista del ranking siempre hace scroll por dentro: nunca alarga la página. */
+.rank__list { flex: 1; min-height: 0; max-height: min(70vh, 560px); overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; }
 
 .best { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; }
 .best__text { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
@@ -572,12 +573,12 @@ button:disabled { cursor: default; }
 .learn .steps, .learn .sources { position: static; margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
 
 /* Explore cabe en la ventana (escritorio): el ranking hace scroll, no la página. */
-@media (min-width: 1200px) and (min-height: 760px) {
+@media (min-width: 1200px) and (min-height: 600px) {
   .shell__main--fit { height: calc(100vh - 24px); }
   .shell__main--fit .explore { flex-wrap: nowrap; }
   .shell__main--fit .mapsec { min-height: 0; }
-  .shell__main--fit .rank { min-height: 0; }
-  .shell__main--fit .rank__list { overflow-y: auto; scrollbar-width: thin; }
+  .shell__main--fit .rank { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .shell__main--fit .rank__list { max-height: none; min-height: 168px; }
 }
 
 /* ---------- tablet ---------- */
