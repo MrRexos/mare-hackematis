@@ -63,14 +63,14 @@
     {
       "from": 210,
       "to": 285,
-      "text": "Sun and Earth, checked against the real LOLA horizon.",
-      "sub": "Time-lapse of the real computation."
+      "text": "Sun and Earth, checked against the LOLA terrain horizon.",
+      "sub": "1 km grid, 72 directions per pixel. The real run, played 6.8 times faster."
     },
     {
       "from": 285,
       "to": 360,
       "text": "160,000 km², hour by hour. Scored in 15 s, in the browser.",
-      "sub": "Measured: 14.8 s on 4 CPU cores, no GPU."
+      "sub": "Measured without screen capture: 14.8 s on 4 CPU cores, no GPU."
     },
     {
       "from": 360,
@@ -85,7 +85,7 @@
     {
       "from": 480,
       "to": 570,
-      "text": "Side by side with the Artemis III candidate regions."
+      "text": "Side by side with Artemis III candidate regions."
     },
     {
       "from": 580,
@@ -97,20 +97,22 @@
     {
       "from": 690,
       "to": 765,
-      "text": "South Pole. North Pole. Whole Moon."
+      "text": "South Pole. North Pole. Whole Moon.",
+      "sub": "Poles: 1 km grid, best dates searched. Whole Moon: 0.5° cells, fixed landing date."
     },
     {
       "from": 767,
       "to": 840,
       "place": "scene",
-      "text": "Checked against JPL Horizons: within 0.002 arcminutes.",
-      "sub": "Sun and Earth azimuth and elevation, 726 comparisons at 3 sites."
+      "text": "Reference formulas checked against JPL Horizons: 0.002 arcminutes, at most.",
+      "sub": "Sun and Earth, azimuth and elevation. 726 comparisons at 3 south pole sites. Data: NASA LOLA, NASA/JPL SPICE DE440, LRO Diviner."
     },
     {
       "from": 842,
       "to": 900,
       "place": "scene",
-      "text": "Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026."
+      "text": "Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026, Lunar Landing Site Navigator.",
+      "sub": "Student project. Not affiliated with or endorsed by NASA. Data sources are named for attribution only."
     }
   ]
 }

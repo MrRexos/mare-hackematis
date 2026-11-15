@@ -30,7 +30,7 @@
     "assets": "node capture/build-assets.mjs",
     "music": "python3 audio/score.py",
     "srt": "node capture/export-srt.mjs deliverables/mare-hackematis-30s.srt",
-    "render": "remotion render src/index.ts Submission deliverables/mare-hackematis-30s.mp4 --audio-codec=aac --audio-bitrate=320k",
+    "render": "remotion render src/index.ts Submission out/render.mp4 --audio-codec=aac --audio-bitrate=320k && node capture/master.mjs out/render.mp4 deliverables/mare-hackematis-30s.mp4",
     "lint": "eslint src && tsc"
   },
   "allowScripts": {

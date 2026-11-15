@@ -8,13 +8,13 @@ Tell it where, when and what matters.
 
 3
 00:00:07,000 --> 00:00:09,500
-Sun and Earth, checked against the real LOLA horizon.
-Time-lapse of the real computation.
+Sun and Earth, checked against the LOLA terrain horizon.
+1 km grid, 72 directions per pixel. The real run, played 6.8 times faster.
 
 4
 00:00:09,500 --> 00:00:12,000
 160,000 km², hour by hour. Scored in 15 s, in the browser.
-Measured: 14.8 s on 4 CPU cores, no GPU.
+Measured without screen capture: 14.8 s on 4 CPU cores, no GPU.
 
 5
 00:00:12,000 --> 00:00:13,800
@@ -26,7 +26,7 @@ Sunlight left. Next night. When the Earth sets.
 
 7
 00:00:16,000 --> 00:00:19,000
-Side by side with the Artemis III candidate regions.
+Side by side with Artemis III candidate regions.
 
 8
 00:00:19,333 --> 00:00:21,600
@@ -36,12 +36,14 @@ LOLA 240 m relief. Smaller craters and rocks are generated.
 9
 00:00:23,000 --> 00:00:25,500
 South Pole. North Pole. Whole Moon.
+Poles: 1 km grid, best dates searched. Whole Moon: 0.5° cells, fixed landing date.
 
 10
 00:00:25,567 --> 00:00:28,000
-Checked against JPL Horizons: within 0.002 arcminutes.
-Sun and Earth azimuth and elevation, 726 comparisons at 3 sites.
+Reference formulas checked against JPL Horizons: 0.002 arcminutes, at most.
+Sun and Earth, azimuth and elevation. 726 comparisons at 3 south pole sites. Data: NASA LOLA, NASA/JPL SPICE DE440, LRO Diviner.
 
 11
 00:00:28,067 --> 00:00:30,000
-Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026.
+Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026, Lunar Landing Site Navigator.
+Student project. Not affiliated with or endorsed by NASA. Data sources are named for attribution only.

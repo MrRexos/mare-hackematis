@@ -352,5 +352,25 @@
     "speed": 6.84,
     "frames": 43,
     "arrivalFilmFrame": 75
+  },
+  "astronaut": {
+    "place": "ASTRONAUT MODE Hotspot 01",
+    "quality": "MEDIUM",
+    "frames": 120,
+    "fps": 30,
+    "sun": {
+      "az": 79.01532209896709,
+      "el": 2.354873415289057,
+      "visible": 0.9913777777413773
+    },
+    "earth": {
+      "az": 325.7960391668073,
+      "el": 4.8624331950016435,
+      "visible": 1
+    },
+    "hud": "2026-12-15 05:00 UTC Sun 2.35° elevation · 79.0° az IN VIEW Earth 4.86° elevation · 325.8° az DIRECT VIEW",
+    "terrain": "Scientific terrain 240 m samples · 1:1 scale Craters under 140 m and rocks: generated, not measured",
+    "usedFindSunlight": true,
+    "secondsPerFrame": 10.9
   }
 }

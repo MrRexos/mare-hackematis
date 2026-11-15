@@ -3,7 +3,7 @@
 The demo film for our NASA Space Apps 2026 entry, built in code with [Remotion](https://www.remotion.dev).
 
 - `deliverables/mare-hackematis-30s.mp4`: submission cut, 30.0 s, 1920 x 1080, 30 fps, H.264 and AAC.
-- `deliverables/mare-hackematis-30s.srt`: the same lines as the text burned into the picture.
+- `deliverables/mare-hackematis-30s.srt`: the lines burned into the picture, with the same timing.
 - `CREDITS.md`: where each line on screen comes from, how the app was filmed, music and third-party material.
 
 ## How it is made
@@ -15,7 +15,7 @@ npm install
 npm run capture   # films the app (needs Playwright with Chromium; Astronaut Mode takes about half an hour without a GPU)
 npm run assets    # re-encodes the masters into public/app
 npm run music     # synthesises the score into public/audio (python3 with numpy)
-npm run render    # writes deliverables/mare-hackematis-30s.mp4
+npm run render    # renders, trims the audio to 29.9 s and checks deliverables/mare-hackematis-30s.mp4
 npm run srt       # writes deliverables/mare-hackematis-30s.srt
 ```
 

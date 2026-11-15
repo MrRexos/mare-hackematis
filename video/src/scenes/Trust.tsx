@@ -12,14 +12,15 @@ const rise = (frame: number, at: number) => ({
 /**
  * The check, as a number on black. Source: web/public/data/validation.json
  * (largest difference 0.0016 arcmin for the Earth, 0.00004 for the Sun;
- * 6 series of 121 samples). The app shows the same figure as "≤ 0.002′".
+ * 6 series of 121 samples at three south pole sites). What was compared with
+ * JPL Horizons is the pipeline's reference formula, and the card says so.
  */
 export const Trust: React.FC = () => {
   const frame = useCurrentFrame();
   return (
     <Stage>
-      <div style={{ position: "absolute", left: MARGIN, top: 214, fontFamily: mono, fontSize: 22, letterSpacing: "0.18em", color: C.ink3, ...rise(frame, 2) }}>
-        CHECKED AGAINST JPL HORIZONS
+      <div style={{ position: "absolute", left: MARGIN, top: 204, fontFamily: mono, fontSize: 28, letterSpacing: "0.16em", color: C.ink2, ...rise(frame, 2) }}>
+        REFERENCE FORMULAS CHECKED AGAINST JPL HORIZONS
       </div>
       <div style={{ position: "absolute", left: MARGIN - 8, top: 262, display: "flex", alignItems: "baseline", gap: 30, ...rise(frame, 2) }}>
         <span style={{ fontFamily: sans, fontSize: 300, lineHeight: "300px", fontWeight: 600, letterSpacing: "-0.05em", color: C.ink, fontVariantNumeric: "tabular-nums" }}>0.002</span>
@@ -27,7 +28,7 @@ export const Trust: React.FC = () => {
       </div>
       <div style={{ position: "absolute", left: MARGIN, top: 608, fontFamily: sans, fontSize: 44, lineHeight: "54px", fontWeight: 500, letterSpacing: "-0.02em", color: C.ink, ...rise(frame, 12) }}>
         Sun and Earth, azimuth and elevation.
-        <span style={{ color: C.ink2 }}> 726 comparisons at 3 sites.</span>
+        <span style={{ color: C.ink2 }}> 726 comparisons at 3 south pole sites.</span>
       </div>
       <div style={{ position: "absolute", left: MARGIN, top: 868, display: "flex", gap: 22, alignItems: "center", fontFamily: sans, fontSize: 30, color: C.ink2, ...rise(frame, 22) }}>
         <span style={{ fontFamily: mono, fontSize: 20, letterSpacing: "0.18em", color: C.ink3 }}>DATA</span>
