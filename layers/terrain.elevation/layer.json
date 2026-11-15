@@ -17,6 +17,11 @@
       "name": "LOLA LDEM_75S_240M",
       "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/",
       "citation": "Smith et al. (2010), NASA PDS"
+    },
+    {
+      "name": "LOLA LDEM_75N_240M",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/",
+      "citation": "Smith et al. (2010), NASA PDS"
     }
   ],
   "files": [
@@ -28,6 +33,15 @@
       "sha256": "f429c6951bd28eaf3a3a27af9f41773c7ece3c342c06ec54d1660b0730e577c7",
       "min": -5481.611328125,
       "max": 6996.51025390625
+    },
+    {
+      "grid": "PN1K",
+      "period": "static",
+      "path": "PN1K/static.f32",
+      "dtype": "float32",
+      "sha256": "28773f3a772ddeb6ca5e29435bbf57ba0514c6aeefe7634860db2ac5f8af55d9",
+      "min": -5028.013671875,
+      "max": 1796.65625
     }
   ]
 }

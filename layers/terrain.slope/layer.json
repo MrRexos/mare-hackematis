@@ -20,6 +20,11 @@
       "name": "LOLA LDSM_75S_240M",
       "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/",
       "citation": "Smith et al. (2010), NASA PDS"
+    },
+    {
+      "name": "LOLA LDSM_75N_240M",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/",
+      "citation": "Smith et al. (2010), NASA PDS"
     }
   ],
   "files": [
@@ -40,6 +45,15 @@
       "sha256": "895b0d15c62d765cdaa9c1f3249869ae924768461c3e407c6e327676fdfb3e92",
       "min": 0.0,
       "max": 89.71208953857422
+    },
+    {
+      "grid": "PN1K",
+      "period": "static",
+      "path": "PN1K/static.f32",
+      "dtype": "float32",
+      "sha256": "e0457da7e2a557a734d0839e40ed625b01e8c01d5f79f1faf6665d12453a8468",
+      "min": 1.100250244140625,
+      "max": 45.0
     }
   ],
   "description": "Pendent del terreny en graus respecte a l’horitzontal local. PS1K: producte polar LOLA LDSM. G1K: calcula amb scripts/pendent_seguretat.py (LOLA Global LDEM → malla contracte ~1 km)."

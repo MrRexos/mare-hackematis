@@ -55,6 +55,16 @@ export const LAYERS = {
   },
 };
 
+/**
+ * Las mismas capas para el polo norte: solo cambian los productos LOLA que se citan
+ * (75S → 75N). Las descripciones valen para los dos polos.
+ */
+const northSources = (sources) => sources.map(([name, url]) => [name.replace("75S", "75N"), url.replace("_75s_", "_75n_")]);
+const NORTH_LAYERS = Object.fromEntries(Object.entries(LAYERS).map(([key, layer]) => [key, { ...layer, sources: northSources(layer.sources) }]));
+
+/** Capas del mapa polar de un polo ("south" o "north"). */
+export const layersOf = (pole) => (pole === "north" ? NORTH_LAYERS : LAYERS);
+
 const ICE_DEPTH_LIMIT = Math.fround(2.8738);
 
 export const GROUND_GROUPS = [

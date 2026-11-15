@@ -7,7 +7,8 @@ Si se corta, al volver a ejecutar se empieza de nuevo ese fichero; los ya
 completos se saltan.
 
 Uso:
-    python -m moonsite.fetch            # todo lo necesario
+    python -m moonsite.fetch            # todo lo necesario (polo sur)
+    python -m moonsite.fetch north      # lo mismo para el polo norte (LOLA 75N + Diviner PRP norte)
     python -m moonsite.fetch extra      # + visibilidad media de la Tierra
     python -m moonsite.fetch global     # + relieve global LDEM_64 (trabajo T4, 531 MB)
     python -m moonsite.fetch thermal    # temperaturas Diviner de toda la Luna (2,8 GB)
@@ -21,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-from .config import DIVINER, DIVINER_GCP, LOLA, LOLA_EXTRA, LOLA_GLOBAL, SPICE, Remote
+from .config import DIVINER, DIVINER_GCP, LOLA_BY_POLE, LOLA_EXTRA, LOLA_GLOBAL, SPICE, Remote
 
 CHUNK = 4 << 20  # 4 MiB por petición
 WORKERS = 16
@@ -83,7 +84,8 @@ def download(f: Remote) -> None:
 
 
 def main(argv: list[str]) -> None:
-    files = {**SPICE, **LOLA, **DIVINER}
+    pole = "north" if "north" in argv else "south"
+    files = {**SPICE, **LOLA_BY_POLE[pole], "prp": DIVINER[f"prp_{pole}"]}
     if "extra" in argv:
         files |= LOLA_EXTRA
     if "global" in argv:

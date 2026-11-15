@@ -1,9 +1,9 @@
 """Exporta las capas polares que ya tenemos al formato del contrato de datos.
 
 Uso (desde pipeline/):
-    python -m moonsite.export_contract
+    python -m moonsite.export_contract          # polo sur (PS1K) y, si está generado, polo norte (PN1K)
 
-Escribe en layers/<id>/ (raíz del repositorio) el binario PS1K y su layer.json.
+Escribe en layers/<id>/ (raíz del repositorio) el binario PS1K / PN1K y su layer.json.
 Así el equipo polar cumple el contrato y el validador tiene datos reales para
 probar: python tools/validate_layer.py layers/terrain.elevation
 """
@@ -45,31 +45,70 @@ LAYERS = {
 }
 
 
-def main() -> None:
+#: Malla polar de cada polo en el contrato (misma malla de 400 × 400 px de 1 km).
+POLE_GRID = {"south": "PS1K", "north": "PN1K"}
+
+
+def export_pole(pole: str) -> list[str]:
+    """Añade a cada layer.json el fichero de la malla polar de `pole`, sin tocar los demás ficheros."""
+    grid = POLE_GRID[pole]
+    done = []
     for lid, spec in LAYERS.items():
-        src = C.WEB_DATA / "layers" / f"{spec['src']}.f32"
+        src = C.web_data(pole) / "layers" / f"{spec['src']}.f32"
         if not src.exists():
-            print(f"   (sin {src.name}: ejecuta antes `python -m moonsite.build layers`)")
+            print(f"   (sin {src.relative_to(C.REPO)}: ejecuta antes `python -m moonsite.build layers"
+                  f"{'' if pole == 'south' else ' --pole ' + pole}`)")
             continue
         a = np.fromfile(src, dtype="<f4")
-        d = OUT / lid / "PS1K"
+        d = OUT / lid / grid
         d.mkdir(parents=True, exist_ok=True)
         f = d / "static.f32"
         a.astype("<f4").tofile(f)
         finite = a[np.isfinite(a)]
-        meta = {
-            "id": lid, "version": "0.1.0", "title": spec["title"], "units": spec["units"],
-            "validRange": spec["validRange"], "kind": "static", "owner": "Equipo Polar + Web",
-            "fidelity": "computed", "method": spec["method"], "params": spec.get("params", {}),
-            "sources": spec["sources"],
-            "files": [{"grid": "PS1K", "period": "static", "path": "PS1K/static.f32", "dtype": "float32",
-                       "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
-                       "min": float(finite.min()), "max": float(finite.max())}],
-        }
-        (OUT / lid / "layer.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"   {lid}")
-    catalog = {"contractVersion": "0.1", "layers": sorted(p.name for p in OUT.iterdir() if (p / "layer.json").exists())}
-    (OUT / "catalog.json").write_text(json.dumps(catalog, indent=2), encoding="utf-8")
+        entry = {"grid": grid, "period": "static", "path": f"{grid}/static.f32", "dtype": "float32",
+                 "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
+                 "min": float(finite.min()), "max": float(finite.max())}
+        path = OUT / lid / "layer.json"
+        old = path.read_text(encoding="utf-8") if path.exists() else ""
+        if old:
+            # La capa ya existe (puede traer otras mallas, p. ej. G1K, y campos añadidos a mano):
+            # solo se sustituye la entrada de esta malla, en su sitio, o se añade al final.
+            meta = json.loads(old)
+            files = meta.get("files", [])
+            at = next((k for k, x in enumerate(files) if x.get("grid") == grid), None)
+            meta["files"] = files + [entry] if at is None else files[:at] + [entry] + files[at + 1:]
+            if pole == "north":
+                names = {s["name"] for s in meta.get("sources", [])}
+                meta["sources"] = meta.get("sources", []) + [
+                    {**s, "name": s["name"].replace("75S", "75N")} for s in spec["sources"]
+                    if s["name"].replace("75S", "75N") not in names]
+        else:
+            tag = "75S" if pole == "south" else "75N"
+            meta = {
+                "id": lid, "version": "0.1.0", "title": spec["title"], "units": spec["units"],
+                "validRange": spec["validRange"], "kind": "static", "owner": "Equipo Polar + Web",
+                "fidelity": "computed", "method": spec["method"].replace("75S", tag), "params": spec.get("params", {}),
+                "sources": [{**s, "name": s["name"].replace("75S", tag)} for s in spec["sources"]],
+                "files": [entry],
+            }
+        path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + ("\n" if old.endswith("\n") else ""), encoding="utf-8")
+        print(f"   {lid} [{grid}]")
+        done.append(lid)
+    return done
+
+
+def main() -> None:
+    for pole in C.POLES:
+        if (C.web_data(pole) / "layers" / "elevation.f32").exists():
+            export_pole(pole)
+    path = OUT / "catalog.json"
+    old = path.read_text(encoding="utf-8") if path.exists() else ""
+    known = json.loads(old) if old else {"contractVersion": "0.1", "layers": []}
+    # El catálogo lo mantiene el equipo: aquí solo se añaden las capas polares que falten.
+    missing = [lid for lid in LAYERS if lid not in known["layers"] and (OUT / lid / "layer.json").exists()]
+    if missing or not old:
+        known["layers"] += missing
+        path.write_text(json.dumps(known, indent=2) + ("\n" if old.endswith("\n") else ""), encoding="utf-8")
     print(f"Listo: {OUT}")
 
 

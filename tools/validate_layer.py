@@ -35,13 +35,18 @@ GRIDS = {
     "W4": {"type": "eqc", "cols": 1440, "rows": 720},
     # Módulo polar interno de la web
     "PS1K": {"type": "polar", "south": True, "n": 400, "px": 1000.0},
+    # Lo mismo para el polo norte (LOLA 75N): x = rho·sin(lon), y = −rho·cos(lon)
+    "PN1K": {"type": "polar", "south": False, "n": 400, "px": 1000.0},
 }
 GLOBAL_REF = "G1K"
 
 # Pruebas de orientación: (lat, lon, comparación, umbral, explicación)
 ORIENTATION = {
     "terrain.elevation": [(-89.67, 129.78, "<", -2000, "Shackleton crater floor (LOLA −2786 m)"),
-                          (-85.43, 31.83, ">", 5000, "Mons Mouton (LOLA +6395 m)")],
+                          (-85.43, 31.83, ">", 5000, "Mons Mouton (LOLA +6395 m)"),
+                          # Polo norte (malla PN1K): fondos de cráter, lejos entre sí y a los dos lados del polo
+                          (89.14, 118.2, "<", -2000, "Whipple crater floor (LOLA −2781 m)"),
+                          (85.2, -155.4, "<", -2000, "Rozhdestvenskiy crater floor (LOLA −2819 m)")],
     "earth.visible_fraction.mean": [(0, 0, ">", 0.95, "centre of the near side"),
                                     (0, 180, "<", 0.05, "centre of the far side")],
     "sun.visible_fraction.mean": [(0, 0, "between", (0.40, 0.55), "equator, long periods")],

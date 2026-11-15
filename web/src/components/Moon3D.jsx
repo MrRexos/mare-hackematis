@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { L, cssColor } from "../ds.js";
 import { DEG, formatUtc, latLonToXY, localFrame, pixelXY, xyToPixel, xyToUnit } from "../engine/geometry.js";
 
-// Vista 3D del polo sur.
+// Vista 3D del polo activo (sur o norte, según data.manifest.grid.pole).
 // - Relieve: elevación LOLA de la malla de 1 km, sobre la esfera lunar real
 //   (la curvatura baja ~11 km en el borde, más que el propio relieve).
 // - Sol y Tierra: en su dirección real (SPICE) para el instante de la TimeBar.
@@ -12,15 +12,20 @@ import { DEG, formatUtc, latLonToXY, localFrame, pixelXY, xyToPixel, xyToUnit } 
 //   real (los mismos horizontes que el mapa), con la fracción de disco visible.
 //   Las sombras no salen de un truco gráfico: salen del relieve.
 //
-// Marco de la escena (km): X = MOON_ME.y (90°E a la derecha), Y = arriba en el
-// polo, Z = −MOON_ME.x (la longitud 0° hacia el fondo, como "arriba" en el mapa).
+// Marco de la escena (km): X = MOON_ME.y (90°E a la derecha), Y = arriba en el polo.
+// Polo sur: Z = −MOON_ME.x (la longitud 0° hacia el fondo, como "arriba" en el mapa).
+// Polo norte: Z = +MOON_ME.x (la longitud 0° hacia la cámara, como "abajo" en su mapa).
+// Las dos son rotaciones puras (sin espejo), así que el relieve no sale invertido.
 
 const SUN_RADIUS_KM = 695700;
 const EARTH_RADIUS_KM = 6378.1366;
 const SKY_DIST_KM = 900;  // distancia a la que se dibujan el Sol y la Tierra
 const SUN_ENLARGE = 6;
 const EARTH_ENLARGE = 3;
-const toScene = (x, y, z, R) => [y, -z - R, -x];
+const SCENE = {
+  south: (x, y, z, R) => [y, -z - R, -x],
+  north: (x, y, z, R) => [y, z - R, x],
+};
 
 function srgbToLinear(c) {
   return (c / 255) ** 2.2;
@@ -30,6 +35,8 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
   const { manifest, layers, horizon, ephem } = data;
   const grid = manifest.grid;
   const n = grid.n;
+  const north = grid.pole === "north";
+  const toScene = north ? SCENE.north : SCENE.south;
   const R = grid.radiusM / 1000;
   const hz = manifest.horizon;
   const em = manifest.ephem;
@@ -73,7 +80,7 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
       const p = i * n + j;
       const [x, y] = pixelXY(grid, i, j);
-      const u = xyToUnit(grid.radiusM, x, y);
+      const u = xyToUnit(grid.radiusM, x, y, grid.pole);
       const [up, east, north] = localFrame(u);
       frame.set(up, p * 9); frame.set(east, p * 9 + 3); frame.set(north, p * 9 + 6);
       unit.set(u, p * 3);
@@ -363,10 +370,10 @@ export default function Moon3D({ data, mission, result, sites, spots, selected, 
     return { saz, sel, sh, sunUp: sel + sunRad > sh, eaz, eel, eh, earthUp: eel > eh };
   }, [sky, refPixel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const where = selected ? selected.name : "South pole";
+  const where = selected ? selected.name : north ? "North pole" : "South pole";
 
   return (
-    <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label="3D view of the lunar south pole with the Sun and Earth. Drag to rotate, scroll to zoom, right-drag to pan.">
+    <div ref={wrapRef} className="viewer viewer--3d" data-theme="dark" aria-label={`3D view of the lunar ${north ? "north" : "south"} pole with the Sun and Earth. Drag to rotate, scroll to zoom, right-drag to pan.`}>
       {labels.map((l) => {
         const cls = `label3d label3d--${l.kind} ${selected?.key === l.key ? "is-selected" : ""}`;
         const style = { transform: `translate(${l.xy[0]}px, ${l.xy[1]}px)` };

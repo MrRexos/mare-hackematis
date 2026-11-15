@@ -1,9 +1,10 @@
-// 02 Explore: mapa del polo sur (2D) o vista 3D, ranking y bandeja de comparar.
+// 02 Explore: mapa del polo activo, sur o norte (2D), o vista 3D, ranking y bandeja de comparar.
 
 import { Suspense, lazy, useState } from "react";
 import MapView from "../components/MapView.jsx";
 import MapControls, { MapPointReadout } from "../components/MapControls.jsx";
 import { LAYERS } from "../data/mapLayers.js";
+import { POLE_DIR } from "../data/loadData.js";
 import { Icon, Btn, Card, Tabs, Fidelity, FactorGrid, FactorSpark, Shape, IconBtn, cx } from "../ui/kit.jsx";
 import { MissionChip, fmtShort } from "../ui/Shell.jsx";
 import { presetOf } from "../engine/score.js";
@@ -14,7 +15,7 @@ const Moon3D = lazy(() => import("../components/Moon3D.jsx"));
 const MAP_LAYERS = Object.keys(LAYERS);
 
 /** Recorte del relieve LOLA alrededor de un lugar (miniatura del ranking). */
-export function Thumb({ place, size = 44, km = 24, n = 400, radius = 10 }) {
+export function Thumb({ place, size = 44, km = 24, n = 400, radius = 10, pole = "south" }) {
   if (!place) return <span className="thumb" style={{ width: size, height: size, borderRadius: radius }} />;
   const full = size * (n / km);
   const x = ((place.j + 0.5) / n) * full - size / 2;
@@ -27,7 +28,7 @@ export function Thumb({ place, size = 44, km = 24, n = 400, radius = 10 }) {
         width: size,
         height: size,
         borderRadius: radius,
-        backgroundImage: `url(${import.meta.env.BASE_URL}data/hillshade.png)`,
+        backgroundImage: `url(${import.meta.env.BASE_URL}data/${POLE_DIR[pole]}hillshade.png)`,
         backgroundSize: `${full}px ${full}px`,
         backgroundPosition: `${-x}px ${-y}px`,
       }}
@@ -74,7 +75,7 @@ export default function Explore({ app }) {
     groups, group, setGroup, selected, selectionKey, setSelRef, weights,
     layerKey, setLayerKey, layer, values, legendEnds, showIceEvidence, setShowIceEvidence,
     dim, setDim, mission, openSettings, openWeights, go, toggleCmp, inCmp, cmpPlaces,
-    timeMs, setTimeMs, Rail, TimeBarEl, moonMission, sitesForMap, spotsForMap,
+    timeMs, setTimeMs, Rail, TimeBarEl, moonMission, sitesForMap, spotsForMap, pole, refLabels, mapLayers,
   } = app;
 
   const goal = presetOf(weights);
@@ -94,7 +95,7 @@ export default function Explore({ app }) {
         <header className="pagehead">
           <h1 className="h-page">Explore/</h1>
           <Tabs label="View" value={dim} onChange={(value) => { setHoveredPixel(null); setDim(value); }} options={[{ value: "2D", label: "2D", icon: "map" }, { value: "3D", label: "3D", icon: "globe" }]} />
-          {app.globalReady ? <RegionTabs region={app.regionId} setRegion={app.setRegion} globalReady /> : null}
+          {app.globalReady || app.northReady ? <RegionTabs region={app.regionId} setRegion={app.setRegion} globalReady={app.globalReady} northReady={app.northReady} /> : null}
           <div className="grow" />
           <MissionChip mission={mission} onClick={openSettings} />
         </header>
@@ -122,7 +123,7 @@ export default function Explore({ app }) {
                 </div>
               ) : dim === "3D" ? (
                 <Suspense fallback={<div className="mapsec__center"><div className="state"><Icon name="loader" size={16} className="spin" /><span className="state__title">Loading the 3D view</span></div></div>}>
-                  <Moon3D data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} selectionKey={selectionKey} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
+                  <Moon3D key={pole} data={data} mission={moonMission} result={result} sites={sitesForMap} spots={spotsForMap} selected={sel} selectionKey={selectionKey} timeMs={timeMs} onTimeChange={setTimeMs} onSelect={setSelRef} />
                   {sel ? (
                     // Sitio pulsado en 3D: las mismas acciones que el popup del mapa 2D.
                     <div className="overlay map-readout sel3d" role="region" aria-label={`Selected: ${sel.name}`}>
@@ -155,6 +156,7 @@ export default function Explore({ app }) {
                   onSelect={setSelRef}
                   onPick={(p) => setSelRef({ type: "pick", p })}
                   showIceEvidence={showIceEvidence}
+                  refLabels={refLabels}
                 >
                   <CompareTray items={cmpPlaces} onRemove={toggleCmp} onOpen={() => go("compare")} />
                   {!engineReady ? (
@@ -166,7 +168,7 @@ export default function Explore({ app }) {
                 </MapView>
               )}
               {dim === "2D" && (
-                <MapControls activeLayer={layerKey} onLayer={setLayerKey} layerKeys={MAP_LAYERS}
+                <MapControls activeLayer={layerKey} onLayer={setLayerKey} layerKeys={MAP_LAYERS} layers={mapLayers} pole={pole} refLabels={refLabels}
                   legendEnds={legendEnds} showIceEvidence={showIceEvidence} onIceEvidence={setShowIceEvidence}>
                   {data && (
                     <MapPointReadout data={data} layer={layer} values={values} pending={pendingScore} hoveredPixel={hoveredPixel} selected={sel}
@@ -226,7 +228,7 @@ export default function Explore({ app }) {
                 ) : (
                   <>
                     <button type="button" className="best" onClick={() => setSelRef(best.ref)}>
-                      <Thumb place={best} size={76} radius={14} n={n} />
+                      <Thumb place={best} size={76} radius={14} n={n} pole={pole} />
                       <span className="best__text">
                         <span className="best__rank">01</span>
                         <span className="best__name">{best.name}</span>
@@ -280,7 +282,7 @@ export default function Explore({ app }) {
                     <div key={p.key} className={cx("rrow", sel?.key === p.key && "is-sel")}>
                       <span className="rrow__rank">{String(k + (best ? 2 : 1)).padStart(2, "0")}</span>
                       <button type="button" className="rrow__main" onClick={() => setSelRef(p.ref)}>
-                        <Thumb place={p} n={n} />
+                        <Thumb place={p} n={n} pole={pole} />
                         <span className="rrow__text">
                           <span className="row-6"><Shape kind={p.shape} /><span className="rrow__name">{p.name}</span></span>
                           <FactorSpark values={p.factors} />

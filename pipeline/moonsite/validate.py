@@ -1,7 +1,7 @@
 """Validación de los datos que usa la web.
 
 1. JPL Horizons: acimut/elevación del Sol y de la Tierra en varios puntos del
-   polo sur, comparados con nuestro cálculo SPICE (mismas fórmulas que la web).
+   polo (sur o norte), comparados con nuestro cálculo SPICE (mismas fórmulas que la web).
 2. LOLA AVGVISIB: % medio de Sol visible con nuestros horizontes frente al
    mapa independiente del equipo LOLA (Mazarico et al. 2011).
 """
@@ -21,12 +21,21 @@ from .visibility import az_el, horizon_at, sun_disk_fraction
 
 HORIZONS_API = "https://ssd.jpl.nasa.gov/api/horizons.api"
 
-#: Puntos de prueba (lat, lon) dentro de la malla.
+#: Puntos de prueba (lat, lon) dentro de la malla de cada polo.
 TEST_POINTS = [
     ("Connecting ridge", -89.45, -137.4),
     ("Malapert Massif", -85.98, -0.26),
     ("Haworth", -86.75, -23.67),
 ]
+TEST_POINTS_BY_POLE = {
+    "south": TEST_POINTS,
+    # Coordenadas redondas (no son sitios con nombre): junto al polo, y a 86° en dos longitudes.
+    "north": [
+        ("Near the north pole", 89.45, 137.4),
+        ("86°N, near side", 86.0, 0.0),
+        ("86°N, 120°W", 86.0, -120.0),
+    ],
+}
 
 
 def _horizons(body: str, lat: float, lon: float, start: str, stop: str, step: str) -> tuple[list[str], np.ndarray]:
@@ -50,11 +59,11 @@ def _horizons(body: str, lat: float, lon: float, start: str, stop: str, step: st
     return times, np.array(vals)
 
 
-def horizons_check(start="2027-01-01 00:00", stop="2027-01-31 00:00", step="6 h") -> dict:
+def horizons_check(start="2027-01-01 00:00", stop="2027-01-31 00:00", step="6 h", pole: str = "south") -> dict:
     load_kernels()
     worst = {"sun": 0.0, "earth": 0.0}
     rows = []
-    for name, lat, lon in TEST_POINTS:
+    for name, lat, lon in TEST_POINTS_BY_POLE[pole]:
         for key, body, naif in (("sun", "10", "SUN"), ("earth", "399", "EARTH")):
             times, ref = _horizons(body, lat, lon, start, stop, step)
             ets = np.array([sp.str2et(t) for t in times])
@@ -70,10 +79,10 @@ def horizons_check(start="2027-01-01 00:00", stop="2027-01-31 00:00", step="6 h"
 
 
 def avgvisib_check(horizon_q: np.ndarray, avg_sun: np.ndarray, ephem: np.ndarray, hq_scale: float, hq_off: float,
-                   n_points: int = 2000, stride_h: int = 3, seed: int = 1) -> dict:
+                   n_points: int = 2000, stride_h: int = 3, seed: int = 1, pole: str = "south") -> dict:
     """Compara el % medio de Sol (nuestros horizontes) con el mapa LOLA."""
     x, y = grid_xy()
-    lat, lon = xy_to_latlon(x.ravel(), y.ravel())
+    lat, lon = xy_to_latlon(x.ravel(), y.ravel(), pole=pole)
     ok = np.flatnonzero(~np.isnan(avg_sun.ravel()))
     rng = np.random.default_rng(seed)
     idx = rng.choice(ok, size=min(n_points, ok.size), replace=False)
@@ -100,10 +109,10 @@ def avgvisib_check(horizon_q: np.ndarray, avg_sun: np.ndarray, ephem: np.ndarray
 
 
 def avgearth_check(horizon_q: np.ndarray, avg_earth: np.ndarray, ephem: np.ndarray, hq_scale: float, hq_off: float,
-                   n_points: int = 2000, stride_h: int = 3, seed: int = 2) -> dict:
+                   n_points: int = 2000, stride_h: int = 3, seed: int = 2, pole: str = "south") -> dict:
     """Compara el % de tiempo con la Tierra visible (cualquier parte del disco) con LOLA AVGVISIB_EARTH."""
     x, y = grid_xy()
-    lat, lon = xy_to_latlon(x.ravel(), y.ravel())
+    lat, lon = xy_to_latlon(x.ravel(), y.ravel(), pole=pole)
     ok = np.flatnonzero(~np.isnan(avg_earth.ravel()))
     rng = np.random.default_rng(seed)
     idx = rng.choice(ok, size=min(n_points, ok.size), replace=False)
