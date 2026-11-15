@@ -23,7 +23,8 @@ export default function MissionOptions({ label, value, onChange, options }) {
                 aria-describedby={option.note ? `${optionId}-note` : undefined}
                 onChange={() => onChange?.(option.value)}
               />
-              {option.icon}
+              {/* El icono puede depender del estado de la opción: se le pasa al pintarlo. */}
+              {typeof option.icon === "function" ? option.icon({ checked: value === option.value, disabled: !!option.disabled }) : option.icon}
               <span className="mission-option__text">
                 <span id={optionId}>{option.label}</span>
                 {option.note && <span id={`${optionId}-note`} className="mission-option__note">{option.note}</span>}

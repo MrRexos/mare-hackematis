@@ -10,9 +10,9 @@ import MoonZone from "../ui/MoonZone.jsx";
 const destinations = (moonReady) => DESTINATIONS.map((d) => (d.value === "moon" && moonReady ? { ...d, disabled: false, note: null } : d));
 
 const DESTINATIONS = [
-  { value: "south", label: "South Pole", icon: <MoonZone zone="south" /> },
-  { value: "north", label: "North Pole", icon: <MoonZone zone="north" />, disabled: true, note: "Not available yet" },
-  { value: "moon", label: "Whole Moon", icon: <MoonZone zone="moon" />, disabled: true, note: "Not available yet" },
+  { value: "south", label: "South Pole", icon: (state) => <MoonZone zone="south" {...state} /> },
+  { value: "north", label: "North Pole", icon: (state) => <MoonZone zone="north" {...state} />, disabled: true, note: "Not available yet" },
+  { value: "moon", label: "Whole Moon", icon: (state) => <MoonZone zone="moon" {...state} />, disabled: true, note: "Not available yet" },
 ];
 const STEPS = [
   { id: "where", label: "Where", title: <>Where<br />will you<br />land?</> },

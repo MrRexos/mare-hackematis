@@ -10,6 +10,9 @@ El globo es solo la Luna, sin capas de datos: una fotografía real y relieve rea
 - height_1k.png                  alturas LOLA en 8 bits (1024 × 512) para desplazar la malla de la
                                  esfera: cuencas y montañas se ven en el limbo.
 
+- ../../img/moon-map.png        la misma fotografía a 512 × 256 (web/public/img/): la usan los
+                                 iconos de la Luna de la portada (web/src/ui/MoonZone.jsx).
+
 Todas en proyección equirectangular, columna 0 en −180° y fila 0 en +90° (como la malla web).
 
 Uso (desde pipeline/):
@@ -29,6 +32,7 @@ from . import config as C
 from .config import Remote
 
 OUT = C.WEB_DATA / "global" / "globe"
+ICON_MAP = (512, 256)          # fotografía pequeña para los iconos de la portada
 WAC = Remote("https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LROC-WAC_Mosaic_global_100m_June2013.tif",
              C.RAW / "lroc_wac_global_100m.tif", 5_959_263_751, "Mosaico LROC WAC global, 100 m/px (USGS Astrogeology)")
 NORMAL_EXAG = 6.0        # el relieve lunar real apenas se vería a escala de globo
@@ -132,6 +136,13 @@ def acabar(a: np.ndarray) -> np.ndarray:
     return np.clip(np.rint(suavizar_polos(v * (1 - w) + relieve * w, desde_lat=82.0)), 0, 255).astype(np.uint8)
 
 
+def mapa_iconos() -> None:
+    """Fotografía reducida para los iconos de la portada, a partir de albedo_4k.jpg."""
+    destino = C.WEB_DATA.parent / "img" / "moon-map.png"
+    Image.open(OUT / "albedo_4k.jpg").convert("L").resize(ICON_MAP, Image.LANCZOS).save(destino, optimize=True)
+    print(f"   iconos: {destino.name}")
+
+
 def main(argv=None) -> None:
     from .fetch import download
 
@@ -147,6 +158,7 @@ def main(argv=None) -> None:
     Image.fromarray(a8, "L").save(OUT / "albedo_8k.jpg", quality=76, optimize=True, progressive=True)
     Image.fromarray(a8, "L").resize((4096, 2048), Image.LANCZOS).save(OUT / "albedo_4k.jpg", quality=85, optimize=True, progressive=True)
     info["albedo"] = {"file": "global/globe/albedo_4k.jpg", "fileHi": "global/globe/albedo_8k.jpg"}
+    mapa_iconos()
     info["source"] = "LROC WAC global mosaic 100 m (NASA/GSFC/Arizona State University, USGS Astrogeology) · LOLA LDEM_64 (NASA PDS)"
     info["projection"] = "equirectangular, column 0 at −180°E, row 0 at +90°"
     for f in sorted(OUT.iterdir()):
