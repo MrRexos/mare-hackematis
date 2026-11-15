@@ -84,7 +84,7 @@ function MissionRules({ mission, updateMission, limits, setLimits, reset, canRes
         <Toggle checked={limits.excludePsr} onChange={(v) => updateLimit("excludePsr", v)} label="Leave out permanent shadow" description="Exclude terrain that is mostly in permanent shadow." />
         <Toggle checked={limits.maxNightH != null} onChange={(v) => updateLimit("maxNightH", v ? 72 : null)} label="Limit the longest night" description="Exclude sites if their longest dark stretch exceeds battery autonomy." />
         {limits.maxNightH != null && (
-          <L.Slider label="Battery autonomy" value={limits.maxNightH} min={6} max={240} step={6} onChange={(v) => updateLimit("maxNightH", v)} format={(v) => `${v} h`} />
+          <L.Slider label="Battery autonomy" value={limits.maxNightH} min={1} max={480} step={1} onChange={(v) => updateLimit("maxNightH", v)} format={(v) => (v < 48 ? `${v} h` : `${v} h · ${(v / 24).toFixed(1)} days`)} />
         )}
         <Toggle checked={limits.minEarthPct != null} onChange={(v) => updateLimit("minEarthPct", v ? 50 : null)} label="Require Earth contact" description="Exclude sites where Earth is in view for too little of the mission (no direct radio link)." />
         {limits.minEarthPct != null && (
