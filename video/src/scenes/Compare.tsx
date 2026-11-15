@@ -4,7 +4,7 @@ import { AppLayer, AppWindow, Stage, camera, view } from "../components/Stage";
 import { Still } from "../components/Shot";
 
 // Left: sites 01 and 02 and "Why HS1?". Right: sites 03 and 04 and the side-by-side table.
-const LEFT = view(96, 6, 1140);
+const LEFT = view(80, 6, 1161);
 const RIGHT = view(772, 6, 1140);
 
 /** Compare: the best calculated candidate against three Artemis III regions. */

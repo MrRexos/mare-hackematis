@@ -14,21 +14,21 @@ export const End: React.FC<{ url: string }> = ({ url }) => {
   const frame = useCurrentFrame();
   return (
     <Stage>
-      <div style={{ position: "absolute", left: MARGIN - 6, top: 300, fontFamily: sans, fontSize: 176, lineHeight: "176px", fontWeight: 600, letterSpacing: "-0.045em", color: C.ink, ...rise(frame, 2) }}>
+      <div style={{ position: "absolute", left: MARGIN - 6, top: 300, fontFamily: sans, fontSize: 176, lineHeight: "176px", fontWeight: 600, letterSpacing: "-0.045em", color: C.ink, ...rise(frame, 0) }}>
         Mare Hackematis
       </div>
-      <div style={{ position: "absolute", left: MARGIN, top: 506, fontFamily: sans, fontSize: 52, fontWeight: 500, letterSpacing: "-0.02em", color: C.ink2, ...rise(frame, 8) }}>
+      <div style={{ position: "absolute", left: MARGIN, top: 506, fontFamily: sans, fontSize: 52, fontWeight: 500, letterSpacing: "-0.02em", color: C.ink2, ...rise(frame, 4) }}>
         by Hackemate
       </div>
-      <div style={{ position: "absolute", left: MARGIN, top: 640, fontFamily: sans, fontSize: 34, color: C.ink, ...rise(frame, 14) }}>
+      <div style={{ position: "absolute", left: MARGIN, top: 640, fontFamily: sans, fontSize: 34, color: C.ink, ...rise(frame, 8) }}>
         NASA Space Apps Challenge 2026
         <span style={{ color: C.ink3 }}> · </span>
         <span style={{ color: C.ink2 }}>Lunar Landing Site Navigator</span>
       </div>
       {url ? (
-        <div style={{ position: "absolute", left: MARGIN, top: 704, fontFamily: mono, fontSize: 26, color: C.ink2, ...rise(frame, 14) }}>{url}</div>
+        <div style={{ position: "absolute", left: MARGIN, top: 704, fontFamily: mono, fontSize: 26, color: C.ink2, ...rise(frame, 8) }}>{url}</div>
       ) : null}
-      <div style={{ position: "absolute", left: MARGIN, top: 930, fontFamily: sans, fontSize: 24, color: C.ink3, ...rise(frame, 20) }}>
+      <div style={{ position: "absolute", left: MARGIN, top: 926, fontFamily: sans, fontSize: 28, color: C.ink2, ...rise(frame, 6) }}>
         Student project. Not affiliated with or endorsed by NASA. Data sources are named for attribution only.
       </div>
     </Stage>

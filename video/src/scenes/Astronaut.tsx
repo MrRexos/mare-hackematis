@@ -35,7 +35,7 @@ export const Astronaut: React.FC = () => {
           translate: interpolate(frame, [10, 24], ["0px 10px", "0px 0px"], { easing: out, extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       >
-        <div style={{ fontFamily: sans, fontSize: 54, lineHeight: "60px", fontWeight: 600, letterSpacing: "-0.03em", color: C.ink }}>Then walk the site at 1:1 scale.</div>
+        <div style={{ fontFamily: sans, fontSize: 50, lineHeight: "56px", fontWeight: 600, letterSpacing: "-0.03em", color: C.ink }}>Then walk the site at 1:1 scale.</div>
         <div style={{ fontFamily: sans, fontSize: 25, lineHeight: "30px", color: C.ink2 }}>LOLA 240 m relief. Smaller craters and rocks are generated.</div>
       </div>
     </Stage>

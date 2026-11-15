@@ -34,7 +34,7 @@ export const Headline: React.FC<{ captions: Caption[] }> = ({ captions }) => {
         </div>
       ) : null}
       {brandOn ? (
-        <div style={{ position: "absolute", right: MARGIN, top: 0, height: 150, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 15, letterSpacing: "0.2em", color: C.ink3 }}>
+        <div style={{ position: "absolute", right: MARGIN, top: 0, height: 150, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 20, letterSpacing: "0.18em", color: C.ink3 }}>
           MARE HACKEMATIS
         </div>
       ) : null}

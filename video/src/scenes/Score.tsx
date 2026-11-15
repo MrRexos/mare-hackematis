@@ -8,7 +8,7 @@ import { FULL } from "../theme";
 export const ARRIVAL = 75;
 const SWAP = ARRIVAL + 12;
 /** Where the camera rests at the end of this scene; the next scene starts from it. */
-export const SCORE_END = view(110, 62, 1700);
+export const SCORE_END = view(104, 63, 1808);
 
 /**
  * The real computation as a time-lapse, then the scored map. When the map is

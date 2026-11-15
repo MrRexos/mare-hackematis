@@ -19,18 +19,18 @@ export const Trust: React.FC = () => {
   const frame = useCurrentFrame();
   return (
     <Stage>
-      <div style={{ position: "absolute", left: MARGIN, top: 204, fontFamily: mono, fontSize: 28, letterSpacing: "0.16em", color: C.ink2, ...rise(frame, 2) }}>
+      <div style={{ position: "absolute", left: MARGIN, top: 198, fontFamily: mono, fontSize: 32, letterSpacing: "0.14em", color: C.ink, ...rise(frame, 0) }}>
         REFERENCE FORMULAS CHECKED AGAINST JPL HORIZONS
       </div>
-      <div style={{ position: "absolute", left: MARGIN - 8, top: 262, display: "flex", alignItems: "baseline", gap: 30, ...rise(frame, 2) }}>
+      <div style={{ position: "absolute", left: MARGIN - 8, top: 262, display: "flex", alignItems: "baseline", gap: 30, ...rise(frame, 0) }}>
         <span style={{ fontFamily: sans, fontSize: 300, lineHeight: "300px", fontWeight: 600, letterSpacing: "-0.05em", color: C.ink, fontVariantNumeric: "tabular-nums" }}>0.002</span>
         <span style={{ fontFamily: sans, fontSize: 64, fontWeight: 500, letterSpacing: "-0.02em", color: C.ink2 }}>arcminutes, at most</span>
       </div>
-      <div style={{ position: "absolute", left: MARGIN, top: 608, fontFamily: sans, fontSize: 44, lineHeight: "54px", fontWeight: 500, letterSpacing: "-0.02em", color: C.ink, ...rise(frame, 12) }}>
+      <div style={{ position: "absolute", left: MARGIN, top: 608, fontFamily: sans, fontSize: 44, lineHeight: "54px", fontWeight: 500, letterSpacing: "-0.02em", color: C.ink, ...rise(frame, 8) }}>
         Sun and Earth, azimuth and elevation.
         <span style={{ color: C.ink2 }}> 726 comparisons at 3 south pole sites.</span>
       </div>
-      <div style={{ position: "absolute", left: MARGIN, top: 868, display: "flex", gap: 22, alignItems: "center", fontFamily: sans, fontSize: 30, color: C.ink2, ...rise(frame, 22) }}>
+      <div style={{ position: "absolute", left: MARGIN, top: 868, display: "flex", gap: 22, alignItems: "center", fontFamily: sans, fontSize: 30, color: C.ink2, ...rise(frame, 14) }}>
         <span style={{ fontFamily: mono, fontSize: 20, letterSpacing: "0.18em", color: C.ink3 }}>DATA</span>
         <span>NASA LOLA</span>
         <span style={{ color: C.ink3 }}>·</span>
