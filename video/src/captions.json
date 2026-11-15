@@ -63,7 +63,7 @@
     {
       "from": 210,
       "to": 285,
-      "text": "Sun and Earth, checked against the LOLA terrain horizon.",
+      "text": "Sun for power, Earth for comms, against the LOLA horizon.",
       "sub": "1 km grid, 72 directions per pixel. The real run, played 6.8 times faster."
     },
     {
@@ -75,7 +75,7 @@
     {
       "from": 360,
       "to": 414,
-      "text": "The best site, with its best landing window."
+      "text": "Highest score, with its best landing window."
     },
     {
       "from": 414,
@@ -88,17 +88,17 @@
       "text": "Side by side with Artemis III candidate regions."
     },
     {
-      "from": 580,
+      "from": 572,
       "to": 648,
       "place": "scene",
-      "text": "Then walk the site at 1:1 scale.",
+      "text": "Walk a 1:1 model of the site.",
       "sub": "LOLA 240 m relief. Smaller craters and rocks are generated."
     },
     {
       "from": 690,
       "to": 765,
       "text": "South Pole. North Pole. Whole Moon.",
-      "sub": "Poles: 1 km grid, best dates searched. Whole Moon: 0.5° cells, fixed landing date."
+      "sub": "Poles: 1 km, date search. Whole Moon: 0.5°, fixed date."
     },
     {
       "from": 767,

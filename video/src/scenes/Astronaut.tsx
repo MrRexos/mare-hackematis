@@ -31,11 +31,11 @@ export const Astronaut: React.FC = () => {
           alignItems: "center",
           gap: 12,
           // Gone before the telephoto: the Earth then crosses this part of the sky.
-          opacity: interpolate(frame, [10, 20, 70, 78], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-          translate: interpolate(frame, [10, 24], ["0px 10px", "0px 0px"], { easing: out, extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          opacity: interpolate(frame, [2, 10, 70, 78], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          translate: interpolate(frame, [2, 16], ["0px 10px", "0px 0px"], { easing: out, extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       >
-        <div style={{ fontFamily: sans, fontSize: 50, lineHeight: "56px", fontWeight: 600, letterSpacing: "-0.03em", color: C.ink }}>Then walk the site at 1:1 scale.</div>
+        <div style={{ fontFamily: sans, fontSize: 50, lineHeight: "56px", fontWeight: 600, letterSpacing: "-0.03em", color: C.ink }}>Walk a 1:1 model of the site.</div>
         <div style={{ fontFamily: sans, fontSize: 25, lineHeight: "30px", color: C.ink2 }}>LOLA 240 m relief. Smaller craters and rocks are generated.</div>
       </div>
     </Stage>
