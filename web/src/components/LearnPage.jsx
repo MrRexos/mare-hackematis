@@ -63,6 +63,7 @@ export default function LearnPage({ data }) {
             <li><b>Ice observations:</b> Lemelin et al. (2021) for shadowed regions with M³ detections; LCROSS impact from NASA and Colaprete et al. (2010).</li>
             <li><b>Imagery:</b> LROC WAC global mosaic (NASA/GSFC/ASU) on the 3D globe; NASA Blue Marble for the Earth in Astronaut Mode.</li>
             <li><b>Artemis III regions:</b> NASA (2024-10-28), approximate centres.</li>
+            <li><b>Apollo landing sites:</b> NASA NSSDCA, lunar module positions measured on LROC images. References on the whole-Moon map.</li>
           </ul>
         </L.Panel>
         <L.Panel eyebrow="06" title="Can I trust these numbers?" actions={<L.FidelityBadge level={hz ? "validated" : "computed"}>{hz ? "Checked" : "Computed"}</L.FidelityBadge>}>
