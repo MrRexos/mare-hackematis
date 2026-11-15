@@ -1,5 +1,6 @@
 import { L } from "../ds.js";
 import DataMethods from "./DataMethods.jsx";
+import SiContent from "./SiContent.jsx";
 
 // How it works/: resumen corto (qué responde, cómo puntúa, qué fiabilidad tiene y sus
 // límites). El detalle (fuentes, escalas y comprobaciones) está en DataMethods, plegado.
@@ -71,6 +72,8 @@ export default function LearnPage({ data }) {
       </div>
       {/* Parte II: datos y métodos en detalle (fuentes, escalas y comprobaciones), plegada. */}
       <DataMethods />
+      {/* Parte III: declaración del uso de herramientas SI (norma del Space Apps Challenge). */}
+      <SiContent />
     </div>
   );
 }

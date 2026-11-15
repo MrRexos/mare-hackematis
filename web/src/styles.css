@@ -586,6 +586,9 @@ button:disabled { cursor: default; }
 .dm.is-open .dm__toggle-icon { transform: translateY(3px) rotate(-135deg); }
 .dm__body { animation: panel-enter 230ms ease-out both; margin-top: 12px; }
 .dm__stack { display: grid; gap: 12px; min-width: 0; }
+.dm--si { margin-top: 12px; }
+.dm-lead { margin: 0 0 12px; max-width: 80ch; }
+.dm-si-notes { margin-top: 16px; }
 .dm__stack > section { min-width: 0; }
 .dm__stack .lh-panel__head { flex-wrap: wrap; gap: 12px; }
 .dm-note { margin: 12px 0 0; max-width: 80ch; }
@@ -608,6 +611,7 @@ button:disabled { cursor: default; }
   .dm-table--stack td:nth-child(2), .dm-table--stack td:nth-child(3) { grid-column: 1 / -1; }
   .dm-table--stack td:nth-child(4)::before { content: attr(data-label) ": "; color: var(--ink-tertiary); }
   .dm-table--stack td:nth-child(5) { grid-row: 1; grid-column: 2; }
+  .dm--si .dm-table--stack td::before { content: attr(data-label) ": "; color: var(--ink-tertiary); }
 }
 
 /* Explore cabe en la ventana (escritorio): el ranking hace scroll, no la página. */
