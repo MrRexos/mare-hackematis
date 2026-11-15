@@ -1,16 +1,16 @@
 # Design system: Lunar Horizon
 
-Estos ficheros vienen del design system **compartido** por el equipo (no de una copia):
+These files come from the design system **shared** by the team (not from a copy):
 https://claude.ai/artifact/6UWwQmPqAZQVqjzMsYRU5Y
 
-- Versión del artifact: `1794655162-5955`
-- Sincronizado: 2026-11-14 12:06 UTC
-- `tokens.css` se genera desde `tokens.json`; `bundle.css` y `bundle.js` se copian tal cual.
+- Artifact version: `1794655162-5955`
+- Synced: 2026-11-14 12:06 UTC
+- `tokens.css` is generated from `tokens.json`; `bundle.css` and `bundle.js` are copied as they are.
 
-No los editéis a mano: si el design system cambia, volved a sincronizar con
-`python tools/sync_design_system.py <carpeta>`.
+Do not edit them by hand: if the design system changes, sync again with
+`python tools/sync_design_system.py <folder>`.
 
-| Fichero de origen | SHA-256 |
+| Source file | SHA-256 |
 |---|---|
 | `project/tokens.json` | `97541d1586e74d07273b323b1f4ee13bbe08c44fb9649e7124a01b22e38d08c2` |
 | `project/components/bundle.css` | `f98cafd7c8d7a530e5a8a4c4cb02ef278fe6731310a427632bf0def6e4596457` |

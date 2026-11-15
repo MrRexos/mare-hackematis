@@ -1,8 +1,8 @@
 # Astronaut Mode
 
-Modo integrado en **Mare → Lander's View → casco Astronaut Mode**. Utiliza las coordenadas seleccionadas y el reloj UTC compartido. La reproducción del reloj del mapa se detiene al entrar para que solo controle el tiempo el panel de Astronaut Mode. **Exit** vuelve a la ficha; conserva el punto y la fecha, incluidos los cambios temporales hechos dentro del modo.
+Mode built into **Mare → Lander's View → Astronaut Mode helmet**. It uses the selected coordinates and the shared UTC clock. Map clock playback stops on entry so that only the Astronaut Mode panel controls time. **Exit** returns to the site page; it keeps the point and the date, including time changes made inside the mode.
 
-## Ejecutar
+## Run
 
 ```powershell
 cd web
@@ -10,52 +10,52 @@ npm install
 npm run dev
 ```
 
-Los datos necesarios están incluidos en `web/public/data/astronaut/`: no hay que ejecutar Python para explorar las regiones preparadas o el DEM regional. El código de física y renderizado se carga cuando se pulsa el casco.
+The required data is included in `web/public/data/astronaut/`: there is no need to run Python to explore the prepared regions or the regional DEM. The physics and rendering code is loaded when the helmet is pressed.
 
-Controles: **Start exploring**, WASD o flechas para caminar, ratón para mirar, Shift para desplazarse más rápido, Espacio para saltar, R para volver al centro. Mantener pulsada la Z o el botón derecho acerca la vista 4 aumentos, como un teleobjetivo, para mirar la Tierra o una cresta lejana. **Escape libera el ratón, pausa y abre directamente la fecha y hora**. El menú permite alternar entre **Date & time**, **Settings** y **Sources**; **Resume exploring**, disponible en los tres paneles, vuelve a capturar el ratón mediante un gesto del usuario. El ratón desaparece durante la exploración. El escritorio usa exclusivamente deltas relativos con Pointer Lock, sin arrastre por coordenadas de pantalla; se descarta el primer evento de captura y los saltos espurios del controlador. La pérdida de foco también pausa. Si el navegador rechaza la captura, permanece en pausa y ofrece reintentarlo. Requiere `localhost` o HTTPS. En pantalla táctil se arrastra la vista y se usan los botones de movimiento.
+Controls: **Start exploring**, WASD or arrow keys to walk, mouse to look, Shift to move faster, Space to jump, R to return to the centre. Holding Z or the right mouse button zooms the view 4 times, like a telephoto lens, to look at the Earth or a distant ridge. **Escape releases the mouse, pauses and opens the date and time directly**. The menu switches between **Date & time**, **Settings** and **Sources**; **Resume exploring**, available in all three panels, captures the mouse again through a user gesture. The mouse pointer disappears while exploring. On desktop it uses only relative deltas with Pointer Lock, with no dragging by screen coordinates; the first capture event and spurious driver jumps are discarded. Losing focus also pauses. If the browser rejects the capture, it stays paused and offers to retry. It requires `localhost` or HTTPS. On a touchscreen the view is dragged and the movement buttons are used.
 
-El panel de calendario cambia fecha/hora UTC y ofrece un avance temporal de 6 horas reales por segundo. **Find sunlight** busca una hora con el disco solar visible desde la posición actual dentro del periodo de misión; cambia la fecha únicamente al pulsarlo y avisa si no encuentra luz. Una elevación solar positiva no implica visibilidad si hay relieve delante. No se simula un día terrestre. Ajustes: LOW, MEDIUM, HIGH, ULTRA, campo de visión, sensibilidad, densidad visual de grava y minimapa. El casco dispone de una luz artificial identificada y desactivable; permite explorar lugares sin luz solar.
+The calendar panel changes the UTC date/time and offers a time lapse of 6 real hours per second. **Find sunlight** searches for an hour with the solar disc visible from the current position within the mission period; it changes the date only when pressed and warns if it finds no light. A positive solar elevation does not imply visibility if there is relief in front. No Earth day is simulated. Settings: LOW, MEDIUM, HIGH, ULTRA, field of view, sensitivity, visual gravel density and minimap. The helmet has an artificial light, identified as such, that can be switched off; it allows exploring places without sunlight.
 
-## Datos científicos incluidos
+## Scientific data included
 
-| Producto | Uso | Espaciado | Fuente |
+| Product | Use | Spacing | Source |
 | --- | --- | --- | --- |
-| LOLA Site01, Connecting ridge | Demo en −89.45°, 222.5°E; recorte de 2.2 km para escoger una región explorable de 1 km | 5 m | [NASA PGDA 78](https://pgda.gsfc.nasa.gov/products/78) |
-| LOLA Haworth | Recorte de 2.2 km en −86.86°, 338.14°E | 5 m | [NASA PGDA 78](https://pgda.gsfc.nasa.gov/products/78) |
-| LDEM_75S_240M | Cobertura regional para cualquier punto del mapa y terreno contextual hasta 16 km | 240 m | [NASA PDS LOLA](https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/ldem_75s_240m.lbl) |
-| Catálogo PGDA de DEM de 5 m y LDEM_83S_10MPP_ADJ | Selección por cobertura y resolución en desarrollo | 5 / 10 m | [PGDA 78](https://pgda.gsfc.nasa.gov/products/78), [PGDA 90](https://pgda.gsfc.nasa.gov/products/90) |
+| LOLA Site01, Connecting ridge | Demo at −89.45°, 222.5°E; 2.2 km crop to choose an explorable 1 km region | 5 m | [NASA PGDA 78](https://pgda.gsfc.nasa.gov/products/78) |
+| LOLA Haworth | 2.2 km crop at −86.86°, 338.14°E | 5 m | [NASA PGDA 78](https://pgda.gsfc.nasa.gov/products/78) |
+| LDEM_75S_240M | Regional coverage for any point on the map and context terrain out to 16 km | 240 m | [NASA PDS LOLA](https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/ldem_75s_240m.lbl) |
+| PGDA catalog of 5 m DEMs and LDEM_83S_10MPP_ADJ | Selection by coverage and resolution in development | 5 / 10 m | [PGDA 78](https://pgda.gsfc.nasa.gov/products/78), [PGDA 90](https://pgda.gsfc.nasa.gov/products/90) |
 
-`catalog.json` registra producto, URL, proveedor, cobertura, proyección, marco, datum vertical, resolución y limitaciones de incertidumbre. Cada recorte incluye SHA-256 y fracción válida; los recortes incluidos tienen todos sus valores válidos. Los DEM LOLA de 5 m contienen interpolación entre medidas; **5 m de espaciado no significa 5 m de resolución efectiva ni precisión de altura**. La incertidumbre por muestra no está incluida; se enlazan los productos originales con sus mapas de error.
+`catalog.json` records product, URL, provider, coverage, projection, frame, vertical datum, resolution and uncertainty limitations. Each crop includes its SHA-256 and valid fraction; all values in the included crops are valid. The 5 m LOLA DEMs contain interpolation between measurements; **5 m spacing does not mean 5 m effective resolution or height accuracy**. Per-sample uncertainty is not included; the original products are linked with their error maps.
 
-Las alturas se obtienen del raster científico. La malla de referencia mide exactamente **1,000 × 1,000 unidades**, con una unidad por metro, e incorpora la curvatura lunar. No hay exageración vertical. Esa malla, interpolada de forma bilineal, se conserva sin cambios: se usa para el minimapa, el cálculo del horizonte cercano y la unión con el terreno regional. Cuando se interpola el DEM de 240 m sobre una malla más densa, la interfaz sigue mostrando **240 m**.
+Heights come from the scientific raster. The reference mesh measures exactly **1,000 × 1,000 units**, one unit per metre, and includes lunar curvature. There is no vertical exaggeration. That mesh, bilinearly interpolated, is kept unchanged: it is used for the minimap, the near-horizon calculation and the join with the regional terrain. When the 240 m DEM is interpolated onto a denser mesh, the interface still shows **240 m**.
 
-La superficie que se dibuja y se pisa es otra, descrita en el apartado siguiente: parte del mismo DEM y le añade el relieve que el DEM no puede resolver.
+The surface that is drawn and walked on is a different one, described in the next section: it starts from the same DEM and adds the relief that the DEM cannot resolve.
 
-Se rechaza una región con NoData o cobertura incompleta; se intenta la siguiente fuente compatible. Los huecos del DEM no se rellenan con ruido ni con elevaciones inventadas. El worker evita bloquear la interfaz. La caché de tres terrenos conserva coordenadas, versión del catálogo, fuentes, resoluciones y hashes; reutiliza el resultado al volver a abrirlo y se invalida al cambiar los datos.
+A region with NoData or incomplete coverage is rejected; the next compatible source is tried. Gaps in the DEM are not filled with noise or invented elevations. The worker avoids blocking the interface. The three-terrain cache keeps coordinates, catalog version, sources, resolutions and hashes; it reuses the result when the terrain is opened again and is invalidated when the data changes.
 
-### Relieve por debajo de la resolución del DEM
+### Relief below the DEM resolution
 
-Un DEM de 5 m no contiene cráteres de 3 m, y uno de 240 m no contiene casi ninguno de los que se ven al caminar. Con solo el DEM el suelo era una rampa lisa, que es justo lo que no se ve en las fotografías de superficie del Apolo. `SurfaceRelief.js` genera lo que falta. Es relieve verosímil, no medido, y la interfaz lo dice en el pie y en el panel **Sources**.
+A 5 m DEM does not contain 3 m craters, and a 240 m one contains almost none of those seen when walking. With the DEM alone the ground was a smooth ramp, which is exactly what is not seen in the Apollo surface photographs. `SurfaceRelief.js` generates what is missing. It is plausible relief, not measured, and the interface says so in the footer and in the **Sources** panel.
 
-- La superficie tiene 2049 × 2049 muestras, una cada 0.49 m. El DEM se interpola con Catmull-Rom, que pasa por todas las muestras medidas y evita las aristas de la interpolación bilineal bajo luz rasante.
-- Se añaden cráteres de 2 m hasta cuatro veces el espaciado del DEM (20 m con el de 5 m, 140 m con el de 240 m). Por encima de ese tamaño manda el DEM.
-- Los tamaños siguen la población lunar de equilibrio de Trask (1966): N(>D) = 10^-1.1 · D^-2 cráteres por m². Solo se dibuja el 26 % de esa población. El resto corresponde a cráteres tan gastados que nadie los distinguiría de pie; con el 100 % el suelo parecía una vista orbital. Ese porcentaje es una decisión visual contrastada con las fotografías, no un dato.
-- Nueve de cada diez son viejos: cuencos de pocos centímetros de profundidad, sin borde. Los jóvenes, con borde levantado y eyecta, son la excepción. El contorno nunca es un círculo perfecto.
-- Un cráter joven y mayor borra los más pequeños y viejos que quedaban dentro. El punto de llegada se mantiene despejado y siempre hay un cráter joven a menos de 46 m.
-- Se suma una ondulación suave de decenas de metros de longitud de onda, entre 0.2 y 0.9 m según la resolución del DEM.
-- En los últimos 34 m antes del borde del kilómetro el relieve añadido se desvanece, y en los últimos 12 m la superficie vuelve a la malla del DEM. Así encaja sin escalón con el terreno regional.
+- The surface has 2049 × 2049 samples, one every 0.49 m. The DEM is interpolated with Catmull-Rom, which passes through all measured samples and avoids the creases of bilinear interpolation under grazing light.
+- Craters are added from 2 m up to four times the DEM spacing (20 m with the 5 m DEM, 140 m with the 240 m one). Above that size the DEM rules.
+- Sizes follow the lunar equilibrium population of Trask (1966): N(>D) = 10^-1.1 · D^-2 craters per m². Only 26 % of that population is drawn. The rest corresponds to craters so worn that nobody standing there would pick them out; with 100 % the ground looked like an orbital view. That percentage is a visual decision checked against the photographs, not a datum.
+- Nine out of ten are old: bowls a few centimetres deep, with no rim. The young ones, with a raised rim and ejecta, are the exception. The outline is never a perfect circle.
+- A young, larger crater erases the smaller, older ones that lay inside it. The arrival point is kept clear and there is always a young crater within 46 m.
+- A gentle undulation with a wavelength of tens of metres is added, between 0.2 and 0.9 m depending on the DEM resolution.
+- In the last 34 m before the edge of the kilometre the added relief fades out, and in the last 12 m the surface returns to the DEM mesh. This way it meets the regional terrain without a step.
 
-La semilla sale de las coordenadas: el mismo lugar da siempre el mismo suelo. El worker tarda alrededor de 1 s en generarlo. Fuera del kilómetro caminable el terreno regional sigue siendo el DEM de 240 m sin relieve añadido.
+The seed comes from the coordinates: the same place always gives the same ground. The worker takes about 1 s to generate it. Outside the walkable kilometre the regional terrain is still the 240 m DEM with no added relief.
 
-### Carga online y publicación estática
+### Online loading and static publishing
 
-NASA PGDA no expone CORS para estos GeoTIFF. En `npm run dev`, Vite actúa como proxy únicamente hacia `pgda.gsfc.nasa.gov/data/`; GeoTIFF.js lee ventanas mediante HTTP Range dentro del worker. Escoge el DEM compatible con menor espaciado real, incluidos los de 5 m. No descarga un GeoTIFF de varios GB completo. Si falla, utiliza el siguiente producto y finalmente el DEM local de 240 m.
+NASA PGDA does not expose CORS for these GeoTIFFs. In `npm run dev`, Vite acts as a proxy only towards `pgda.gsfc.nasa.gov/data/`; GeoTIFF.js reads windows through HTTP Range inside the worker. It chooses the compatible DEM with the smallest real spacing, including the 5 m ones. It does not download a complete multi-GB GeoTIFF. If that fails, it uses the next product and finally the local 240 m DEM.
 
-En `npm run build`, se utilizan los **recortes empaquetados y el DEM regional local**. El proxy de desarrollo no existe en la publicación estática. Para publicar nuevas zonas de alta resolución, se preparan sus recortes antes de compilar. No se garantiza alta resolución online en un hosting estático sin un servicio propio que soporte Range. Esta distinción es explícita; no se presenta el fallback como un DEM de 5 m.
+In `npm run build`, the **packaged crops and the local regional DEM** are used. The development proxy does not exist in the static publication. To publish new high-resolution areas, their crops are prepared before building. High resolution online is not guaranteed on static hosting without an own service that supports Range. This distinction is explicit; the fallback is not presented as a 5 m DEM.
 
-### Preparar otros lugares
+### Preparing other places
 
-Desde la raíz del repositorio:
+From the repository root:
 
 ```powershell
 python -m pip install -r tools/requirements-astronaut.txt
@@ -65,85 +65,85 @@ python tools/prepare_astronaut_ephemeris.py
 python tools/validate_lunar_dem.py
 ```
 
-Las descargas de origen y kernels se guardan en `.cache/astronaut/`, excluida de Git. La validación online conserva una copia de cada GeoTIFF de demo para comparar muestras con los datos originales; es una operación de preparación, no de apertura del modo. `--offline` verifica hashes, metadatos, alturas válidas y efemérides sin descargar fuentes.
+Source downloads and kernels are stored in `.cache/astronaut/`, excluded from Git. Online validation keeps a copy of each demo GeoTIFF to compare samples with the original data; it is a preparation step, not part of opening the mode. `--offline` verifies hashes, metadata, valid heights and ephemerides without downloading sources.
 
-Para importar un **LROC NAC DTM** u otro DEM de mayor resolución:
+To import an **LROC NAC DTM** or another higher-resolution DEM:
 
 ```powershell
 python tools/prepare_lunar_dem.py --source C:/data/nac-registered.tif --source-metadata C:/data/nac-provenance.json --lat -89.45 --lon 222.5 --name nac-demo
 ```
 
-Debe estar registrado en **MOON_ME_DE421**, estereográfica polar sur sobre esfera de 1,737,400 m, con alturas en metros respecto a esa esfera. No se acepta WGS84. El JSON debe proporcionar `provider`, `productUrl`, `frame`, `verticalDatum`, `uncertainty` y, opcionalmente, `name` e `interpolation`. El importador comprueba proyección y radio; el propietario debe comprobar el marco y datum vertical de la fuente, que un CRS por sí solo no describe completamente. No se transforman silenciosamente datums incompatibles. El catálogo no realiza descubrimiento automático de todos los DTMs NAC; los compatibles se importan y tienen prioridad por su resolución. Una imagen orbital no se acepta como sustituto de un DEM.
+It must be registered in **MOON_ME_DE421**, south polar stereographic on a 1,737,400 m sphere, with heights in metres relative to that sphere. WGS84 is not accepted. The JSON must provide `provider`, `productUrl`, `frame`, `verticalDatum`, `uncertainty` and, optionally, `name` and `interpolation`. The importer checks projection and radius; the owner must check the frame and vertical datum of the source, which a CRS alone does not fully describe. Incompatible datums are not silently transformed. The catalog does not automatically discover all NAC DTMs; compatible ones are imported and take priority because of their resolution. An orbital image is not accepted as a substitute for a DEM.
 
-## Sol, Tierra y horizonte
+## Sun, Earth and horizon
 
-Se reutilizan los vectores horarios SPICE existentes (DE440, corrección LT+S). `prepare_astronaut_ephemeris.py` aplica `pxform` de `MOON_ME_DE440_ME421` a `MOON_ME_DE421` en cada muestra UTC usando los kernels NAIF originales; no modifica los datos del mapa. El máximo giro del periodo incluido es aproximadamente 0.057 segundos de arco, registrado en el archivo de metadatos.
+The existing hourly SPICE vectors are reused (DE440, LT+S correction). `prepare_astronaut_ephemeris.py` applies `pxform` from `MOON_ME_DE440_ME421` to `MOON_ME_DE421` at each UTC sample using the original NAIF kernels; it does not modify the map data. The maximum rotation over the included period is about 0.057 arcseconds, recorded in the metadata file.
 
-El sistema local es **+X este, +Y arriba, −Z norte**. Se resta la posición del observador a los vectores del Sol y la Tierra para obtener direcciones topocéntricas. Se interpolan los vectores horarios y se conservan los tamaños angulares físicos (radio solar 695,700 km; terrestre 6,378.1366 km). La Tierra no se agranda para verla mejor: mide 1.8° de diámetro, unas 3.7 veces la Luna vista desde la Tierra. En pantalla ocupa poco porque el campo de visión es amplio; para verla grande está el teleobjetivo (Z o botón derecho). El campo de visión por defecto baja de 72° a 64°.
+The local system is **+X east, +Y up, −Z north**. The observer position is subtracted from the Sun and Earth vectors to obtain topocentric directions. The hourly vectors are interpolated and the physical angular sizes are kept (solar radius 695,700 km; Earth radius 6,378.1366 km). The Earth is not enlarged to see it better: it measures 1.8° across, about 3.7 times the Moon seen from Earth. It takes up little of the screen because the field of view is wide; the telephoto (Z or right button) is there to see it large. The default field of view drops from 72° to 64°.
 
-La Tierra usa la imagen NASA Blue Marble Next Generation (dominio público, tomada del paquete npm `three-globe`) reducida a 2048 × 1024. Las nubes son sintéticas: ruido fractal con las bandas de la circulación general, generado con `tools/make_astronaut_earth.py`. No reproducen el tiempo de ninguna fecha. La orientación sí se calcula para el instante elegido: el eje terrestre y el meridiano de Greenwich se obtienen de la longitud eclíptica del Sol y del tiempo sidéreo, y la cara iluminada, de la dirección Tierra-Sol de las efemérides. El plano de la eclíptica se aproxima con el ecuador lunar, lo que deja un error de hasta 1.5° en la inclinación del globo. Las pruebas comprueban el punto subsolar (latitud dentro de 0.5°, longitud dentro de la ecuación del tiempo) en cuatro fechas.
+The Earth uses the NASA Blue Marble Next Generation image (public domain, taken from the `three-globe` npm package) reduced to 2048 × 1024. The clouds are synthetic: fractal noise with the bands of the general circulation, generated with `tools/make_astronaut_earth.py`. They do not reproduce the weather of any date. The orientation is computed for the chosen instant: the Earth's axis and the Greenwich meridian are obtained from the ecliptic longitude of the Sun and from sidereal time, and the lit side from the Earth-Sun direction of the ephemerides. The ecliptic plane is approximated by the lunar equator, which leaves an error of up to 1.5° in the tilt of the globe. The tests check the subsolar point (latitude within 0.5°, longitude within the equation of time) on four dates.
 
-El Sol conserva su disco de 0.53° y añade un halo: un núcleo estrecho y un velo ancho y débil, como el que produce un punto muy brillante en el ojo o en un objetivo. El halo se apaga con la fracción visible del disco.
+The Sun keeps its 0.53° disc and adds a halo: a narrow core and a wide, faint veil, like the one a very bright point produces in the eye or in a lens. The halo fades with the visible fraction of the disc.
 
-La visibilidad combina el horizonte regional existente (malla de 1 km, bins de 5°, alturas calculadas para un observador de unos 2 m, distancias 300 m–300 km) con muestreo del relieve local desde la cámara. La dirección se recalcula al moverse o cambiar el reloj. El HUD distingue visibilidad solar y línea de visión geométrica hacia el centro terrestre. No equivale a disponibilidad real de una red de comunicaciones.
+Visibility combines the existing regional horizon (1 km mesh, 5° bins, heights computed for an observer of about 2 m, distances 300 m–300 km) with sampling of the local relief from the camera. The direction is recomputed when moving or changing the clock. The HUD distinguishes solar visibility from geometric line of sight to the Earth's centre. It is not equivalent to real availability of a communications network.
 
-Las sombras visuales usan CSM (3 o 4 cascadas, 1024–4096 según calidad), PCF, bias y normal bias. Los faldones que tapan las juntas entre piezas de terreno no entran en el mapa de sombras: con el Sol a 2° una pared vertical en la junta sombreaba decenas de metros de suelo detrás. La iluminación solar se atenúa por la visibilidad calculada en el observador; esa atenuación global aproxima la obstrucción lejana sobre el área, no constituye un mapa de iluminación certificado por cada vértice. El terreno contextual no sustituye el cálculo del horizonte lejano.
+Visual shadows use CSM (3 or 4 cascades, 1024–4096 depending on quality), PCF, bias and normal bias. The skirts that cover the joints between terrain pieces are left out of the shadow map: with the Sun at 2° a vertical wall at the joint shaded tens of metres of ground behind it. Sunlight is attenuated by the visibility computed at the observer; that global attenuation approximates distant obstruction over the area and is not a certified per-vertex illumination map. The context terrain does not replace the far-horizon calculation.
 
-## Física y gráficos
+## Physics and graphics
 
-Rapier usa un campo de alturas con las mismas 2049 × 2049 muestras que se dibujan, un controlador de cápsula, paso fijo de 1/60 s, gravedad de 1.62 m/s², aceleración, frenado, salto, deslizamiento por pendientes, obstáculos y límites sólidos de la región. La cámara está aproximadamente a 1.7 m del suelo. Rocas mayores de 0.3 m tienen colisiones conservadoras esféricas; la grava menor se puede superar. El reloj del render no determina el paso físico.
+Rapier uses a heightfield with the same 2049 × 2049 samples that are drawn, a capsule controller, a fixed step of 1/60 s, gravity of 1.62 m/s², acceleration, braking, jumping, sliding on slopes, obstacles and solid region boundaries. The camera is about 1.7 m above the ground. Rocks larger than 0.3 m have conservative spherical collisions; smaller gravel can be stepped over. The render clock does not determine the physics step.
 
-Three.js mantiene el stack React/JavaScript existente: color sRGB, ACES, mapas de color y normales, rocas instanciadas y culling. El terreno es un quadtree de nodos de 32 × 32 celdas. Un nodo se divide en cuatro mientras el caminante está más cerca que una fracción de su anchura (0.3 en LOW, 0.85 en ULTRA), de modo que bajo los pies hay celdas de 0.49 m y a cientos de metros, de 8 o 16 m. Los nodos se construyen al necesitarse y se liberan los menos usados. La física usa siempre la superficie completa. Con rendimiento sostenido bajo se reducen DPR, sombras y alcance del detalle. Las sombras estáticas se reutilizan. La calidad gráfica no cambia la escala ni las colisiones. La exposición fotográfica no es una medición radiométrica calibrada.
+Three.js keeps the existing React/JavaScript stack: sRGB colour, ACES, colour and normal maps, instanced rocks and culling. The terrain is a quadtree of 32 × 32 cell nodes. A node splits into four while the walker is closer than a fraction of its width (0.3 on LOW, 0.85 on ULTRA), so that underfoot there are 0.49 m cells and, hundreds of metres away, cells of 8 or 16 m. Nodes are built when needed and the least used ones are released. Physics always uses the full surface. Under sustained low performance, DPR, shadows and detail range are reduced. Static shadows are reused. Graphics quality does not change scale or collisions. Photographic exposure is not a calibrated radiometric measurement.
 
-El suelo lunar no refleja como una superficie mate. Devuelve la luz hacia el Sol, se aclara de golpe alrededor de la sombra del propio observador y mantiene el brillo con luz rasante. El shader sustituye la ley de Lambert por el modelo de Hapke con los valores de la Luna entera de Helfenstein y Veverka (1987, [informe técnico de la NASA](https://ntrs.nasa.gov/citations/19870013999)): albedo de partícula 0.21, anchura del efecto de oposición 0.07, términos de fase 0.29 y 0.39. La amplitud de oposición 2.01 no aparece tal cual en su tabla: sale de su S(0) = 0.71 dividido por el albedo y por la función de fase en oposición (0.21 × 1.68). Falta el término de rugosidad macroscópica de Hapke; lo sustituye un factor empírico que oscurece hasta un 60 % el suelo visto a contraluz con Sol bajo. No hay término especular. Con el Sol a 2.5°, el suelo llano refleja entre 2 y 14 veces más que con Lambert según hacia dónde se mire (más con el Sol a la espalda y a lo lejos, casi igual a contraluz). Lambert lo dejaba casi negro, y las rocas, con caras orientadas al Sol, parecían encendidas a su lado. Rocas y suelo comparten modelo y reflectancia: cada textura de roca se escala a la reflectancia media del regolito.
+Lunar soil does not reflect like a matte surface. It returns light towards the Sun, brightens sharply around the observer's own shadow and keeps its brightness under grazing light. The shader replaces Lambert's law with the Hapke model using the whole-Moon values of Helfenstein and Veverka (1987, [NASA technical report](https://ntrs.nasa.gov/citations/19870013999)): particle albedo 0.21, opposition effect width 0.07, phase terms 0.29 and 0.39. The opposition amplitude 2.01 does not appear as such in their table: it comes from their S(0) = 0.71 divided by the albedo and by the phase function at opposition (0.21 × 1.68). Hapke's macroscopic roughness term is missing; it is replaced by an empirical factor that darkens ground seen against a low Sun by up to 60 %. There is no specular term. With the Sun at 2.5°, level ground reflects between 2 and 14 times more than with Lambert depending on where one looks (more with the Sun behind and in the distance, almost the same against the light). Lambert left it almost black, and the rocks, with faces turned to the Sun, looked lit up beside it. Rocks and ground share model and reflectance: each rock texture is scaled to the mean reflectance of the regolith.
 
-El cielo es negro y no ilumina. El único relleno es la luz solar que devuelve el propio suelo: llega a las caras verticales y a la parte baja de las cosas, y casi nada al suelo llano en sombra. La luz de la Tierra se incluye con su fase; de día es inapreciable y de noche es la única luz natural. La noche se muestra más clara de lo que saldría con la exposición diurna, como la vería un ojo adaptado.
+The sky is black and gives no light. The only fill is the sunlight returned by the ground itself: it reaches vertical faces and the underside of things, and almost none of it reaches level ground in shadow. Earthlight is included with its phase; by day it is imperceptible and at night it is the only natural light. Night is shown brighter than it would come out with the daytime exposure, as an adapted eye would see it.
 
-El terreno regional se une a **todos** los vértices del perímetro del DTM local. Una franja de transición entre 500 y 750 m desde el centro absorbe las diferencias de altura entre fuentes fuera de la zona caminable. Esto evita los huecos negros que aparecían al unir solo las cuatro esquinas. La transición es contexto visual interpolado; no altera las elevaciones, colisiones ni cálculos de horizonte del kilómetro científico.
+The regional terrain is joined to **all** the perimeter vertices of the local DTM. A transition band between 500 and 750 m from the centre absorbs the height differences between sources outside the walkable area. This avoids the black gaps that appeared when only the four corners were joined. The transition is interpolated visual context; it does not alter the elevations, collisions or horizon calculations of the scientific kilometre.
 
-No hay atmósfera, niebla ni cielo azul. En noche lunar la superficie es oscura: se ofrece una luz de casco neutra, identificada como artificial, que de día queda casi apagada porque no puede competir con el suelo al sol. No proyecta sombras: una luz situada en el ojo las deja justo detrás de lo que ilumina, donde no se ven. La exposición es ajustable. Se conservan la hora y la dirección solar astronómicas. No se garantizan 60 fps para todas las GPU o navegadores.
+There is no atmosphere, fog or blue sky. In lunar night the surface is dark: a neutral helmet light is offered, identified as artificial, which by day is almost off because it cannot compete with sunlit ground. It casts no shadows: a light placed at the eye leaves them right behind what it lights, where they cannot be seen. Exposure is adjustable. The astronomical time and solar direction are kept. 60 fps is not guaranteed for every GPU or browser.
 
 ## Fab / Quixel Megascans
 
-Se incluyen cuatro superficies de los ZIP facilitados por el propietario: Dry Sand `vd0lbfd`, Soil Sand `pkcbq0`, Dry Sand `xd0jeh2` y Sand `sgfodj1a`. Color y normales se mezclan en el shader con una gradación gris ceniza de matiz cálido. Dos texturas de array WebGL2 contienen las cuatro capas. Los mapas ORM (AO en R, roughness en G) siguen en el paquete pero ya no se cargan: sin término especular la rugosidad no cambia nada, y sin luz ambiente no hay oclusión que aplicar. Son unos 20 MB menos de memoria de GPU y 5.3 MB menos de descarga.
+Four surfaces from the ZIPs provided by the owner are included: Dry Sand `vd0lbfd`, Soil Sand `pkcbq0`, Dry Sand `xd0jeh2` and Sand `sgfodj1a`. Colour and normals are blended in the shader with an ash-grey grade with a warm tint. Two WebGL2 array textures hold the four layers. The ORM maps (AO in R, roughness in G) are still in the package but are no longer loaded: without a specular term roughness changes nothing, and without ambient light there is no occlusion to apply. That is about 20 MB less GPU memory and 5.3 MB less download.
 
-Los cráteres de 12 cm a 2 m, demasiado pequeños para la malla, se representan con un mapa de pendientes de 1024 × 1024 que cubre 24 m y se repite sin costura. Se lee dos veces, a 24 y 37 m y con giros distintos, y las dos copias nunca coinciden.
+Craters from 12 cm to 2 m, too small for the mesh, are represented by a 1024 × 1024 slope map that covers 24 m and repeats seamlessly. It is read twice, at 24 and 37 m and with different rotations, and the two copies never line up.
 
-La arena gris `vd0lbfd` sigue siendo la base de las llanuras. Soil Sand `pkcbq0` alcanza como máximo el 64.5% en las zonas más pedregosas, dejando arena entre sus detalles. Su máscara combina un decaimiento amplio deformado con variaciones a dos escalas, formando vetas y huecos en lugar de un óvalo compacto. La máscara de 512 × 512 conserva transiciones de unos 2 m por muestra. Es exclusiva del material: no cambia elevaciones, piedras ni colisiones. Los otros scans aportan variaciones secundarias de polvo y grano. Al cargar se aproxima la luminancia lineal media de cada scan para compensar diferencias de brillo; se mantienen la gradación lunar y la reflectancia general 0.82. Se elimina el oscurecimiento adicional de Soil Sand para evitar el aspecto de mancha. El relieve normal cercano pasa de 0.62 en arena a un máximo de 0.88 en grava.
+The grey sand `vd0lbfd` is still the base of the plains. Soil Sand `pkcbq0` reaches at most 64.5% in the stoniest areas, leaving sand between its details. Its mask combines a wide warped falloff with variations at two scales, forming veins and gaps instead of a compact oval. The 512 × 512 mask keeps transitions of about 2 m per sample. It belongs to the material only: it does not change elevations, stones or collisions. The other scans add secondary variations of dust and grain. On load, the mean linear luminance of each scan is approximated to compensate for brightness differences; the lunar grade and the overall reflectance of 0.82 are kept. The extra darkening of Soil Sand is removed to avoid a stained look. Near normal relief goes from 0.62 on sand to a maximum of 0.88 on gravel.
 
-Para disimular el tiling de un metro, la arena base mezcla tres muestras con offsets y giros de 90° derivados de una retícula triangular y la semilla del lugar. Soil Sand usa giros libres de 360°, escala por copia entre 0.88 y 1.15, celdas más pequeñas de 0.72 y pesos de mezcla menos concentrados. Así cada zona deja de mostrar una copia entera repetida varias veces. Sus normales no reciben el refuerzo de amplitud que acentuaba el patrón. Color, normales y ORM comparten transformaciones; `textureGrad` mantiene los mipmaps estables y las normales se giran al marco tangente original. Las capas secundarias usan giros diferentes y una deformación suave. Las lecturas de textura del suelo bajan de 24 por fragmento a 11 en el caso habitual: 6 de la arena, 2 del polvo, 2 de microcráteres y 1 de la máscara. La grava y la capa gruesa solo se leen junto a las rocas, donde pesan en la mezcla. A partir de unos 30 m el suelo está tan escorzado que el escaneado de un metro es una mancha de pocos téxeles, y basta una lectura simple de color y otra de normal. El rendimiento gráfico sigue dependiendo de la GPU y la resolución.
+To hide the one-metre tiling, the base sand blends three samples with offsets and 90° rotations derived from a triangular lattice and the seed of the place. Soil Sand uses free 360° rotations, a per-copy scale between 0.88 and 1.15, smaller cells of 0.72 and less concentrated blend weights. This way each area no longer shows a whole copy repeated several times. Its normals do not receive the amplitude boost that accentuated the pattern. Colour, normals and ORM share transforms; `textureGrad` keeps the mipmaps stable and the normals are rotated back to the original tangent frame. The secondary layers use different rotations and a gentle warp. Ground texture reads drop from 24 per fragment to 11 in the usual case: 6 for the sand, 2 for the dust, 2 for micro-craters and 1 for the mask. The gravel and the coarse layer are only read next to rocks, where they carry weight in the blend. Beyond about 30 m the ground is so foreshortened that the one-metre scan is a blur of a few texels, and one plain read of colour and one of normal are enough. Graphics performance still depends on the GPU and the resolution.
 
-Se han descargado ocho packs desde la sesión Fab del propietario, bajo la licencia Standard mostrada por Fab. El manifest registra los enlaces originales y archivos fuente:
+Eight packs were downloaded from the owner's Fab session, under the Standard licence shown by Fab. The manifest records the original links and source files:
 
-- Small Rocks Pack `ucdjdfmva`: 5 variantes.
-- Limestone Rocks `ub3sddsda`: 1 variante.
-- Thai Beach Rocks `ueopcguga`: 1 variante.
-- Volcanic Dolerite Rocks `qjmvt`: 1 variante.
-- Icelandic Porous Rocks `skxqf`: 1 variante.
-- Sharp Rocks Set `rbov2`: 4 variantes.
-- Small Limestone Rocks Pack `ufllcisva`: 6 variantes.
-- Granite Rocks `pfyss`: 1 variante.
+- Small Rocks Pack `ucdjdfmva`: 5 variants.
+- Limestone Rocks `ub3sddsda`: 1 variant.
+- Thai Beach Rocks `ueopcguga`: 1 variant.
+- Volcanic Dolerite Rocks `qjmvt`: 1 variant.
+- Icelandic Porous Rocks `skxqf`: 1 variant.
+- Sharp Rocks Set `rbov2`: 4 variants.
+- Small Limestone Rocks Pack `ufllcisva`: 6 variants.
+- Granite Rocks `pfyss`: 1 variant.
 
-Los originales permanecen en Downloads. Los GLB importados tienen texturas de 1K y dos niveles geométricos que comparten los mismos materiales y mapas. Se separan los componentes de cada pack en 20 variantes; cada una se centra y apoya por su propia base, conservando su forma. Instancing y selección por distancia reducen el coste de la grava lejana. El simplificador limita el error geométrico; algunos modelos mantienen más triángulos para conservar su contorno.
+The originals remain in Downloads. The imported GLBs have 1K textures and two geometric levels that share the same materials and maps. The components of each pack are separated into 20 variants; each one is centred and rests on its own base, keeping its shape. Instancing and distance-based selection reduce the cost of distant gravel. The simplifier limits geometric error; some models keep more triangles to preserve their outline.
 
-En la Luna la roca sale de los impactos, y la distribución sigue ahora a los cráteres generados. Sustituye a los 19 campos elípticos y a la dispersión uniforme anteriores, que dejaban piedras sueltas repartidas al azar.
+On the Moon, rock comes from impacts, and the distribution now follows the generated craters. It replaces the previous 19 elliptical fields and uniform scatter, which left loose stones spread at random.
 
-- Los cráteres jóvenes de 5 m o más conservan bloques. Cuanto mayor es el cráter, más y mayores: uno de 11 m da bloques de hasta 1.2 m; uno de 100 m, de varios metros. Una cuarta parte queda en el fondo y la pared. El resto cae fuera, más denso en el borde y repartido en rayos, con los bloques grandes más cerca.
-- El resto del terreno tiene grupos sueltos: un bloque roto con sus fragmentos alrededor, más algunas piedras aisladas.
-- Los tamaños siguen una ley de potencias. Cada vez que el tamaño se reduce a la mitad hay varias veces más piezas.
-- Cada roca se hunde entre un 6 y un 48 % de su radio, con proporciones e inclinación propias. Los bloques no se quedan en paredes empinadas ni se solapan.
+- Young craters of 5 m or more keep blocks. The larger the crater, the more and the bigger: an 11 m one gives blocks of up to 1.2 m; a 100 m one, blocks of several metres. A quarter stays on the floor and wall. The rest falls outside, densest at the rim and spread in rays, with the large blocks closest.
+- The rest of the terrain has loose groups: a broken block with its fragments around it, plus some isolated stones.
+- Sizes follow a power law. Each time the size halves there are several times more pieces.
+- Each rock is sunk between 6 and 48 % of its radius, with its own proportions and tilt. Blocks do not stay on steep walls and do not overlap.
 
-En la fixture plana del polo sur a densidad máxima salen 12,812 rocas de 20 cm o más, de ellas 701 con colisión. El 81 % tiene otra roca a menos de 3 m; un reparto uniforme de la misma densidad daría un 30 %.
+On the flat south pole fixture at maximum density there are 12,812 rocks of 20 cm or more, 701 of them with collision. 81 % have another rock within 3 m; a uniform scatter of the same density would give 30 %.
 
-Las piedras de 4 a 20 cm ya no se guardan para todo el kilómetro. Una superficie real tiene cerca de una por metro cuadrado (recuentos de las Surveyor), más de un millón en total. Se generan por celdas de 6 m alrededor del caminante, cada celda con su propia semilla, y se dibujan en cuatro llamadas instanciadas. La mitad cae en grupos pequeños. Solo las que están a menos de 12 m proyectan sombra, y cada piedra deja de dibujarse cuando ocuparía un píxel. La densidad visual de los ajustes la regula.
+Stones from 4 to 20 cm are no longer stored for the whole kilometre. A real surface has about one per square metre (Surveyor counts), more than a million in total. They are generated in 6 m cells around the walker, each cell with its own seed, and drawn in four instanced calls. Half fall in small groups. Only those within 12 m cast a shadow, and each stone stops being drawn when it would cover one pixel. The visual density setting controls it.
 
-La misma máscara de geología mezcla el suelo más pedregoso alrededor de los cráteres jóvenes y en algunas franjas de regolito con más guijarros. Rocas, grava y máscara son reproducibles por coordenadas y **no son posiciones medidas**.
+The same geology mask blends the stoniest ground around young craters and in some stretches of regolith with more pebbles. Rocks, gravel and mask are reproducible from coordinates and **are not measured positions**.
 
-Las transformaciones y colores de las rocas se precalculan. La selección por distancia se revisa al recorrer 2 m o cambiar calidad o densidad, y solo se suben buffers si cambia. Cada lote instanciado tiene ahora una esfera envolvente ajustada a lo que dibuja, de modo que una cascada de sombras que no lo contiene no lo procesa. Las sombras se invalidan por cambios reales de cámara, Sol, hora o geometría, con un máximo de unos 30 Hz. Se preparan shaders y el primer fotograma antes de mostrar los controles. No se renderiza una pestaña oculta.
+Rock transforms and colours are precomputed. Distance-based selection is reviewed after walking 2 m or changing quality or density, and buffers are only uploaded if it changes. Each instanced batch now has a bounding sphere fitted to what it draws, so a shadow cascade that does not contain it does not process it. Shadows are invalidated by real changes of camera, Sun, time or geometry, at a maximum of about 30 Hz. Shaders and the first frame are prepared before the controls are shown. A hidden tab is not rendered.
 
-GTAO se ha retirado. La oclusión ambiental atenúa luz ambiente, y bajo un cielo negro apenas hay; aplicada a todo el fotograma oscurecía también la luz solar directa, lo que es incorrecto. Con ella desaparecen la cadena de posproceso y sus pasadas adicionales en HIGH y ULTRA.
+GTAO has been removed. Ambient occlusion attenuates ambient light, and under a black sky there is hardly any; applied to the whole frame it also darkened direct sunlight, which is incorrect. With it go the post-processing chain and its extra passes on HIGH and ULTRA.
 
-Reimportar desde los originales locales:
+Re-import from the local originals:
 
 ```powershell
 python tools/import_quixel_surfaces.py C:/Users/Usuario/Downloads
@@ -151,9 +151,9 @@ cd web
 node scripts/prepare-quixel-rocks.mjs C:/Users/Usuario/Downloads
 ```
 
-El importador de superficies necesita Pillow. El optimizador usa glTF Transform, Meshoptimizer y Sharp, incluidos como dependencias de desarrollo. Los assets usados y sus fuentes están en `web/public/assets/astronaut/manifest.json`; la aplicación no accede a Fab, cuentas ni credenciales. Sigue siendo posible añadir modelos estáticos al manifest. Meshopt está soportado; KTX2/Draco requieren configurar sus decodificadores. Si falla un asset opcional, se conserva el material o modelo de reserva y se registra el aviso.
+The surface importer needs Pillow. The optimiser uses glTF Transform, Meshoptimizer and Sharp, included as development dependencies. The assets used and their sources are in `web/public/assets/astronaut/manifest.json`; the application does not access Fab, accounts or credentials. It is still possible to add static models to the manifest. Meshopt is supported; KTX2/Draco require configuring their decoders. If an optional asset fails, the fallback material or model is kept and the warning is logged.
 
-## Validación
+## Validation
 
 ```powershell
 cd web
@@ -165,74 +165,74 @@ cd ..
 python tools/validate_lunar_dem.py
 ```
 
-Las pruebas comprueban orientación ENU, escala, curvatura, muestreo, NoData, diagonales triangulares, vectores e interpolación astronómica, tamaño angular, obstrucción por horizonte, determinismo, hashes NASA, caminar, salto lunar, colisión con rocas y límites. Desde el 15 de noviembre también la distribución de tamaños de los cráteres, el perfil de un cráter, la coincidencia de la superficie con el DEM en el borde, el quadtree del terreno, el modelo fotométrico, la orientación de la Tierra, la agrupación de las rocas y la grava por celdas. Las pruebas anteriores de geometría/visibilidad se mantienen. Las comprobaciones de navegador verifican apertura, movimiento, cambio temporal, regreso al mapa y lectura de datos reales. El rendimiento depende del equipo y requiere medir en los dispositivos objetivo.
+The tests check ENU orientation, scale, curvature, sampling, NoData, triangle diagonals, astronomical vectors and interpolation, angular size, horizon obstruction, determinism, NASA hashes, walking, lunar jumping, rock collision and boundaries. Since 15 November they also check the crater size distribution, the profile of a crater, the match between the surface and the DEM at the edge, the terrain quadtree, the photometric model, the orientation of the Earth, the clustering of rocks and the per-cell gravel. The earlier geometry/visibility tests are kept. Browser checks verify opening, movement, time change, return to the map and reading of real data. Performance depends on the machine and requires measuring on the target devices.
 
-### Resultado de la validación del 15 de noviembre de 2026
+### Validation result of 15 November 2026
 
-Revisión de iluminación, relieve, rocas y cielo. **30 pruebas de Node** y la compilación pasan. Se sustituyen tres pruebas que describían el sistema anterior (LOD por tiles, 19 campos de rocas y su recuento exacto de 803 bloques) por las del sistema nuevo, y se añaden diez.
+Revision of lighting, relief, rocks and sky. **30 Node tests** and the build pass. Three tests that described the previous system (tile LOD, 19 rock fields and their exact count of 803 blocks) are replaced by those of the new system, and ten are added.
 
-Comprobación visual con Chromium y renderizador por software (SwiftShader) en tres casos: un punto del mapa con DEM de 240 m, la demo de Connecting ridge con DEM de 5 m, y de noche. Se compararon con las fotografías del Apolo facilitadas por el propietario. No hubo errores de shader.
+Visual check with Chromium and a software renderer (SwiftShader) in three cases: a map point with the 240 m DEM, the Connecting ridge demo with the 5 m DEM, and at night. They were compared with the Apollo photographs provided by the owner. There were no shader errors.
 
-Coste por fotograma, mismo punto, misma hora, 960 × 540, renderizador por software:
+Cost per frame, same point, same time, 960 × 540, software renderer:
 
-| | Antes | Ahora |
+| | Before | Now |
 | --- | --- | --- |
-| MEDIUM, cámara quieta | 4.0 s | 3.6 s |
-| MEDIUM, girando | 4.1 s | 3.8 s |
-| HIGH, cámara quieta | 2.2 s | 3.6 s |
-| Llamadas de dibujo (pasada principal) | 104 | 79 |
-| Triángulos (pasada principal) | 438,000 | 330,000 |
+| MEDIUM, camera still | 4.0 s | 3.6 s |
+| MEDIUM, turning | 4.1 s | 3.8 s |
+| HIGH, camera still | 2.2 s | 3.6 s |
+| Draw calls (main pass) | 104 | 79 |
+| Triangles (main pass) | 438,000 | 330,000 |
 
-Estas cifras no son fotogramas por segundo de una GPU. El renderizador por software penaliza cosas que una GPU resuelve casi gratis, sobre todo el antialiasing por multimuestreo. Por eso el HIGH anterior sale más rápido: su cadena de posproceso dibujaba sin multimuestreo, con bordes dentados. En este entorno el 98 % del tiempo del fotograma es el shader del suelo. **No se ha medido en una GPU real**; la mejora en MEDIUM es del 10 % aquí y no se puede afirmar más.
+These figures are not frames per second on a GPU. The software renderer penalises things a GPU resolves almost for free, above all multisample antialiasing. That is why the previous HIGH comes out faster: its post-processing chain drew without multisampling, with jagged edges. In this environment 98 % of the frame time is the ground shader. **It has not been measured on a real GPU**; the improvement on MEDIUM is 10 % here and nothing more can be claimed.
 
-Lo que queda sin hacer o sin comprobar:
+What remains undone or unchecked:
 
-- El polo sur tiene el Sol a menos de 3° sobre el horizonte. Las fotografías del Apolo se tomaron con el Sol entre 15° y 45°, y esa luz no se puede reproducir en estos lugares. La escena polar es más contrastada y con sombras más largas.
-- Las sombras son nítidas. Con el Sol tan bajo la penumbra real es ancha (el disco solar mide 0.53°) y no se simula.
-- El terreno más allá del kilómetro caminable no tiene cráteres añadidos y se ve más liso que el interior.
-- Al acercarse, los nodos del terreno cambian de nivel de detalle y los cráteres pequeños aparecen de golpe a media distancia.
-- No se ha abierto en dispositivos móviles ni se ha probado la captura del ratón después de estos cambios; las pruebas de `FirstPersonControls` siguen pasando.
+- The south pole has the Sun less than 3° above the horizon. The Apollo photographs were taken with the Sun between 15° and 45°, and that light cannot be reproduced at these places. The polar scene has more contrast and longer shadows.
+- Shadows are sharp. With the Sun this low the real penumbra is wide (the solar disc measures 0.53°) and it is not simulated.
+- The terrain beyond the walkable kilometre has no added craters and looks smoother than the interior.
+- On approach, terrain nodes change level of detail and small craters pop in at mid distance.
+- It has not been opened on mobile devices and mouse capture has not been tested after these changes; the `FirstPersonControls` tests still pass.
 
-### Resultado de la validación del 14 de noviembre de 2026
+### Validation result of 14 November 2026
 
-Integración de Soil Sand: **21 pruebas de Node** y compilación pasan. La prueba del material comprueba en cuatro lugares que sigan apareciendo detalles pedregosos cerca del inicio, que entre ellos haya arena y que la mezcla cambie de forma gradual al caminar, conservando las llanuras. Se revisa el render con la luz del casco encendida y apagada para distinguir el material de la iluminación artificial.
+Soil Sand integration: **21 Node tests** and the build pass. The material test checks at four places that stony details still appear near the start, that there is sand between them and that the blend changes gradually while walking, keeping the plains. The render is reviewed with the helmet light on and off to tell the material apart from the artificial lighting.
 
-Corrección de la visibilidad de la textura rocosa: **21 pruebas de Node** pasan. La prueba añadida verifica que la franja pedregosa sea alcanzable a pocos pasos, cubra una región y aparezca también en otros campos, conservando arena en la mayor parte del terreno. El navegador muestra la diferencia entre arena y grava en el punto inicial del lugar seleccionado por el usuario, sin errores de shader.
+Fix for the visibility of the rocky texture: **21 Node tests** pass. The added test verifies that the stony band is reachable within a few steps, covers a region and also appears in other fields, keeping sand over most of the terrain. The browser shows the difference between sand and gravel at the starting point of the place selected by the user, with no shader errors.
 
-Revisión de mezcla sutil, tiling y grava: **20 pruebas de Node** pasan. Se comprueban la cantidad y tamaño de la grava nueva, la conservación de los 803 bloques de la fixture anterior, el uso de los batches simplificados sin sombras extra, el descarte por distancia y la reutilización de buffers. El navegador carga el shader estocástico y las cuatro superficies sin errores de compilación; se compara el mismo punto de Haworth con el mismo reloj e iluminación. No se certifica una tasa de fotogramas estable a partir de estas comprobaciones.
+Revision of subtle blending, tiling and gravel: **20 Node tests** pass. The amount and size of the new gravel are checked, along with the preservation of the 803 blocks of the previous fixture, the use of the simplified batches without extra shadows, distance culling and buffer reuse. The browser loads the stochastic shader and the four surfaces with no compile errors; the same Haworth point is compared with the same clock and lighting. A stable frame rate is not certified from these checks.
 
-Revisión de hora, variedad y rendimiento: **19 pruebas de Node** pasan, incluida la reutilización de buffers en reposo, los cambios de LOD, la conservación de bloques con colisión al reducir grava, la limpieza de instancias y los 20 modelos Quixel. Comprobación de navegador: captura real del ratón, Escape con captura activa abriendo la hora, cambio de hora con botones y teclado, reanudación y movimiento WASD, y cambios MEDIUM/ULTRA/HIGH. Los 20 modelos y cuatro superficies cargan sin fallbacks; no aparecen errores de shader. Estas comprobaciones no certifican una tasa de fotogramas estable en otros dispositivos.
+Revision of time, variety and performance: **19 Node tests** pass, including buffer reuse at rest, LOD changes, preservation of collision blocks when reducing gravel, instance cleanup and the 20 Quixel models. Browser check: real mouse capture, Escape with active capture opening the time, time change with buttons and keyboard, resume and WASD movement, and MEDIUM/ULTRA/HIGH changes. The 20 models and four surfaces load without fallbacks; no shader errors appear. These checks do not certify a stable frame rate on other devices.
 
-- **18 pruebas de Node**: pasan, incluidas captura/pausa/reanudación, deltas relativos, rechazos de captura, campos de rocas, assets Quixel y unión de DEM con alturas diferentes. Las **9 pruebas de Python** pasaron en la validación anterior; esta revisión no cambia el pipeline científico.
-- Compilación de producción y `git diff --check`: pasan. Vite avisa del tamaño del módulo de física cargado bajo demanda y de referencias CSS públicas que se resuelven en ejecución; se verificó que esos archivos se incluyen y cargan en la versión estática.
-- Dos recortes: **194,481 alturas válidas cada uno**, SHA-256 comprobado y cuatro muestras por recorte contrastadas con cada GeoTIFF original de NASA. Efemérides: **43,824** muestras horarias válidas.
-- Navegador sobre la compilación estática: entrada desde el casco, coordenadas, WASD, cambio de fecha, búsqueda de luz solar, ajustes de calidad, demo, fallback de 240 m y salida conservando coordenadas/reloj. Emulación táctil: movimiento confirmado mediante cambios de coordenadas.
-- Desarrollo: lectura de otro lugar de Haworth a **5 m**, fuera del recorte empaquetado, mediante HTTP Range y el proxy NASA.
-- Tras corregir el shader de materiales no se observaron errores de renderizado en las comprobaciones finales. Un favicon ausente es anterior a esta función.
-- Captura nativa confirmada en Chromium: `pointerLockElement` es el canvas y `cursor` es `none`; rotación por deltas relativos, Escape y panel de ajustes comprobados. Algunos intentos en ventanas sin foco fueron rechazados y permanecieron correctamente en pausa. Se verificaron 13 variantes Quixel y cuatro mapas de superficie cargados sin fallbacks. Los dispositivos móviles físicos no se han probado.
-- Reproducción del punto **84.18408° S, 76.12220° E, 2027-10-02 22:00 UTC**, con DTM NASA de 10 m: los huecos persistían sin sombras y desaparecían al ocultar el contexto, identificando la unión entre DEM como causa. Después de unir todos los bordes desaparecen las franjas negras; se reduce la intensidad solar para conservar el gris del regolito.
-- No se certifica el objetivo de 60 fps: la calidad se adapta y el LOD reduce trabajo de geometría lejana, pero siguen siendo necesarias mediciones en el hardware objetivo.
+- **18 Node tests**: pass, including capture/pause/resume, relative deltas, capture rejections, rock fields, Quixel assets and joining DEMs with different heights. The **9 Python tests** passed in the previous validation; this revision does not change the scientific pipeline.
+- Production build and `git diff --check`: pass. Vite warns about the size of the on-demand physics module and about public CSS references that resolve at runtime; it was verified that those files are included and load in the static version.
+- Two crops: **194,481 valid heights each**, SHA-256 checked and four samples per crop compared against each original NASA GeoTIFF. Ephemerides: **43,824** valid hourly samples.
+- Browser on the static build: entry from the helmet, coordinates, WASD, date change, sunlight search, quality settings, demo, 240 m fallback and exit keeping coordinates/clock. Touch emulation: movement confirmed through coordinate changes.
+- Development: reading of another Haworth place at **5 m**, outside the packaged crop, through HTTP Range and the NASA proxy.
+- After fixing the materials shader, no rendering errors were observed in the final checks. A missing favicon predates this feature.
+- Native capture confirmed in Chromium: `pointerLockElement` is the canvas and `cursor` is `none`; rotation by relative deltas, Escape and settings panel checked. Some attempts in unfocused windows were rejected and correctly stayed paused. 13 Quixel variants and four surface maps were verified as loaded without fallbacks. Physical mobile devices have not been tested.
+- Reproduction of the point **84.18408° S, 76.12220° E, 2027-10-02 22:00 UTC**, with the NASA 10 m DTM: the gaps persisted without shadows and disappeared when the context was hidden, identifying the join between DEMs as the cause. After joining all edges the black bands disappear; solar intensity is reduced to keep the grey of the regolith.
+- The 60 fps target is not certified: quality adapts and LOD reduces distant geometry work, but measurements on the target hardware are still needed.
 
-## Archivos de esta implementación
+## Files in this implementation
 
-- `web/src/screens/Site.jsx`: activación del casco y salida conservando el estado.
-- `web/src/astronaut/AstronautMode.jsx`, `astronaut.css`: interfaz, carga, ajustes, controles táctiles y reloj.
-- `web/src/astronaut/AstronautScene.js`: renderer, CSM, luces, Sol y Tierra, teleobjetivo, control de cámara, adaptación y limpieza GPU.
-- `web/src/astronaut/coordinates.js`, `terrain.worker.js`, `TerrainLoader.js`: geometría científica, cobertura, lectura de GeoTIFF, recortes y caché.
-- `web/src/astronaut/SurfaceRelief.js`: cráteres y ondulación por debajo de la resolución del DEM, superficie caminable y sus niveles de detalle.
-- `web/src/astronaut/TerrainLOD.js`: quadtree del terreno, con nodos construidos bajo demanda.
-- `web/src/astronaut/TerrainContext.js`: unión continua entre DEM local y regional fuera de la zona caminable.
-- `web/src/astronaut/FirstPersonControls.js`: captura relativa, pausa, Escape y controles táctiles.
-- `web/src/astronaut/CelestialPosition.js`: posiciones topocéntricas, tamaños, visibilidad y orientación de la Tierra.
-- `web/src/astronaut/LunarPhysics.js`: Rapier y controlador físico.
-- `web/src/astronaut/SurfaceMaterials.js`, `SurfaceGeology.js`, `ProceduralRocks.js`, `MegascansLibrary.js`: modelo fotométrico y materiales, eyecta de los cráteres, rocas, grava y assets del propietario.
-- `web/src/astronaut/astronaut.test.mjs`: pruebas científicas y físicas.
-- `web/public/data/astronaut/`: catálogo, dos recortes de 5 m, DEM regional nativo, etiqueta PDS y efemérides transformadas.
-- `web/public/assets/astronaut/manifest.json`: configuración de modelos y materiales.
-- `web/public/assets/astronaut/sky/earth_2k.jpg`: textura de la Tierra (NASA Blue Marble con nubes sintéticas).
-- `web/package.json`, `web/package-lock.json`: dependencias y comando de pruebas.
-- `web/vite.config.js`: proxy de lectura de DEM públicos durante desarrollo.
-- `tools/prepare_lunar_dem.py`, `prepare_astronaut_ephemeris.py`, `validate_lunar_dem.py`, `requirements-astronaut.txt`: pipeline reproducible y validación.
-- `README.md`, `docs/ASTRONAUT_MODE.md`: acceso, fuentes y límites.
+- `web/src/screens/Site.jsx`: helmet activation and exit keeping the state.
+- `web/src/astronaut/AstronautMode.jsx`, `astronaut.css`: interface, loading, settings, touch controls and clock.
+- `web/src/astronaut/AstronautScene.js`: renderer, CSM, lights, Sun and Earth, telephoto, camera control, adaptation and GPU cleanup.
+- `web/src/astronaut/coordinates.js`, `terrain.worker.js`, `TerrainLoader.js`: scientific geometry, coverage, GeoTIFF reading, crops and cache.
+- `web/src/astronaut/SurfaceRelief.js`: craters and undulation below the DEM resolution, walkable surface and its levels of detail.
+- `web/src/astronaut/TerrainLOD.js`: terrain quadtree, with nodes built on demand.
+- `web/src/astronaut/TerrainContext.js`: continuous join between local and regional DEM outside the walkable area.
+- `web/src/astronaut/FirstPersonControls.js`: relative capture, pause, Escape and touch controls.
+- `web/src/astronaut/CelestialPosition.js`: topocentric positions, sizes, visibility and orientation of the Earth.
+- `web/src/astronaut/LunarPhysics.js`: Rapier and physics controller.
+- `web/src/astronaut/SurfaceMaterials.js`, `SurfaceGeology.js`, `ProceduralRocks.js`, `MegascansLibrary.js`: photometric model and materials, crater ejecta, rocks, gravel and the owner's assets.
+- `web/src/astronaut/astronaut.test.mjs`: scientific and physics tests.
+- `web/public/data/astronaut/`: catalog, two 5 m crops, native regional DEM, PDS label and transformed ephemerides.
+- `web/public/assets/astronaut/manifest.json`: configuration of models and materials.
+- `web/public/assets/astronaut/sky/earth_2k.jpg`: Earth texture (NASA Blue Marble with synthetic clouds).
+- `web/package.json`, `web/package-lock.json`: dependencies and test command.
+- `web/vite.config.js`: read proxy for public DEMs during development.
+- `tools/prepare_lunar_dem.py`, `prepare_astronaut_ephemeris.py`, `validate_lunar_dem.py`, `requirements-astronaut.txt`: reproducible pipeline and validation.
+- `README.md`, `docs/ASTRONAUT_MODE.md`: access, sources and limits.
 
-Los cambios previos del proyecto se conservan; no se realizan modificaciones en bases de datos ni despliegues.
+Earlier project changes are kept; no database modifications or deployments are made.

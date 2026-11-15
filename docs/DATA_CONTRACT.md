@@ -1,117 +1,117 @@
-# Contrato de datos — Luna entera
+# Data contract: whole Moon
 
-**Versión 0.2 · 2026-11-14**
+**Version 0.2 · 2026-11-14**
 
-Este documento dice **cómo se hace y se entrega cada matriz** para que cada persona
-trabaje por su lado y todo encaje al juntarlo. Si algo no está aquí, se añade aquí antes
-de programarlo.
+This document says **how each matrix is built and delivered** so that everyone can
+work on their own and everything fits when it is put together. If something is not here,
+it is added here before it is coded.
 
-- Esquema de `layer.json`: [`docs/schema/layer.schema.json`](schema/layer.schema.json)
-- Ejemplo: [`docs/examples/layer.example.json`](examples/layer.example.json)
-- Validador: `python tools/validate_layer.py <carpeta_de_la_capa>`
+- `layer.json` schema: [`docs/schema/layer.schema.json`](schema/layer.schema.json)
+- Example: [`docs/examples/layer.example.json`](examples/layer.example.json)
+- Validator: `python tools/validate_layer.py <layer_folder>`
 
-**Cambios respecto a la v0.1:**
-- **Malla:** una sola, la antigua de 10 916 × 5 458 (D1 cerrada).
-- **Tiempo:** se trabaja con medias por periodo.
-- **Trabajos:** cada capa es un trabajo independiente (§7).
-- **Combinación de periodos:** nuevo campo `combine`.
-- **Comunicaciones:** la mejor opción entre comunicación directa con la Tierra y satélite de relevo.
-- **Capas 0–100:** se permiten como capas derivadas opcionales.
-
----
-
-## 1. El modelo en una frase
-
-> **Una malla, una capa por magnitud física, medias por periodo, combinación celda a
-> celda en la web.**
-
-```
- Trabajo T1 ─┐
- Trabajo T2 ─┤   cada uno entrega:              Integración (web)
- Trabajo T3 ─┼─► layers/<id>/layer.json  ──►  puntuación 0–100 celda a celda
-   …         │   layers/<id>/G1K/<periodo>     mapa de calor + puntos calientes
- Trabajo T8 ─┘                                 globo 3D + detalle del polo sur
-```
-
-- Todas las capas usan **la misma malla**: la celda (fila, columna) es el mismo trozo
-  de Luna en todas.
-- Las capas guardan **valores físicos** (fracción 0–1, grados, km, horas…). La
-  puntuación 0–100 la calcula la web con los pesos y límites del usuario.
-- Nadie necesita el trabajo de otro, salvo donde se indica en §7 (los horizontes).
+**Changes from v0.1:**
+- **Grid:** a single one, the old 10,916 × 5,458 grid (D1 closed).
+- **Time:** work is done with per-period means.
+- **Jobs:** each layer is an independent job (§7).
+- **Combining periods:** new `combine` field.
+- **Communications:** the better option between direct-to-Earth communication and a relay satellite.
+- **0–100 layers:** allowed as optional derived layers.
 
 ---
 
-## 2. La malla: `G1K`
+## 1. The model in one sentence
 
-| Campo | Valor |
+> **One grid, one layer per physical quantity, per-period means, cell-by-cell
+> combination in the web app.**
+
+```
+ Job T1 ─┐
+ Job T2 ─┤   each one delivers:             Integration (web)
+ Job T3 ─┼─► layers/<id>/layer.json  ──►  0–100 score cell by cell
+   …     │   layers/<id>/G1K/<period>      heat map + hotspots
+ Job T8 ─┘                                 3D globe + south pole detail
+```
+
+- All layers use **the same grid**: the cell (row, column) is the same piece
+  of the Moon in all of them.
+- Layers store **physical values** (fraction 0–1, degrees, km, hours…). The
+  0–100 score is computed by the web app with the user's weights and limits.
+- Nobody needs anyone else's job, except where §7 says so (the horizons).
+
+---
+
+## 2. The grid: `G1K`
+
+| Field | Value |
 |---|---|
-| Tamaño | **10 916 columnas × 5 458 filas** (59,58 M celdas) |
-| Paso | Δ = 360° / 10 916 = 180° / 5 458 = **0,032979°** |
-| Tamaño de celda | **1,000 km en el ecuador** (circunferencia lunar = 10 916 km); de ancho, 1 km × cos(lat) |
-| Columna `c` | centro en `lon = −180 + (c + 0,5)·Δ` (la columna 0 empieza en −180°) |
-| Fila `r` | centro en `lat = 90 − (r + 0,5)·Δ` (la fila 0 empieza en +90°, el norte) |
-| Orden en el fichero | fila a fila, fila 0 primero, little-endian, sin cabecera |
-| Esfera | radio 1 737,4 km |
-| Marco | `MOON_ME` (el de LOLA). Latitud planetocéntrica, longitud **este** positiva |
+| Size | **10,916 columns × 5,458 rows** (59.58 M cells) |
+| Step | Δ = 360° / 10,916 = 180° / 5,458 = **0.032979°** |
+| Cell size | **1.000 km at the equator** (lunar circumference = 10,916 km); in width, 1 km × cos(lat) |
+| Column `c` | centre at `lon = −180 + (c + 0.5)·Δ` (column 0 starts at −180°) |
+| Row `r` | centre at `lat = 90 − (r + 0.5)·Δ` (row 0 starts at +90°, the north) |
+| Order in the file | row by row, row 0 first, little-endian, no header |
+| Sphere | radius 1,737.4 km |
+| Frame | `MOON_ME` (the LOLA one). Planetocentric latitude, **east** longitude positive |
 
-> ⚠️ **Por confirmar:** el origen de la columna 0 (−180°) y que las coordenadas son el
-> **centro** de la celda. Si vuestra matriz actual usa otro origen (por ejemplo 0°), se
-> cambia aquí **una vez** y lo sigue todo el mundo.
+> ⚠️ **To be confirmed:** the origin of column 0 (−180°) and that the coordinates are the
+> **centre** of the cell. If your current matrix uses a different origin (for example 0°), it is
+> changed here **once** and everyone follows it.
 
-**Cerca de los polos** las celdas se estrechan (120 m de ancho a 83,5°, 17 m a 89°). Es
-normal y se acepta. Dos consecuencias:
-- Para áreas y medias por zonas, cada celda pesa **cos(lat)**.
-- El detalle por fechas del polo sur lo calcula aparte el módulo polar de la web (§8), que
-  también entrega sus capas en `G1K`.
+**Near the poles** the cells get narrower (120 m wide at 83.5°, 17 m at 89°). This is
+normal and accepted. Two consequences:
+- For areas and zone means, each cell weighs **cos(lat)**.
+- The per-date detail of the south pole is computed separately by the web app's polar module (§8), which
+  also delivers its layers in `G1K`.
 
-**Versión para la web (`W4`)**: 1 440 × 720 (0,25° por celda), misma orientación. La
-genera la integración con una media ponderada por área. **Los trabajos solo entregan
+**Web version (`W4`)**: 1,440 × 720 (0.25° per cell), same orientation. It is
+generated by the integration with an area-weighted mean. **Jobs only deliver
 `G1K`.**
 
 ---
 
-## 3. Formato de una capa
+## 3. Layer format
 
-### 3.1 Carpeta
+### 3.1 Folder
 
 ```
 layers/
   sun.visible_fraction.mean/
-    layer.json                 ← en git
-    G1K/2026-2030.f32          ← media de largo plazo
-    G1K/2026-01.u8             ← medias mensuales
+    layer.json                 ← in git
+    G1K/2026-2030.f32          ← long-term mean
+    G1K/2026-01.u8             ← monthly means
     G1K/2026-02.u8
     …
   terrain.slope/
     layer.json
     G1K/static.f32
-  catalog.json                 ← índice de capas (lo mantiene la integración)
+  catalog.json                 ← layer index (kept by the integration)
 ```
 
-- El nombre de fichero es el **id del periodo** (`static` si no depende del tiempo) más
-  la extensión del tipo de dato: `.f32` (Float32), `.i16`, `.u16` o `.u8`.
-- **Binario crudo**, little-endian, fila a fila. Opcional: una copia GeoTIFF para QGIS.
-  El binario es la referencia.
+- The file name is the **period id** (`static` if it does not depend on time) plus
+  the extension of the data type: `.f32` (Float32), `.i16`, `.u16` or `.u8`.
+- **Raw binary**, little-endian, row by row. Optional: a GeoTIFF copy for QGIS.
+  The binary is the reference.
 
-### 3.2 Tipos de dato y tamaños
+### 3.2 Data types and sizes
 
-| Tipo | Bytes por celda | Una matriz G1K | Uso recomendado |
+| Type | Bytes per cell | One G1K matrix | Recommended use |
 |---|---|---|---|
-| Float32 | 4 | 238 MB | Capas fijas y media de largo plazo |
-| UInt16 | 2 | 119 MB | Elevación (−32 768 = sin dato) |
-| UInt8 | 1 | 60 MB | Medias mensuales (fracciones) |
+| Float32 | 4 | 238 MB | Fixed layers and long-term mean |
+| UInt16 | 2 | 119 MB | Elevation (−32,768 = no data) |
+| UInt8 | 1 | 60 MB | Monthly means (fractions) |
 
-Fórmula de los enteros: `valor = entero × scale + offset`, con `scale` y `offset` en
-`layer.json`. Para fracciones 0–1 en UInt8: `scale = 1/254`, `offset = 0`, `nodata = 255`.
+Formula for integers: `value = integer × scale + offset`, with `scale` and `offset` in
+`layer.json`. For 0–1 fractions in UInt8: `scale = 1/254`, `offset = 0`, `nodata = 255`.
 
-**Sin dato:** NaN en Float32; el valor `nodata` en enteros.
+**No data:** NaN in Float32; the `nodata` value in integers.
 
-### 3.3 Dónde se suben
+### 3.3 Where they are uploaded
 
-- **Git:** solo `layer.json` y `catalog.json`.
-- **Binarios** (son grandes): en una *release* de GitHub o en la carpeta compartida del
-  equipo, con la misma estructura de carpetas. La huella SHA-256 del `layer.json`
-  garantiza que el fichero es el correcto.
+- **Git:** only `layer.json` and `catalog.json`.
+- **Binaries** (they are large): in a GitHub *release* or in the team's shared
+  folder, with the same folder structure. The SHA-256 hash in `layer.json`
+  guarantees that the file is the right one.
 
 ### 3.4 `layer.json`
 
@@ -124,9 +124,9 @@ Fórmula de los enteros: `valor = entero × scale + offset`, con `scale` y `offs
   "validRange": [0, 1],
   "kind": "series",
   "combine": "mean",
-  "owner": "Nombre de quien lo hace",
+  "owner": "Name of the person doing it",
   "fidelity": "computed",
-  "method": "Horizonte de T2 + SPICE DE440, MOON_ME, LT+S; observador a 2 m; muestreo horario.",
+  "method": "T2 horizon + SPICE DE440, MOON_ME, LT+S; observer at 2 m; hourly sampling.",
   "sources": [{ "name": "LOLA LDEM_64", "url": "…", "citation": "Smith et al. (2010)" }],
   "periods": { "2026-01": { "start": "2026-01-01T00:00:00Z", "end": "2026-02-01T00:00:00Z" } },
   "files": [{ "grid": "G1K", "period": "2026-01", "path": "G1K/2026-01.u8", "dtype": "uint8",
@@ -134,174 +134,174 @@ Fórmula de los enteros: `valor = entero × scale + offset`, con `scale` y `offs
 }
 ```
 
-- `kind`: `static` (no depende del tiempo), `stat` (una estadística de un periodo) o
-  `series` (una matriz por periodo).
-- `combine`: cómo junta la web varios periodos. `mean` = media ponderada por horas
-  (exacta); `max` = máximo (aproximado); `none` = no se combina.
-- `fidelity`: `validated` (solo si hay una comparación publicada en `validation`),
-  `computed`, `approximate` o `low`.
+- `kind`: `static` (does not depend on time), `stat` (one statistic of a period) or
+  `series` (one matrix per period).
+- `combine`: how the web app joins several periods. `mean` = hour-weighted mean
+  (exact); `max` = maximum (approximate); `none` = not combined.
+- `fidelity`: `validated` (only if there is a published comparison in `validation`),
+  `computed`, `approximate` or `low`.
 
 ---
 
-## 4. Tiempo
+## 4. Time
 
-- Todo en **UTC**, ISO 8601 con `Z`. El final de cada periodo es **exclusivo**.
-- Efemérides: **SPICE DE440** (`de440s.bsp`), `moon_pa_de440_200625.bpc`,
-  `moon_de440_250416.tf`, aberración **`LT+S`**. Sin refracción.
-- Muestreo mínimo: **1 hora**.
-- **Periodos estándar** (todos los trabajos usan los mismos):
+- Everything in **UTC**, ISO 8601 with `Z`. The end of each period is **exclusive**.
+- Ephemerides: **SPICE DE440** (`de440s.bsp`), `moon_pa_de440_200625.bpc`,
+  `moon_de440_250416.tf`, aberration **`LT+S`**. No refraction.
+- Minimum sampling: **1 hour**.
+- **Standard periods** (all jobs use the same ones):
 
-| Id | Desde | Hasta (exclusivo) | Tipo |
+| Id | From | To (exclusive) | Type |
 |---|---|---|---|
-| `2026-2030` | 2026-01-01 | 2031-01-01 | `stat`, media de largo plazo |
-| `2026-01` … `2030-12` | día 1 del mes | día 1 del mes siguiente | `series`, 60 medias mensuales |
+| `2026-2030` | 2026-01-01 | 2031-01-01 | `stat`, long-term mean |
+| `2026-01` … `2030-12` | day 1 of the month | day 1 of the next month | `series`, 60 monthly means |
 
-- **Cómo usa la web una misión:** coge los meses que toca la misión y los combina según
-  `combine`. Por ejemplo, 10 días de marzo y 4 de abril: (10·marzo + 4·abril) / 14.
+- **How the web app uses a mission:** it takes the months the mission touches and combines them according to
+  `combine`. For example, 10 days of March and 4 of April: (10·March + 4·April) / 14.
 
 ---
 
-## 5. Definiciones (iguales para todos)
+## 5. Definitions (the same for everyone)
 
-| Término | Definición |
+| Term | Definition |
 |---|---|
-| **Horizonte** | Mayor elevación angular del terreno en cada acimut, vista desde **2 m** sobre el suelo, con la curvatura de la esfera. **72 acimuts** (cada 5°) como mínimo. |
-| **Sol visible** | Fracción del disco solar por encima del horizonte (0–1), con el radio angular real del Sol. |
-| **Tierra visible** | El centro de la Tierra por encima del horizonte (0 o 1), con paralaje. |
-| **Fracción media** | Media temporal de lo anterior en el periodo, muestreo horario. |
-| **Noche más larga** | Mayor racha continua con Sol visible < 0,05 en el periodo, en horas. |
-| **Contacto DSN** | Tierra visible **y** Luna a ≥ 10° sobre el horizonte de Goldstone, Madrid o Canberra. |
-| **Cobertura de relevo** | Al menos un satélite de la constelación de `params` por encima del horizonte local **y** a ≥ `minElevationDeg`. |
-| **Sombra permanente** | Celda que nunca recibe Sol directo (LOLA LPSR; fuera de sus productos, 0). |
-| **Pendiente** | Grados respecto a la horizontal, con la base de cálculo en `params.baselineM`. |
+| **Horizon** | Highest angular elevation of the terrain at each azimuth, seen from **2 m** above the ground, with the curvature of the sphere. **72 azimuths** (every 5°) at least. |
+| **Visible Sun** | Fraction of the solar disk above the horizon (0–1), with the real angular radius of the Sun. |
+| **Visible Earth** | The centre of the Earth above the horizon (0 or 1), with parallax. |
+| **Mean fraction** | Time mean of the above over the period, hourly sampling. |
+| **Longest night** | Longest continuous run with visible Sun < 0.05 in the period, in hours. |
+| **DSN contact** | Visible Earth **and** Moon at ≥ 10° above the horizon of Goldstone, Madrid or Canberra. |
+| **Relay coverage** | At least one satellite of the constellation in `params` above the local horizon **and** at ≥ `minElevationDeg`. |
+| **Permanent shadow** | Cell that never receives direct Sun (LOLA LPSR; outside its products, 0). |
+| **Slope** | Degrees from the horizontal, with the calculation baseline in `params.baselineM`. |
 
 ---
 
-## 6. Capas derivadas 0–100 (opcionales)
+## 6. Derived 0–100 layers (optional)
 
-Si a alguien le resulta útil trabajar con una nota de 0 a 100 por factor, puede entregarla
-**además** de la capa física, nunca en su lugar:
+If someone finds it useful to work with a 0 to 100 mark per factor, they can deliver it
+**in addition to** the physical layer, never instead of it:
 
-- id: `suitability.<factor>` (por ejemplo `suitability.slope`), UInt8, 0–100.
-- En `layer.json`, `params.derivedFrom` (id de la capa física) y `params.function` (la
-  fórmula exacta, por ejemplo `"100 * max(0, 1 - slope_deg / 15)"`).
-- La web puede usarlas para una vista rápida, pero la puntuación oficial se calcula desde
-  la capa física, porque los límites los elige el usuario.
+- id: `suitability.<factor>` (for example `suitability.slope`), UInt8, 0–100.
+- In `layer.json`, `params.derivedFrom` (id of the physical layer) and `params.function` (the
+  exact formula, for example `"100 * max(0, 1 - slope_deg / 15)"`).
+- The web app can use them for a quick view, but the official score is computed from
+  the physical layer, because the limits are chosen by the user.
 
 ---
 
-## 7. Trabajos (cada uno se puede hacer por separado)
+## 7. Jobs (each one can be done separately)
 
-Prioridad: **P0** imprescindible · **P1** muy recomendable · **P2** si da tiempo.
+Priority: **P0** essential · **P1** strongly recommended · **P2** if there is time.
 
-### T1 · Terreno — P0
-- **Entrega:** `terrain.elevation` (m, static, UInt16 con `scale` 0,5 u Float32) y
+### T1 · Terrain · P0
+- **Delivers:** `terrain.elevation` (m, static, UInt16 with `scale` 0.5 or Float32) and
   `terrain.slope` (°, static, Float32).
-- **Datos:** LOLA **LDEM_64** global (NASA PDS, `lola_gdr/cylindrical/`).
-- **Cómo:** remuestrear LDEM_64 a G1K (media por área); pendiente a partir de la elevación
-  con base de ~1 km (`params.baselineM`).
-- **Prueba:** Shackleton (89,67°S 129,78°E) < −2 000 m; Mons Mouton (85,43°S 31,83°E)
-  > +5 000 m.
-- **Depende de:** nada.
+- **Data:** global LOLA **LDEM_64** (NASA PDS, `lola_gdr/cylindrical/`).
+- **How:** resample LDEM_64 to G1K (area mean); slope from the elevation
+  with a baseline of ~1 km (`params.baselineM`).
+- **Test:** Shackleton (89.67°S 129.78°E) < −2,000 m; Mons Mouton (85.43°S 31.83°E)
+  > +5,000 m.
+- **Depends on:** nothing.
 
-### T2 · Horizontes — P0 (producto intermedio, no se publica en la web)
-- **Entrega:** horizonte de cada celda, 72 acimuts, UInt8 con 0,1° por paso
-  (`grados = q·0,1 − 5`). Unos 4,3 GB: se comparte solo con T3, T4 y T5.
-- **Datos:** LOLA LDEM_64 (o la salida de T1).
-- **Cómo:** trazar rayos sobre el relieve con la curvatura incluida. El método está en
-  `pipeline/moonsite/horizon.py`, que se puede reutilizar.
-- **Depende de:** nada (o T1).
+### T2 · Horizons · P0 (intermediate product, not published in the web app)
+- **Delivers:** horizon of each cell, 72 azimuths, UInt8 with 0.1° per step
+  (`degrees = q·0.1 − 5`). About 4.3 GB: shared only with T3, T4 and T5.
+- **Data:** LOLA LDEM_64 (or the output of T1).
+- **How:** trace rays over the relief with the curvature included. The method is in
+  `pipeline/moonsite/horizon.py`, which can be reused.
+- **Depends on:** nothing (or T1).
 
-### T3 · Luz — P0
-- **Entrega:** `sun.visible_fraction.mean` (`series` mensual UInt8 + `stat` 2026–2030
-  Float32, `combine: mean`) y `sun.longest_night_h.max` (`series`, `combine: max`).
-- **Datos:** T2 + SPICE (Sol cada hora).
-- **Validación:** comparar con LOLA AVGVISIB en 65–90° de latitud y anotar la diferencia
-  en `validation`.
-- **Prueba:** 0°N 0°E entre 0,40 y 0,55 en el periodo largo.
-- **Depende de:** T2.
+### T3 · Light · P0
+- **Delivers:** `sun.visible_fraction.mean` (monthly `series` UInt8 + `stat` 2026–2030
+  Float32, `combine: mean`) and `sun.longest_night_h.max` (`series`, `combine: max`).
+- **Data:** T2 + SPICE (Sun every hour).
+- **Validation:** compare with LOLA AVGVISIB at 65–90° latitude and record the difference
+  in `validation`.
+- **Test:** 0°N 0°E between 0.40 and 0.55 in the long period.
+- **Depends on:** T2.
 
-### T4 · Tierra y DSN — P0 / P1
-- **Entrega:** `earth.visible_fraction.mean` (P0) y `earth.dsn_fraction.mean` (P1), ambas
+### T4 · Earth and DSN · P0 / P1
+- **Delivers:** `earth.visible_fraction.mean` (P0) and `earth.dsn_fraction.mean` (P1), both
   `series` + `stat`, `combine: mean`.
-- **Datos:** T2 + SPICE (Tierra cada hora) + estaciones DSN (documento DSN 810-005).
-- **Prueba:** 0°N 0°E > 0,95; 0°N 180°E < 0,05.
-- **Depende de:** T2.
+- **Data:** T2 + SPICE (Earth every hour) + DSN stations (DSN document 810-005).
+- **Test:** 0°N 0°E > 0.95; 0°N 180°E < 0.05.
+- **Depends on:** T2.
 
-### T5 · Satélites de relevo — P1
-- **Entrega:** `relay.coverage_fraction.mean` (`series` + `stat`, `combine: mean`) y
+### T5 · Relay satellites · P1
+- **Delivers:** `relay.coverage_fraction.mean` (`series` + `stat`, `combine: mean`) and
   `relay.max_gap_h` (`series`, `combine: max`).
-- **Datos:** órbitas de la constelación elegida (elementos orbitales y fecha en `params`,
-  con la fuente citada) + T2 para el horizonte. Si se hace sin T2 (horizonte liso), marcar
+- **Data:** orbits of the chosen constellation (orbital elements and date in `params`,
+  with the source cited) + T2 for the horizon. If it is done without T2 (flat horizon), mark
   `fidelity: approximate`.
-- **Depende de:** T2 (recomendado).
+- **Depends on:** T2 (recommended).
 
-### T6 · Sombra permanente y hielo — P0 / P1
-- **Entrega:** `sun.psr_mask` (fracción, static, P0), `ice.psr_distance_km` (km, static,
+### T6 · Permanent shadow and ice · P0 / P1
+- **Delivers:** `sun.psr_mask` (fraction, static, P0), `ice.psr_distance_km` (km, static,
   P0), `ice.hydrogen_ppm` (static, P2).
-- **Datos:** LOLA **LPSR** (productos de 65°S y 65°N, NASA PDS; fuera de ellos, 0) y
-  Lunar Prospector Neutron Spectrometer (NASA PDS) para el hidrógeno.
-- **Depende de:** nada.
+- **Data:** LOLA **LPSR** (65°S and 65°N products, NASA PDS; outside them, 0) and
+  Lunar Prospector Neutron Spectrometer (NASA PDS) for the hydrogen.
+- **Depends on:** nothing.
 
-### T7 · Temperatura y rocas — P2
-- **Entrega:** `thermal.max_temp_k`, `thermal.min_temp_k`, `terrain.rock_abundance`.
-- **Datos:** LRO **Diviner** (NASA PDS; rocas: Bandfield et al. 2011).
-- **Depende de:** nada.
+### T7 · Temperature and rocks · P2
+- **Delivers:** `thermal.max_temp_k`, `thermal.min_temp_k`, `terrain.rock_abundance`.
+- **Data:** LRO **Diviner** (NASA PDS; rocks: Bandfield et al. 2011).
+- **Depends on:** nothing.
 
-### T8 · Ciencia — P1
-- **Entrega:** `science.region_mask` (id de región, static, UInt8) + una tabla
-  `science_regions.json` con el nombre, el motivo y la fuente de cada región.
-- **Datos:** regiones Artemis III (NASA, 2024), cuenca Aitken (SPA), sitios de alunizaje
+### T8 · Science · P1
+- **Delivers:** `science.region_mask` (region id, static, UInt8) + a table
+  `science_regions.json` with the name, the reason and the source of each region.
+- **Data:** Artemis III regions (NASA, 2024), Aitken basin (SPA), landing sites
   (LROC, Wagner et al. 2017)…
-- **Depende de:** nada.
+- **Depends on:** nothing.
 
-### Integración — este repositorio
-- `W4` para la web, puntuación, mapa de calor, puntos calientes, globo 3D, módulo polar y
+### Integration: this repository
+- `W4` for the web app, score, heat map, hotspots, 3D globe, polar module and
   `catalog.json`.
-- **Comunicaciones en la puntuación** = la mejor opción entre `earth.visible_fraction`
-  (directo) y `relay.coverage_fraction` (relevo). La cara oculta **no se quita**: sin
-  relevo, su comunicación directa es 0, y es correcto. Un interruptor "Require
-  direct-to-Earth contact" permite descartar esas zonas cuando la misión no tenga relevo.
+- **Communications in the score** = the better option between `earth.visible_fraction`
+  (direct) and `relay.coverage_fraction` (relay). The far side **is not removed**: without
+  a relay, its direct communication is 0, and that is correct. A "Require
+  direct-to-Earth contact" switch lets those zones be discarded when the mission has no relay.
 
 ---
 
-## 8. Módulo polar (interno de la web)
+## 8. Polar module (internal to the web app)
 
-Para el **detalle por fechas** del polo sur (mejor hora de aterrizaje, cuenta atrás hasta
-la puesta de Sol, vista 3D en una fecha), la web usa una malla interna estereográfica de
-400 × 400 km a 1 km, con horizontes y efemérides horarias. **No forma parte de ningún
-trabajo**: ya está hecha y validada contra JPL Horizons. Sus capas se entregan también
-convertidas a `G1K` para que solo exista una malla hacia fuera.
+For the **per-date detail** of the south pole (best landing hour, countdown to
+sunset, 3D view on a date), the web app uses an internal stereographic grid of
+400 × 400 km at 1 km, with horizons and hourly ephemerides. **It is not part of any
+job**: it is already done and validated against JPL Horizons. Its layers are also delivered
+converted to `G1K` so that only one grid exists towards the outside.
 
 ---
 
-## 9. Pruebas de aceptación (las hace el validador)
+## 9. Acceptance tests (run by the validator)
 
-1. **Campos:** los obligatorios de `layer.json` y el id con formato `<dominio>.<magnitud>[.<estadística>]`.
-2. **Tamaño:** filas × columnas × bandas × bytes del tipo (G1K: 10 916 × 5 458).
-3. **Huella:** SHA-256 = `files[].sha256`.
-4. **Rango:** todos los valores (salvo los que no tienen dato) dentro de `validRange`.
-5. **Orientación** con puntos conocidos (un mapa girado o reflejado falla aquí):
+1. **Fields:** the required ones in `layer.json` and the id in the format `<domain>.<quantity>[.<statistic>]`.
+2. **Size:** rows × columns × bands × bytes of the type (G1K: 10,916 × 5,458).
+3. **Hash:** SHA-256 = `files[].sha256`.
+4. **Range:** all values (except those with no data) within `validRange`.
+5. **Orientation** with known points (a rotated or mirrored map fails here):
 
-| Capa | Punto | Esperado |
+| Layer | Point | Expected |
 |---|---|---|
-| `terrain.elevation` | Shackleton, 89,67°S 129,78°E | < −2 000 m |
-| `terrain.elevation` | Mons Mouton, 85,43°S 31,83°E | > +5 000 m |
-| `earth.visible_fraction.mean` | 0°N 0°E (cara visible) | > 0,95 |
-| `earth.visible_fraction.mean` | 0°N 180°E (cara oculta) | < 0,05 |
-| `sun.visible_fraction.mean` (periodo ≥ 1 año) | 0°N 0°E | 0,40 – 0,55 |
+| `terrain.elevation` | Shackleton, 89.67°S 129.78°E | < −2,000 m |
+| `terrain.elevation` | Mons Mouton, 85.43°S 31.83°E | > +5,000 m |
+| `earth.visible_fraction.mean` | 0°N 0°E (near side) | > 0.95 |
+| `earth.visible_fraction.mean` | 0°N 180°E (far side) | < 0.05 |
+| `sun.visible_fraction.mean` (period ≥ 1 year) | 0°N 0°E | 0.40 – 0.55 |
 
 ---
 
-## 10. Decisiones
+## 10. Decisions
 
-| # | Decisión | Estado |
+| # | Decision | Status |
 |---|---|---|
-| D1 | Malla global | **Cerrada:** 10 916 × 5 458 (`G1K`) |
-| D2 | Origen de la columna 0 y centro de celda | **Por confirmar** (supuesto: −180° y centro) |
-| D3 | Periodos | **Cerrada:** mensuales 2026–2030 + media 2026–2030 |
-| D4 | Constelación de relevo | **Pendiente** (T5) |
-| D5 | Una sola malla hacia fuera | **Cerrada:** solo `G1K`; el módulo polar es interno |
-| D6 | Cara oculta | **Cerrada:** se mantiene; comunicación = mejor opción entre directo y relevo |
+| D1 | Global grid | **Closed:** 10,916 × 5,458 (`G1K`) |
+| D2 | Origin of column 0 and cell centre | **To be confirmed** (assumption: −180° and centre) |
+| D3 | Periods | **Closed:** monthly 2026–2030 + 2026–2030 mean |
+| D4 | Relay constellation | **Pending** (T5) |
+| D5 | A single grid towards the outside | **Closed:** only `G1K`; the polar module is internal |
+| D6 | Far side | **Closed:** it is kept; communication = better option between direct and relay |
 
-Cambios a este contrato: por pull request, subiendo la versión y anotando qué cambia.
+Changes to this contract: by pull request, raising the version and noting what changes.

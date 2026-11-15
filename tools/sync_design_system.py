@@ -106,17 +106,17 @@ def main() -> None:
     (OUT / "SOURCE.md").write_text(
         f"""# Design system: Lunar Horizon
 
-Estos ficheros vienen del design system **compartido** por el equipo (no de una copia):
+These files come from the design system **shared** by the team (not from a copy):
 {SOURCE_URL}
 
-- Versión del artifact: `{args.version}`
-- Sincronizado: {now}
-- `tokens.css` se genera desde `tokens.json`; `bundle.css` y `bundle.js` se copian tal cual.
+- Artifact version: `{args.version}`
+- Synced: {now}
+- `tokens.css` is generated from `tokens.json`; `bundle.css` and `bundle.js` are copied as they are.
 
-No los editéis a mano: si el design system cambia, volved a sincronizar con
-`python tools/sync_design_system.py <carpeta>`.
+Do not edit them by hand: if the design system changes, sync again with
+`python tools/sync_design_system.py <folder>`.
 
-| Fichero de origen | SHA-256 |
+| Source file | SHA-256 |
 |---|---|
 {rows}
 """,
