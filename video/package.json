@@ -1,0 +1,39 @@
+{
+  "name": "mare-hackematis-film",
+  "version": "1.0.0",
+  "description": "Demo film for Mare Hackematis (NASA Space Apps 2026), built with Remotion",
+  "repository": {},
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.543",
+    "@remotion/media": "4.0.543",
+    "@remotion/transitions": "4.0.543",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.543"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.543",
+    "@types/react": "19.3.0",
+    "@types/web": "0.0.166",
+    "eslint": "10.12.0",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "capture": "node capture/01-timing.mjs && node capture/02-stills.mjs && node capture/04-scoring.mjs && node capture/05-reach-stills.mjs && node capture/03-astronaut.mjs",
+    "assets": "node capture/build-assets.mjs",
+    "music": "python3 audio/score.py",
+    "srt": "node capture/export-srt.mjs deliverables/mare-hackematis-30s.srt",
+    "render": "remotion render src/index.ts Submission deliverables/mare-hackematis-30s.mp4 --audio-codec=aac --audio-bitrate=320k",
+    "lint": "eslint src && tsc"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}

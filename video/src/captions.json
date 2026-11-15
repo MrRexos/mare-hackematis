@@ -1,0 +1,116 @@
+{
+  "fps": 30,
+  "durationInFrames": 900,
+  "scenes": [
+    {
+      "id": "hook",
+      "from": 0,
+      "duration": 90
+    },
+    {
+      "id": "plan",
+      "from": 90,
+      "duration": 120
+    },
+    {
+      "id": "score",
+      "from": 210,
+      "duration": 150
+    },
+    {
+      "id": "answer",
+      "from": 360,
+      "duration": 120
+    },
+    {
+      "id": "compare",
+      "from": 480,
+      "duration": 90
+    },
+    {
+      "id": "astronaut",
+      "from": 570,
+      "duration": 120
+    },
+    {
+      "id": "reach",
+      "from": 690,
+      "duration": 75
+    },
+    {
+      "id": "trust",
+      "from": 765,
+      "duration": 75
+    },
+    {
+      "id": "end",
+      "from": 840,
+      "duration": 60
+    }
+  ],
+  "captions": [
+    {
+      "from": 6,
+      "to": 90,
+      "place": "scene",
+      "text": "The launch date just slipped. Where on the Moon do you land now?"
+    },
+    {
+      "from": 90,
+      "to": 210,
+      "text": "Tell it where, when and what matters."
+    },
+    {
+      "from": 210,
+      "to": 285,
+      "text": "Sun and Earth, checked against the real LOLA horizon.",
+      "sub": "Time-lapse of the real computation."
+    },
+    {
+      "from": 285,
+      "to": 360,
+      "text": "160,000 km², hour by hour. Scored in 15 s, in the browser.",
+      "sub": "Measured: 14.8 s on 4 CPU cores, no GPU."
+    },
+    {
+      "from": 360,
+      "to": 414,
+      "text": "The best site, with its best landing window."
+    },
+    {
+      "from": 414,
+      "to": 480,
+      "text": "Sunlight left. Next night. When the Earth sets."
+    },
+    {
+      "from": 480,
+      "to": 570,
+      "text": "Side by side with the Artemis III candidate regions."
+    },
+    {
+      "from": 580,
+      "to": 648,
+      "place": "scene",
+      "text": "Then walk the site at 1:1 scale.",
+      "sub": "LOLA 240 m relief. Smaller craters and rocks are generated."
+    },
+    {
+      "from": 690,
+      "to": 765,
+      "text": "South Pole. North Pole. Whole Moon."
+    },
+    {
+      "from": 767,
+      "to": 840,
+      "place": "scene",
+      "text": "Checked against JPL Horizons: within 0.002 arcminutes.",
+      "sub": "Sun and Earth azimuth and elevation, 726 comparisons at 3 sites."
+    },
+    {
+      "from": 842,
+      "to": 900,
+      "place": "scene",
+      "text": "Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026."
+    }
+  ]
+}

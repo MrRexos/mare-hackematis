@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# Renders in progress and test frames. The finished film is in deliverables/.
+out
+
+# Capture masters: large PNGs made by capture/*.mjs. public/app holds the
+# re-encoded files the film loads.
+capture/masters
+__pycache__

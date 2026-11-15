@@ -1,0 +1,47 @@
+1
+00:00:00,200 --> 00:00:03,000
+The launch date just slipped. Where on the Moon do you land now?
+
+2
+00:00:03,000 --> 00:00:07,000
+Tell it where, when and what matters.
+
+3
+00:00:07,000 --> 00:00:09,500
+Sun and Earth, checked against the real LOLA horizon.
+Time-lapse of the real computation.
+
+4
+00:00:09,500 --> 00:00:12,000
+160,000 km², hour by hour. Scored in 15 s, in the browser.
+Measured: 14.8 s on 4 CPU cores, no GPU.
+
+5
+00:00:12,000 --> 00:00:13,800
+The best site, with its best landing window.
+
+6
+00:00:13,800 --> 00:00:16,000
+Sunlight left. Next night. When the Earth sets.
+
+7
+00:00:16,000 --> 00:00:19,000
+Side by side with the Artemis III candidate regions.
+
+8
+00:00:19,333 --> 00:00:21,600
+Then walk the site at 1:1 scale.
+LOLA 240 m relief. Smaller craters and rocks are generated.
+
+9
+00:00:23,000 --> 00:00:25,500
+South Pole. North Pole. Whole Moon.
+
+10
+00:00:25,567 --> 00:00:28,000
+Checked against JPL Horizons: within 0.002 arcminutes.
+Sun and Earth azimuth and elevation, 726 comparisons at 3 sites.
+
+11
+00:00:28,067 --> 00:00:30,000
+Mare Hackematis, by Hackemate. NASA Space Apps Challenge 2026.

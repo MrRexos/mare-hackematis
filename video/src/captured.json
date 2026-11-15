@@ -1,0 +1,356 @@
+{
+  "scoring": {
+    "seconds": 14.8,
+    "runs": [
+      14.64,
+      15.23,
+      14.82
+    ],
+    "cores": 4,
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "browser": "Chromium (Playwright, headless), software WebGL, no GPU",
+    "workers": 3,
+    "note": "Time from pressing Explore to the ranking on screen, median of the runs."
+  },
+  "plan": {
+    "destination": "South Pole",
+    "from": "2026-12-01",
+    "to": "2027-03-01",
+    "days": 14,
+    "profile": "Balanced",
+    "shown": [
+      "South Pole",
+      "Custom range · 14 days",
+      "Balanced"
+    ]
+  },
+  "best": {
+    "name": "Hotspot 01",
+    "coords": "84.86°S 28.13°E",
+    "score": 85,
+    "window": "Dec 14 → Dec 28"
+  },
+  "candidates": [
+    {
+      "name": "Hotspot 02",
+      "score": 82
+    },
+    {
+      "name": "Hotspot 03",
+      "score": 81
+    },
+    {
+      "name": "Hotspot 04",
+      "score": 81
+    },
+    {
+      "name": "Hotspot 05",
+      "score": 81
+    },
+    {
+      "name": "Hotspot 06",
+      "score": 80
+    },
+    {
+      "name": "Hotspot 07",
+      "score": 80
+    },
+    {
+      "name": "Hotspot 08",
+      "score": 80
+    },
+    {
+      "name": "Hotspot 09",
+      "score": 80
+    },
+    {
+      "name": "Hotspot 10",
+      "score": 80
+    }
+  ],
+  "references": [
+    {
+      "name": "Nobile Rim 2",
+      "score": 81,
+      "window": "Jan 10 → Jan 24"
+    },
+    {
+      "name": "Mons Mouton Plateau",
+      "score": 80
+    },
+    {
+      "name": "Mons Mouton",
+      "score": 79
+    },
+    {
+      "name": "Haworth",
+      "score": 79
+    },
+    {
+      "name": "Nobile Rim 1",
+      "score": 78
+    },
+    {
+      "name": "Malapert Massif",
+      "score": 76
+    },
+    {
+      "name": "de Gerlache Rim 2",
+      "score": 73
+    },
+    {
+      "name": "Peak near Cabeus B",
+      "score": 70
+    }
+  ],
+  "compare": {
+    "head": "04 — 4 of 4 sites · South Pole",
+    "sites": [
+      "HS1",
+      "NR2",
+      "MMP",
+      "MM2"
+    ]
+  },
+  "site": {
+    "windowStart": "2026-12-14 23:00",
+    "windowEnd": "2026-12-28 23:00",
+    "sunAtLanding": "az 82.0° · el 2.1°",
+    "earthAtLanding": "az 326.1° · el 4.5°",
+    "crossCheck": "JPL Horizons · ≤ 0.002′",
+    "sunlightLeft": "15 d 4 h left",
+    "nextNight": "Dec 30",
+    "earthSets": "Dec 29 18:00"
+  },
+  "rects": {
+    "plannerEditor": {
+      "x": 521,
+      "y": 248,
+      "w": 560,
+      "h": 247
+    },
+    "plannerTitle": {
+      "x": 52,
+      "y": 248,
+      "w": 449,
+      "h": 182
+    },
+    "plannerEditorWhen": {
+      "x": 521,
+      "y": 248,
+      "w": 560,
+      "h": 392
+    },
+    "plannerEditorHow": {
+      "x": 521,
+      "y": 248,
+      "w": 560,
+      "h": 447
+    },
+    "plannerChoices": {
+      "x": 521,
+      "y": 334,
+      "w": 1399,
+      "h": 182
+    },
+    "map": {
+      "x": 100,
+      "y": 80,
+      "w": 1435,
+      "h": 988
+    },
+    "rank": {
+      "x": 1547,
+      "y": 80,
+      "w": 361,
+      "h": 988
+    },
+    "best": {
+      "x": 1547,
+      "y": 170,
+      "w": 361,
+      "h": 298
+    },
+    "rankList": {
+      "x": 1547,
+      "y": 480,
+      "w": 361,
+      "h": 588
+    },
+    "missionChip": {
+      "x": 1431,
+      "y": 20,
+      "w": 477,
+      "h": 40
+    },
+    "readout": {
+      "x": 120,
+      "y": 146,
+      "w": 290,
+      "h": 129
+    },
+    "tray": {
+      "x": 550,
+      "y": 1004,
+      "w": 535,
+      "h": 44
+    },
+    "cmpWhy": {
+      "x": 100,
+      "y": 214,
+      "w": 652,
+      "h": 376
+    },
+    "cmpTable": {
+      "x": 764,
+      "y": 214,
+      "w": 1144,
+      "h": 376
+    },
+    "cmpMonths": {
+      "x": 100,
+      "y": 602,
+      "w": 1808,
+      "h": 261
+    },
+    "overview": {
+      "Best landing window": {
+        "x": 100,
+        "y": 164,
+        "w": 1184,
+        "h": 304
+      },
+      "Sky at landing": {
+        "x": 1296,
+        "y": 164,
+        "w": 612,
+        "h": 304
+      },
+      "Properties": {
+        "x": 100,
+        "y": 480,
+        "w": 1171,
+        "h": 209
+      },
+      "Dark & outages": {
+        "x": 1283,
+        "y": 480,
+        "w": 625,
+        "h": 209
+      },
+      "Good days": {
+        "x": 100,
+        "y": 701,
+        "w": 1184,
+        "h": 636
+      },
+      "Ground data": {
+        "x": 1296,
+        "y": 701,
+        "w": 612,
+        "h": 636
+      },
+      "At a glance": {
+        "x": 100,
+        "y": 1349,
+        "w": 918,
+        "h": 195
+      },
+      "Data": {
+        "x": 1030,
+        "y": 1349,
+        "w": 878,
+        "h": 195
+      }
+    },
+    "sky": {
+      "SUNLIGHT": {
+        "x": 100,
+        "y": 164,
+        "w": 443,
+        "h": 132
+      },
+      "NEXT NIGHT": {
+        "x": 555,
+        "y": 164,
+        "w": 443,
+        "h": 132
+      },
+      "EARTH SETS": {
+        "x": 1010,
+        "y": 164,
+        "w": 443,
+        "h": 132
+      },
+      "BEST LANDING": {
+        "x": 1465,
+        "y": 164,
+        "w": 443,
+        "h": 132
+      },
+      "Next 2 weeks": {
+        "x": 100,
+        "y": 308,
+        "w": 1808,
+        "h": 196
+      },
+      "Where to look": {
+        "x": 100,
+        "y": 516,
+        "w": 898,
+        "h": 317
+      },
+      "Events": {
+        "x": 1010,
+        "y": 516,
+        "w": 898,
+        "h": 317
+      },
+      "SELECTED · UTC": {
+        "x": 100,
+        "y": 845,
+        "w": 1808,
+        "h": 72
+      }
+    }
+  },
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "deviceScaleFactor": 2
+  },
+  "reach": {
+    "north": {
+      "best": {
+        "name": "Hotspot 01",
+        "coords": "81.66°N 309.88°E",
+        "score": 83,
+        "window": "Jan 20 → Feb 3"
+      },
+      "chip": "Dec 1 2026 → Mar 1 2027 14-day mission Lander 2 m · UTC",
+      "rankings": [
+        "Calculated candidates 10",
+        "Named craters 9"
+      ]
+    },
+    "moon": {
+      "best": {
+        "name": "Hotspot 01",
+        "coords": "85.25°N 119.75°W",
+        "score": 63,
+        "window": "Dec 1 → Dec 15"
+      },
+      "chip": "Dec 1 2026 → Dec 15 2026 14-day mission Lander 2 m · UTC",
+      "rankings": [
+        "Calculated candidates 10",
+        "Apollo references 6"
+      ]
+    }
+  },
+  "scoringClip": {
+    "realSeconds": 17.1,
+    "speed": 6.84,
+    "frames": 43,
+    "arrivalFilmFrame": 75
+  }
+}
