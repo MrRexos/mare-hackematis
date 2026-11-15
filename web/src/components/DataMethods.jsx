@@ -49,7 +49,7 @@ const DATA = {
     ["Temperature", <A key="s" href={LINK.gcp}>Diviner GCP</A>, "Surface temperature at each hour of the lunar day", "0.5°", "m"],
     ["Water", <A key="s" href={LINK.prospector}>Lunar Prospector</A>, "Hydrogen turned into water; signal only above 70°", "60–150 km", "m"],
     SUN_EARTH,
-    ["Places", "NASA NSSDCA", "The six Apollo landing sites", "LM position", "ref"],
+    ["Places", "NASA NSSDCA", "Apollo missions: Apollo 11, 12, 14, 15, 16 and 17 landing sites (Apollo 11 also has its flag in Astronaut Mode)", "LM position", "ref"],
   ],
 };
 
