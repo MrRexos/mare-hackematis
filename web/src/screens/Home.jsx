@@ -4,14 +4,15 @@ import { presetOf } from "../engine/score.js";
 import MissionTiming, { lengthLong, timingLabel } from "../ui/MissionTiming.jsx";
 import MissionOptions from "../ui/MissionOptions.jsx";
 import MissionWeights from "../ui/MissionWeights.jsx";
+import MoonZone from "../ui/MoonZone.jsx";
 
 /** La Luna entera se activa cuando existen sus datos globales (web/public/data/global). */
-const destinations = (moonReady) => DESTINATIONS.map((d) => (d.value === "moon" && moonReady ? { value: "moon", label: "Whole Moon" } : d));
+const destinations = (moonReady) => DESTINATIONS.map((d) => (d.value === "moon" && moonReady ? { ...d, disabled: false, note: null } : d));
 
 const DESTINATIONS = [
-  { value: "south", label: "South Pole" },
-  { value: "north", label: "North Pole", disabled: true, note: "Not available yet" },
-  { value: "moon", label: "Whole Moon", disabled: true, note: "Not available yet" },
+  { value: "south", label: "South Pole", icon: <MoonZone zone="south" /> },
+  { value: "north", label: "North Pole", icon: <MoonZone zone="north" />, disabled: true, note: "Not available yet" },
+  { value: "moon", label: "Whole Moon", icon: <MoonZone zone="moon" />, disabled: true, note: "Not available yet" },
 ];
 const STEPS = [
   { id: "where", label: "Where", title: <>Where<br />will you<br />land?</> },
