@@ -15,6 +15,7 @@ import { ROUGH_MAX_M, presetOf } from "../engine/score.js";
 const MoonGlobe = lazy(() => import("../components/MoonGlobe.jsx"));
 
 import { paletteOf, rampCss } from "../engine/globalRamps.js";
+import LayerScale from "../components/LayerScale.jsx";
 import { GLOBAL_FACTORS, TEMP_BAND, WATER_FULL_WT_PCT, cellLatLon, fmtLatLon } from "../engine/globalScore.js";
 
 const PDS = "https://pds-geosciences.wustl.edu/lro/";
@@ -26,7 +27,7 @@ const percent = (v) => `${Math.round(v * 100)}%`;
 /** Capas del mapa, con el mismo formato que las del polo sur (data/mapLayers.js). `key` = dato en G.L. */
 const LAYERS = {
   score: {
-    label: "Mission score", short: "Score", ramp: "score", palette: "score", legend: ["Lower", "Higher"], format: (v) => `${Math.round(v)}/100`,
+    label: "Mission score", short: "Score", ramp: "score", palette: "score", legendOf: (lo, hi) => [`${Math.round(lo)}`, `${Math.round(hi)}`], format: (v) => `${Math.round(v)}/100`,
     description: "Suitability from 0 to 100, computed from the six weighted mission factors. The active limits can exclude a cell from the map.",
     sources: [],
   },
@@ -171,7 +172,8 @@ export default function GlobalExplore({ app }) {
     </div>
   );
   /** Leyenda desplegable de una capa. */
-  const legend = (ly, ends, isScore) => (
+  const legend = (ly, ends, isScore) => (<>
+    <LayerScale layer={ly} ends={ends} note={isScore ? "No colour: left out by your limits" : null} />
     <details className="overlay map-legend">
       <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
       <div className="overlay legend__pop">
@@ -185,6 +187,7 @@ export default function GlobalExplore({ app }) {
         {isScore ? <div className="legend__row">Cells left out by your limits have no colour</div> : null}
       </div>
     </details>
+  </>
   );
 
   const places = spots.map((s) => G.placeOf(s.p));

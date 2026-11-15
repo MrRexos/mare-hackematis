@@ -5,6 +5,7 @@ import iceDetections from "../data/iceDetections.json";
 import { formatLatLon, pixelXY, xyToLatLon } from "../engine/geometry.js";
 import { Icon, IconBtn, Shape, cx } from "../ui/kit.jsx";
 import { paletteOf, rampCss } from "../engine/globalRamps.js";
+import LayerScale from "./LayerScale.jsx";
 
 function SourceLink({ href, children }) {
   return <a href={href} target="_blank" rel="noreferrer">{children}<Icon name="external-link" size={12} /></a>;
@@ -69,6 +70,7 @@ export default function MapControls({ activeLayer, onLayer, layerKeys, legendEnd
         </div>
         {children}
       </div>
+      <LayerScale layer={layer} ends={legendEnds} note={layer.ramp === "shadow" ? "Hatched: over 50% permanent shadow" : null} />
       <details className="overlay map-legend">
         <summary aria-label="Map legend" title="Map legend"><Icon name="layers" size={17} /></summary>
         <div className="overlay legend__pop">
