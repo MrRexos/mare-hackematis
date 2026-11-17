@@ -12,7 +12,7 @@ Built by **Team Hackemate** for the **NASA Space Apps Challenge 2026**, it bring
 
 ## Demo
 
-https://github.com/user-attachments/assets/54630b86-9a3c-42d4-a2e4-9d569fce97f0
+https://github.com/user-attachments/assets/b53d5b4e-047f-48d9-bf49-6c092c4806aa
 
 [Watch or download the original 1080p video](docs/media/MareHackematis.mp4) · 30 seconds
 
@@ -65,7 +65,7 @@ Compare candidate sites side by side, review each scoring factor and see how dif
 - **LROC WAC:** photographic lunar imagery.
 - **JPL Horizons:** reference comparisons for the ephemeris validation pipeline.
 
-The app combines these sources into explainable scores rather than a single fixed ranking. Data resolution and available layers vary by region; see the [architecture and sources](docs/ARCHITECTURE.md) and [Astronaut Mode documentation](docs/ASTRONAUT_MODE.md) for the methods and scientific limits.
+The app combines these sources into explainable scores that respond to the selected mission. Data resolution and available layers vary by region; see the [architecture and sources](docs/ARCHITECTURE.md) and [Astronaut Mode documentation](docs/ASTRONAUT_MODE.md) for the methods and scientific limits.
 
 ## Run locally
 
