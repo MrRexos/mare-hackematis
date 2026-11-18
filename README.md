@@ -8,7 +8,7 @@ Mare Hackematis turns lunar data into an interactive mission plan. Choose where 
 
 Built by **Team Hackemate** for the **NASA Space Apps Challenge 2026**, it brings mission planning and immersive exploration together in a static web app. Mission calculations run in your browser, using terrain and observation data from NASA and ephemerides from NASA/JPL.
 
-[Watch the demo](#demo) · [Explore the features](#from-mission-plan-to-lunar-surface) · [Run locally](#run-locally) · [Technical guide](docs/DEVELOPMENT.md)
+[Watch the demo](#demo) · [Visit the website](https://nasa-space-apps-2026-swart.vercel.app/) · [Explore the features](#from-mission-plan-to-lunar-surface) · [Run locally](#run-locally) · [Technical guide](docs/DEVELOPMENT.md)
 
 ## Demo
 
